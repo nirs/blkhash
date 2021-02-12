@@ -1,0 +1,11 @@
+# Prerequisites
+*.d
+
+# Object files
+*.o
+
+# Executables
+blksum
+
+# Python
+__pycache__
