@@ -45,17 +45,17 @@ Fedora 32 raw image created with virt-builder:
     1.6G -rw-r--r--. 1 nsoffer nsoffer 6.0G Jan 30 23:37 fedora-32.raw
 
     $ hyperfine -w3 "./blksum sha1 fedora-32.raw" "sha1sum fedora-32.raw"
-    Benchmark #1: ./blksum fedora-32.raw sha1
-      Time (mean ± σ):      2.465 s ±  0.082 s    [User: 1.802 s, System: 0.656 s]
-      Range (min … max):    2.287 s …  2.590 s    10 runs
+    Benchmark #1: ./blksum sha1 fedora-32.raw
+      Time (mean ± σ):      2.446 s ±  0.035 s    [User: 1.638 s, System: 0.804 s]
+      Range (min … max):    2.401 s …  2.523 s    10 runs
 
     Benchmark #2: sha1sum fedora-32.raw
-      Time (mean ± σ):      7.456 s ±  0.094 s    [User: 6.521 s, System: 0.918 s]
-      Range (min … max):    7.326 s …  7.603 s    10 runs
+      Time (mean ± σ):      7.639 s ±  0.079 s    [User: 6.393 s, System: 1.234 s]
+      Range (min … max):    7.598 s …  7.860 s    10 runs
 
     Summary
       './blksum sha1 fedora-32.raw' ran
-        3.03 ± 0.11 times faster than 'sha1sum fedora-32.raw'
+        3.12 ± 0.05 times faster than 'sha1sum fedora-32.raw'
 
 Fully allocated image full of zeroes, created with dd:
 
@@ -66,16 +66,16 @@ Fully allocated image full of zeroes, created with dd:
 
     $ hyperfine -w3 "./blksum sha1 zero-6g.raw" "sha1sum zero-6g.raw"
     Benchmark #1: ./blksum sha1 zero-6g.raw
-      Time (mean ± σ):     798.1 ms ±  23.8 ms    [User: 152.5 ms, System: 643.8 ms]
-      Range (min … max):   779.3 ms … 851.5 ms    10 runs
+      Time (mean ± σ):     754.1 ms ±  20.7 ms    [User: 148.3 ms, System: 604.1 ms]
+      Range (min … max):   743.7 ms … 810.8 ms    10 runs
 
     Benchmark #2: sha1sum zero-6g.raw
-      Time (mean ± σ):      7.539 s ±  0.164 s    [User: 6.513 s, System: 1.009 s]
-      Range (min … max):    7.205 s …  7.709 s    10 runs
+      Time (mean ± σ):      7.353 s ±  0.026 s    [User: 6.399 s, System: 0.942 s]
+      Range (min … max):    7.320 s …  7.401 s    10 runs
 
     Summary
       './blksum sha1 zero-6g.raw' ran
-        9.45 ± 0.35 times faster than 'sha1sum zero-6g.raw'
+        9.75 ± 0.27 times faster than 'sha1sum zero-6g.raw'
 
 ## Image formats
 
