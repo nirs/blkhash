@@ -46,33 +46,10 @@ size_t block_size = 64 * 1024;
 const char *digest_name;
 const char *filename;
 
-int main(int argc, char *argv[])
+static void blkhash_stream(int fd, unsigned char *md, unsigned int *len)
 {
-    int fd;
     struct blkhash *h;
     void *buf;
-    unsigned char md_value[EVP_MAX_MD_SIZE];
-    unsigned int md_len, i;
-
-    if (argc < 2) {
-        fprintf(stderr, "Usage: blksum digestname [filename]");
-        exit(2);
-    }
-
-    digest_name = argv[1];
-
-    if (argv[2] != NULL) {
-        filename = argv[2];
-
-        fd = open(filename, O_RDONLY);
-        if (fd == -1) {
-            perror("open");
-            exit(1);
-        }
-    } else {
-        filename = "-";
-        fd = STDIN_FILENO;
-    }
 
     h = blkhash_new(block_size, digest_name);
     if (h == NULL) {
@@ -110,8 +87,39 @@ int main(int argc, char *argv[])
         blkhash_update(h, buf, n);
     }
 
-    blkhash_final(h, md_value, &md_len);
+    blkhash_final(h, md, len);
+
     blkhash_free(h);
+    free(buf);
+}
+
+int main(int argc, char *argv[])
+{
+    int fd;
+    unsigned char md_value[EVP_MAX_MD_SIZE];
+    unsigned int md_len, i;
+
+    if (argc < 2) {
+        fprintf(stderr, "Usage: blksum digestname [filename]");
+        exit(2);
+    }
+
+    digest_name = argv[1];
+
+    if (argv[2] != NULL) {
+        filename = argv[2];
+
+        fd = open(filename, O_RDONLY);
+        if (fd == -1) {
+            perror("open");
+            exit(1);
+        }
+    } else {
+        filename = "-";
+        fd = STDIN_FILENO;
+    }
+
+    blkhash_stream(fd, md_value, &md_len);
 
     for (i = 0; i < md_len; i++)
         printf("%02x", md_value[i]);
