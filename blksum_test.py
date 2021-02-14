@@ -20,7 +20,7 @@ import hashlib
 import subprocess
 import pytest
 
-BLOCK_SIZE = 1024**2
+BLOCK_SIZE = 64 * 1024
 DIGEST_NAMES = ["sha1", "blake2b512"]
 
 

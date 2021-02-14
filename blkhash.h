@@ -24,22 +24,24 @@
 struct blkhash;
 
 /*
- * Allocates and initialize a block hash for creating one or more message
- * digests. The hash buffers block_size bytes for zero detection. The messge
- * digest is created using the provided message digest name.
+ * Allocates and initialize a block hash for creating one or more
+ * message digests. The hash buffers block_size bytes for zero
+ * detection. The messge digest is created using the provided message
+ * digest name.
  */
 struct blkhash *blkhash_new(size_t block_size, const char *md_name);
 
 /*
- * Update the hash with data read from fd. Every call will consume exactly
- * block_size bytes. The last block read may be partial. Returns the number of
- * bytes consumed. Returns 0 when end of file is reached.
+ * hashes len bytes of data at buf into the hash h. This function can be
+ * called several times on the same hash to hash additional data. For
+ * best performance, len should be aligned to the block size specified
+ * in blkhash_new().
  */
-int blkhash_read(struct blkhash *h, int fd);
+void blkhash_update(struct blkhash *h, const void *buf, size_t len);
 
 /*
- * Finalize a hash and return a message digest. See blkhash_reset() if you want
- * to create a new digest.
+ * Finalize a hash and return a message digest. See blkhash_reset() if
+ * you want to create a new digest.
  */
 void blkhash_final(struct blkhash *h, unsigned char *md_value,
                    unsigned int *md_len);

@@ -18,6 +18,7 @@
  * 02110-1301 USA
  */
 
+#include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
 #include <string.h>
@@ -28,7 +29,20 @@
 #include <openssl/evp.h>
 #include "blkhash.h"
 
-size_t block_size = 1024*1024;
+/*
+ * Bigger size is optimal for reading, espcially when reading for remote
+ * storage. Should be aligned to block size for best performance.
+ * TODO: Requires more testing with different storage.
+ */
+const size_t read_size = 2 * 1024 * 1024;
+
+/*
+ * Smaller size is optimal for hashing and detecting holes. This give best
+ * perforamnce when testing on zero image on local nvme drive.
+ * TODO: Requires more testing with different storage.
+ */
+size_t block_size = 64 * 1024;
+
 const char *digest_name;
 const char *filename;
 
@@ -36,9 +50,9 @@ int main(int argc, char *argv[])
 {
     int fd;
     struct blkhash *h;
+    void *buf;
     unsigned char md_value[EVP_MAX_MD_SIZE];
     unsigned int md_len, i;
-    bool done = false;
 
     if (argc < 2) {
         fprintf(stderr, "Usage: blksum digestname [filename]");
@@ -66,15 +80,34 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    while (!done) {
-        int n = blkhash_read(h, fd);
+    buf = malloc(read_size);
+    if (buf == NULL) {
+        perror("malloc");
+        exit(1);
+    }
+
+    for (;;) {
+        ssize_t n;
+
+        /*
+         * TODO: Should try to read full blocks to minimize copies in
+         * blkhash_update().  Add read_full() helper that read complete buffer
+         * until end of file.
+         */
+        do {
+            n = read(fd, buf, read_size);
+        } while (n < 0 && errno == EINTR);
+
         if (n < 0) {
-            perror("blkhash_read");
+            perror("read");
             exit(1);
         }
+
         if (n == 0) {
-            done = true;
+            break;
         }
+
+        blkhash_update(h, buf, n);
     }
 
     blkhash_final(h, md_value, &md_len);

@@ -18,6 +18,7 @@
  * 02110-1301 USA
  */
 
+#include <assert.h>
 #include <errno.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -29,6 +30,8 @@
 
 #include "blkhash.h"
 
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
+
 struct blkhash {
     size_t block_size;
     const EVP_MD *md;
@@ -37,8 +40,12 @@ struct blkhash {
     EVP_MD_CTX *root_ctx;
 
     /* For computing block digests. */
-    unsigned char *block;
     EVP_MD_CTX *block_ctx;
+
+    /* For keeping partial blocks when user call blkhash_update() with buffer
+     * that is not aligned to block size. */
+    unsigned char *pending;
+    size_t pending_len;
 
     /* Precomputed zero block digest. */
     unsigned char zero_md[EVP_MAX_MD_SIZE];
@@ -49,7 +56,7 @@ struct blkhash {
  * Based on Rusty Russell's memeqzero.
  * See http://rusty.ozlabs.org/?p=560 for more info.
  */
-static bool is_zero(void *buf, size_t buf_len)
+static bool is_zero(const void *buf, size_t buf_len)
 {
     const unsigned char *p;
     size_t i;
@@ -74,11 +81,11 @@ static bool is_zero(void *buf, size_t buf_len)
     return memcmp(buf, p, buf_len) == 0;
 }
 
-static void blkhash_block_digest(struct blkhash *h, unsigned int len,
-                                 unsigned char *md_value, unsigned int *md_len)
+static void compute_digest(struct blkhash *h, const void *buf, unsigned int buf_len,
+                           unsigned char *md_value, unsigned int *md_len)
 {
     EVP_DigestInit_ex(h->block_ctx, h->md, NULL);
-    EVP_DigestUpdate(h->block_ctx, h->block, len);
+    EVP_DigestUpdate(h->block_ctx, buf, buf_len);
     EVP_DigestFinal_ex(h->block_ctx, md_value, md_len);
 }
 
@@ -109,16 +116,18 @@ struct blkhash *blkhash_new(size_t block_size, const char *md_name)
         goto error;
     }
 
-    h->block = calloc(1, block_size);
-    if (h->block == NULL) {
+    h->pending = calloc(1, block_size);
+    if (h->pending == NULL) {
         goto error;
     }
+
+    h->pending_len = 0;
 
     EVP_DigestInit_ex(h->root_ctx, h->md, NULL);
 
     /* Compute the zero block digest. This digest will be used for zero
      * blocks later. */
-    blkhash_block_digest(h, block_size, h->zero_md, &h->zero_md_len);
+    compute_digest(h, h->pending, block_size, h->zero_md, &h->zero_md_len);
 
     return h;
 
@@ -130,50 +139,87 @@ error:
     return NULL;
 }
 
-int blkhash_read(struct blkhash *h, int fd)
+static size_t fill_pending(struct blkhash *h, const void *buf, size_t len)
 {
-    size_t pos = 0;
+    size_t n = MIN(len, h->block_size - h->pending_len);
 
-    while (pos < h->block_size) {
-        ssize_t n;
+    memcpy(h->pending + h->pending_len, buf, n);
 
-        do {
-            n = read(fd, h->block + pos, h->block_size - pos);
-        } while (n < 0 && errno == EINTR);
+    h->pending_len += n;
 
-        if (n < 0) {
-            return -1;
-        }
-        if (n == 0) {
-            break;
-        }
-        pos += n;
-    }
+    return n;
+}
 
-    if (pos == h->block_size && is_zero(h->block, pos)) {
+static void consume_block(struct blkhash *h, const void *buf, size_t len)
+{
+    if (len == h->block_size && is_zero(buf, len)) {
         /* Fast path - reuse precomputed zero md. Detecting zero block
          * is order of magnitude faster than computing md. */
         EVP_DigestUpdate(h->root_ctx, h->zero_md, h->zero_md_len);
-    } else if (pos > 0) {
+    } else {
         /* Slow path - compute md for this block. */
         unsigned char md_value[EVP_MAX_MD_SIZE];
         unsigned int md_len;
 
-        blkhash_block_digest(h, pos, md_value, &md_len);
+        compute_digest(h, buf, len, md_value, &md_len);
         EVP_DigestUpdate(h->root_ctx, md_value, md_len);
     }
+}
 
-    return pos;
+void blkhash_update(struct blkhash *h, const void *buf, size_t len)
+{
+    /*
+     * If we have pending data try to fill the internal buffer and consume the
+     * data.
+     */
+    if (h->pending_len > 0) {
+        size_t n = fill_pending(h, buf, len);
+        buf += n;
+        len -= n;
+
+        if (h->pending_len == h->block_size) {
+            consume_block(h, h->pending, h->pending_len);
+            h->pending_len = 0;
+        }
+    }
+
+    /*
+     * Consume full blocks in caller buffer.
+     */
+    while (len >= h->block_size) {
+        consume_block(h, buf, h->block_size);
+        buf += h->block_size;
+        len -= h->block_size;
+    }
+
+    /*
+     * If caller buffer was not aligned to block size, copy the data to the
+     * internal buffer.
+     */
+    if (len > 0) {
+        size_t n = fill_pending(h, buf, len);
+        buf += n;
+        len -= n;
+    }
+
+    assert(len == 0);
 }
 
 void blkhash_final(struct blkhash *h, unsigned char *md_value,
                   unsigned int *md_len)
 {
+    if (h->pending_len > 0) {
+        consume_block(h, h->pending, h->pending_len);
+        h->pending_len = 0;
+    }
+
     EVP_DigestFinal_ex(h->root_ctx, md_value, md_len);
 }
 
 void blkhash_reset(struct blkhash *h)
 {
+    h->pending_len = 0;
+
     EVP_DigestInit_ex(h->root_ctx, h->md, NULL);
 }
 
@@ -184,7 +230,7 @@ void blkhash_free(struct blkhash *h)
 
     EVP_MD_CTX_free(h->root_ctx);
     EVP_MD_CTX_free(h->block_ctx);
-    free(h->block);
+    free(h->pending);
 
     free(h);
 }
