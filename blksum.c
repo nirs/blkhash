@@ -64,27 +64,39 @@ static void blkhash_stream(int fd, unsigned char *md, unsigned int *len)
     }
 
     for (;;) {
-        ssize_t n;
+        size_t pos = 0;
 
         /*
-         * TODO: Should try to read full blocks to minimize copies in
-         * blkhash_update().  Add read_full() helper that read complete buffer
-         * until end of file.
+         * Try to read full block to avoid copying partial blocks inside
+         * blkhash_update().
          */
-        do {
-            n = read(fd, buf, read_size);
-        } while (n < 0 && errno == EINTR);
+        while (pos < read_size) {
+            ssize_t n;
 
-        if (n < 0) {
-            perror("read");
-            exit(1);
+            do {
+                n = read(fd, buf + pos, read_size - pos);
+            } while (n < 0 && errno == EINTR);
+
+            if (n < 0) {
+                perror("read");
+                exit(1);
+            }
+
+            if (n == 0) {
+                break;
+            }
+
+            pos += n;
         }
 
-        if (n == 0) {
+        if (pos > 0) {
+            blkhash_update(h, buf, pos);
+        }
+
+        /* If we read partial block, this was the end of the file. */
+        if (pos < read_size) {
             break;
         }
-
-        blkhash_update(h, buf, n);
     }
 
     blkhash_final(h, md, len);
