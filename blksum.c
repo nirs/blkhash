@@ -46,6 +46,33 @@ size_t block_size = 64 * 1024;
 const char *digest_name;
 const char *filename;
 
+/* TODO: Move into the library. */
+static int read_full(int fd, void *buf, size_t len)
+{
+    int pos = 0;
+
+    while (pos < len) {
+        ssize_t n;
+
+        do {
+            n = read(fd, buf + pos, len - pos);
+        } while (n < 0 && errno == EINTR);
+
+        if (n < 0) {
+            return -1;
+        }
+
+        if (n == 0) {
+            break;
+        }
+
+        pos += n;
+    }
+
+    return pos;
+}
+
+/* TODO: Move into the library. */
 static void blkhash_stream(int fd, unsigned char *md, unsigned int *len)
 {
     struct blkhash *h;
@@ -64,37 +91,21 @@ static void blkhash_stream(int fd, unsigned char *md, unsigned int *len)
     }
 
     for (;;) {
-        size_t pos = 0;
+        int n;
 
-        /*
-         * Try to read full block to avoid copying partial blocks inside
-         * blkhash_update().
-         */
-        while (pos < read_size) {
-            ssize_t n;
-
-            do {
-                n = read(fd, buf + pos, read_size - pos);
-            } while (n < 0 && errno == EINTR);
-
-            if (n < 0) {
-                perror("read");
-                exit(1);
-            }
-
-            if (n == 0) {
-                break;
-            }
-
-            pos += n;
+        /* Read full block to avoid copying inside blkhash_update(). */
+        n = read_full(fd, buf, read_size);
+        if (n < 0) {
+            perror("read_full");
+            exit(1);
         }
 
-        if (pos > 0) {
-            blkhash_update(h, buf, pos);
+        if (n > 0) {
+            blkhash_update(h, buf, n);
         }
 
         /* If we read partial block, this was the end of the file. */
-        if (pos < read_size) {
+        if (n < read_size) {
             break;
         }
     }
