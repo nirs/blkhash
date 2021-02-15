@@ -28,6 +28,7 @@
 
 #include <openssl/evp.h>
 #include "blkhash.h"
+#include "blksum.h"
 
 /*
  * Bigger size is optimal for reading, espcially when reading for remote
@@ -46,34 +47,48 @@ size_t block_size = 64 * 1024;
 const char *digest_name;
 const char *filename;
 
-/* TODO: Move into the library. */
-static int read_full(int fd, void *buf, size_t len)
+static inline ssize_t src_pread(struct src *s, void *buf, size_t len, int64_t offset)
 {
-    int pos = 0;
-
-    while (pos < len) {
-        ssize_t n;
-
-        do {
-            n = read(fd, buf + pos, len - pos);
-        } while (n < 0 && errno == EINTR);
-
-        if (n < 0) {
-            return -1;
-        }
-
-        if (n == 0) {
-            break;
-        }
-
-        pos += n;
-    }
-
-    return pos;
+    return s->ops->pread(s, buf, len, offset);
 }
 
-/* TODO: Move into the library. */
-static void blkhash_stream(int fd, unsigned char *md, unsigned int *len)
+static inline ssize_t src_read(struct src *s, void *buf, size_t len)
+{
+    return s->ops->read(s, buf, len);
+}
+
+static inline void src_close(struct src *s)
+{
+    s->ops->close(s);
+}
+
+static void process_full(struct src *s, struct blkhash *h, void *buf)
+{
+    int64_t offset = 0;
+
+    while (offset < s->size) {
+        size_t n = (offset + read_size <= s->size)
+            ? read_size : s->size - offset;
+
+        src_pread(s, buf, n, offset);
+        blkhash_update(h, buf, n);
+
+        offset += n;
+    }
+}
+
+static void process_eof(struct src *s, struct blkhash *h, void *buf)
+{
+    while (1) {
+        ssize_t n = src_read(s, buf, read_size);
+        if (n == 0)
+            break;
+
+        blkhash_update(h, buf, n);
+    }
+}
+
+static void blkhash_src(struct src *s, unsigned char *md, unsigned int *len)
 {
     struct blkhash *h;
     void *buf;
@@ -90,35 +105,19 @@ static void blkhash_stream(int fd, unsigned char *md, unsigned int *len)
         exit(1);
     }
 
-    for (;;) {
-        int n;
-
-        /* Read full block to avoid copying inside blkhash_update(). */
-        n = read_full(fd, buf, read_size);
-        if (n < 0) {
-            perror("read_full");
-            exit(1);
-        }
-
-        if (n > 0) {
-            blkhash_update(h, buf, n);
-        }
-
-        /* If we read partial block, this was the end of the file. */
-        if (n < read_size) {
-            break;
-        }
-    }
+    if (s->size != -1)
+        process_full(s, h, buf);
+    else
+        process_eof(s, h, buf);
 
     blkhash_final(h, md, len);
-
     blkhash_free(h);
     free(buf);
 }
 
 int main(int argc, char *argv[])
 {
-    int fd;
+    struct src *s;
     unsigned char md_value[EVP_MAX_MD_SIZE];
     unsigned int md_len, i;
 
@@ -131,23 +130,19 @@ int main(int argc, char *argv[])
 
     if (argv[2] != NULL) {
         filename = argv[2];
-
-        fd = open(filename, O_RDONLY);
-        if (fd == -1) {
-            perror("open");
-            exit(1);
-        }
+        s = open_file(filename);
     } else {
         filename = "-";
-        fd = STDIN_FILENO;
+        s = open_pipe(STDIN_FILENO);
     }
 
-    blkhash_stream(fd, md_value, &md_len);
+    blkhash_src(s, md_value, &md_len);
 
     for (i = 0; i < md_len; i++)
         printf("%02x", md_value[i]);
 
     printf("  %s\n", filename);
 
+    src_close(s);
     exit(0);
 }

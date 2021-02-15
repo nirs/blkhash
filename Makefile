@@ -21,11 +21,15 @@ LDLIBS = -lcrypto
 
 .PHONY: clean test
 
-blksum: blksum.o blkhash.o
+blksum: blksum.o blkhash.o file.o pipe.o
 
-blksum.o: blksum.c blkhash.h
+blksum.o: blksum.c blkhash.h blksum.h
 
 blkhash.o: blkhash.c blkhash.h
+
+file.o: blksum.h
+
+pipe.o: blksum.h
 
 test: blksum
 	pytest -v
