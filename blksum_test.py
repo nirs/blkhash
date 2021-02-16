@@ -29,57 +29,38 @@ def image(tmpdir):
     return str(tmpdir.join("image"))
 
 
+@pytest.mark.parametrize("fmt", [
+    pytest.param("-- -- --", id="sparse"),
+    pytest.param("-- -- -", id="sparse-unaligned"),
+    pytest.param("00 00 00", id="zero"),
+    pytest.param("00 00 0", id="zero-unaligned"),
+    pytest.param("AB CD EF", id="full"),
+    pytest.param("AB CD E", id="full-unaligned"),
+    pytest.param("A- -0 E- -0", id="mix"),
+    pytest.param("A- -0 E- -", id="mix-unaligned"),
+])
 @pytest.mark.parametrize("md", DIGEST_NAMES)
-def test_sparse(md, image):
-    create_image(image, "-- -- --")
-    assert blksum(md, image) == simple_blksum(md, image)
+def test_blksum(image, fmt, md):
+    create_image(image, fmt)
+    checksum = simple_blksum(md, image)
+    assert blksum_file(md, image) == [checksum, image]
+    assert blksum_pipe(md, image) == [checksum, "-"]
 
 
-@pytest.mark.parametrize("md", DIGEST_NAMES)
-def test_sparse_unaligned(md, image):
-    create_image(image, "-- -- -")
-    assert blksum(md, image) == simple_blksum(md, image)
-
-
-@pytest.mark.parametrize("md", DIGEST_NAMES)
-def test_zero(md, image):
-    create_image(image, "00 00 00")
-    assert blksum(md, image) == simple_blksum(md, image)
-
-
-@pytest.mark.parametrize("md", DIGEST_NAMES)
-def test_zero_unaligned(md, image):
-    create_image(image, "00 00 0")
-    assert blksum(md, image) == simple_blksum(md, image)
-
-
-@pytest.mark.parametrize("md", DIGEST_NAMES)
-def test_full(md, image):
-    create_image(image, "AB CD EF")
-    assert blksum(md, image) == simple_blksum(md, image)
-
-
-@pytest.mark.parametrize("md", DIGEST_NAMES)
-def test_full_unaligned(md, image):
-    create_image(image, "AB CD E")
-    assert blksum(md, image) == simple_blksum(md, image)
-
-
-@pytest.mark.parametrize("md", DIGEST_NAMES)
-def test_mix(md, image):
-    create_image(image, "A- -0 E- -0")
-    assert blksum(md, image) == simple_blksum(md, image)
-
-
-@pytest.mark.parametrize("md", DIGEST_NAMES)
-def test_mix_unaligned(md, image):
-    create_image(image, "A- -0 E- -")
-    assert blksum(md, image) == simple_blksum(md, image)
-
-
-def blksum(md, image):
+def blksum_file(md, image):
     out = subprocess.check_output(["./blksum", md, image])
-    return out.decode()
+    return out.decode().strip().split("  ")
+
+
+def blksum_pipe(md, image):
+    with open(image) as f:
+        r = subprocess.run(
+            ["./blksum", md],
+            stdin=f,
+            stdout=subprocess.PIPE,
+            check=True,
+        )
+    return r.stdout.decode().strip().split("  ")
 
 
 def simple_blksum(md, image):
@@ -93,7 +74,7 @@ def simple_blksum(md, image):
             digest = hashlib.new(md, block).digest()
             h.update(digest)
 
-    return "{}  {}\n".format(h.hexdigest(), image)
+    return h.hexdigest()
 
 
 def create_image(path, fmt, block_size=BLOCK_SIZE // 2):
