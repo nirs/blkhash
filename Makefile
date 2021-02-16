@@ -16,23 +16,28 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301 USA
 
-CFLAGS = -g -O3 -Wall
+src = blkhash.c blksum.c file.c pipe.c
+
+CFLAGS = -g -O3 -Wall -Werror
 LDLIBS = -lcrypto
 
-.PHONY: clean test
+obj = $(src:.c=.o)
+dep = $(src:.c=.d)
 
-blksum: blksum.o blkhash.o file.o pipe.o
+.PHONY: test clean
 
-blksum.o: blksum.c blkhash.h blksum.h
-
-blkhash.o: blkhash.c blkhash.h
-
-file.o: blksum.h
-
-pipe.o: blksum.h
+blksum: $(obj)
+	$(LINK.o) $^ $(LDLIBS) -o $@
 
 test: blksum
 	pytest -v
 
 clean:
-	rm -f *.o blksum
+	rm -f blksum *.[do]
+
+%.o: %.c %.d
+	$(COMPILE.c) $< -MMD -MF $*.d -o $@
+
+%.d: ;
+
+-include $(dep)
