@@ -97,6 +97,9 @@ struct src *open_file(const char *path)
         exit(1);
     }
 
+    /* Best effort, ignore errors. */
+    posix_fadvise(fd, 0, sb.st_size, POSIX_FADV_SEQUENTIAL);
+
     fs->src.ops = &file_ops;
     fs->src.size = sb.st_size;
     fs->fd = fd;
