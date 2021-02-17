@@ -49,5 +49,6 @@ struct src_ops {
 
 struct src *open_file(const char *path);
 struct src *open_pipe(int fd);
+struct src *open_nbd(const char *uri);
 
 #endif /* BLKSUM_H */

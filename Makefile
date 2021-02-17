@@ -16,10 +16,10 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301 USA
 
-src = blkhash.c blksum.c file.c pipe.c
+src = blkhash.c blksum.c file.c pipe.c nbd.c
 
 CFLAGS = -g -O3 -Wall -Werror
-LDLIBS = -lcrypto
+LDLIBS = -lcrypto -lnbd
 
 obj = $(src:.c=.o)
 dep = $(src:.c=.d)

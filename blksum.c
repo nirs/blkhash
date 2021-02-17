@@ -129,8 +129,18 @@ int main(int argc, char *argv[])
     digest_name = argv[1];
 
     if (argv[2] != NULL) {
+        struct stat sb;
         filename = argv[2];
-        s = open_file(filename);
+
+        if (stat(filename, &sb) == 0) {
+            s = open_file(filename);
+        } else {
+            /*
+             * Not a file, lets try using nbd.
+             * TODO: Check that filename is nbd uri.
+             */
+            s = open_nbd(filename);
+        }
     } else {
         filename = "-";
         s = open_pipe(STDIN_FILENO);
