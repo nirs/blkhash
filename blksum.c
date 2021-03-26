@@ -122,7 +122,7 @@ int main(int argc, char *argv[])
     unsigned int md_len, i;
 
     if (argc < 2) {
-        fprintf(stderr, "Usage: blksum digestname [filename]");
+        fprintf(stderr, "Usage: blksum digestname [filename]\n");
         exit(2);
     }
 
