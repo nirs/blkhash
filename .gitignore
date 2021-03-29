@@ -6,6 +6,7 @@
 
 # Executables
 blksum
+blkhash_test
 
 # Python
 __pycache__
