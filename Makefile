@@ -21,7 +21,7 @@ src = blkhash.c blksum.c file.c pipe.c nbd.c
 CFLAGS = -g -O3 -Wall -Werror
 LDLIBS = -lcrypto -lnbd
 
-TEST_CFLAGS = -I./unity/src -g -Wall -Werror
+TEST_CFLAGS = -I./unity/src -g -Wall -Werror -DUNITY_OUTPUT_COLOR
 TEST_LDLIBS = -lcrypto
 
 obj = $(src:.c=.o)
