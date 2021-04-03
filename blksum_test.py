@@ -30,6 +30,12 @@ def image(tmpdir):
 
 
 @pytest.mark.parametrize("fmt", [
+    pytest.param("AA", id="block-data"),
+    pytest.param("00", id="block-zero"),
+    pytest.param("--", id="block-sparse"),
+    pytest.param("A", id="partial-block-data"),
+    pytest.param("0", id="partial-block-zero"),
+    pytest.param("-", id="partial-block-sparse"),
     pytest.param("-- -- --", id="sparse"),
     pytest.param("-- -- -", id="sparse-unaligned"),
     pytest.param("00 00 00", id="zero"),
@@ -43,6 +49,7 @@ def image(tmpdir):
 def test_blksum(image, fmt, md):
     create_image(image, fmt)
     checksum = simple_blksum(md, image)
+    print(checksum)
     assert blksum_file(md, image) == [checksum, image]
     assert blksum_pipe(md, image) == [checksum, "-"]
 
