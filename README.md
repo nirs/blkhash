@@ -87,6 +87,64 @@ planned via qemu-nbd.
 blkhash it developed and tested only on Linux, but it should be portable
 to other platforms where openssl works.
 
+## Setting up development environment
+
+Install packages (for Fedora):
+
+    dnf install \
+        gcc \
+        git \
+        libnbd-devel \
+        make \
+        openssl-devel \
+        python3
+
+Get the source:
+
+    git clone https://gitlab.com/nirs/blkhash.git
+
+Configure and update submodules:
+
+    git submodule init
+    git submodule update
+
+Create virtual environment for running python tests:
+
+    python3 -m venv ~/venv/blkhash
+    source ~/venv/blkhash/bin/activate
+    pip install pytest
+    deactivate
+
+## Building
+
+To build the blksum tool run:
+
+    make
+
+## Running the tests
+
+Enter the virtual environment to run the tests:
+
+    source ~/venv/blkhash/bin/activate
+
+To run all tests run:
+
+    make test
+
+To run specific blksum tests, you can use pytest:
+
+   pytest -v -k sha1-sparse
+
+To run only blkhash tests:
+
+   ./blkhash_test
+
+To exit the virtual environment:
+
+    deactivate
+
+Or exit from the shell used for development.
+
 ## License
 
 blkhash licensed under the GNU Lesser General Public License version 2.1.
