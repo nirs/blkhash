@@ -17,11 +17,14 @@
 # 02110-1301 USA
 
 import hashlib
+import os
 import subprocess
+
 import pytest
 
 BLOCK_SIZE = 64 * 1024
 DIGEST_NAMES = ["sha1", "blake2b512"]
+BLKSUM = os.environ.get("BLKSUM", "debug/blksum")
 
 
 @pytest.fixture
@@ -55,14 +58,14 @@ def test_blksum(image, fmt, md):
 
 
 def blksum_file(md, image):
-    out = subprocess.check_output(["./blksum", md, image])
+    out = subprocess.check_output([BLKSUM, md, image])
     return out.decode().strip().split("  ")
 
 
 def blksum_pipe(md, image):
     with open(image) as f:
         r = subprocess.run(
-            ["./blksum", md],
+            [BLKSUM, md],
             stdin=f,
             stdout=subprocess.PIPE,
             check=True,

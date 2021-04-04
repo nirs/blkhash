@@ -108,42 +108,71 @@ Configure and update submodules:
     git submodule init
     git submodule update
 
-Create virtual environment for running python tests:
+Create virtual environment:
 
     python3 -m venv ~/venv/blkhash
     source ~/venv/blkhash/bin/activate
-    pip install pytest
+    pip install meson pytest
+    deactivate
+
+To build or run tests, you need to enter the virtual environment:
+
+    source ~/venv/blkhash/bin/activate
+
+When you are done, you can exit from the virtual environment:
+
     deactivate
 
 ## Building
 
-To build the blksum tool run:
+To build debug version run:
 
-    make
+    meson setup build
+    meson compile -C build
+
+To build release version:
+
+    meson setup release --buildtype release
+    meson compile -C release
+
+Instead of specifying the directory, you can run the command inside the
+build directory:
+
+    cd debug
+    meson compile
 
 ## Running the tests
 
-Enter the virtual environment to run the tests:
+To run all tests using the debug build:
 
-    source ~/venv/blkhash/bin/activate
+    meson test -C debug
 
-To run all tests run:
+Instead of specifying the directory, you can run the command inside the
+build directory:
 
-    make test
+    cd debug
+    meson test
 
-To run specific blksum tests, you can use pytest:
+To see verbose test output use:
 
-   pytest -v -k sha1-sparse
+    meson test -C debug -v
+
+To run specific blksum tests, use pytest directly:
+
+    meson -C debug compile
+    pytest -v -k sha1-sparse
+
+pytest uses the debug build by default. If you want to test the release
+build, or installed blksum executable, specify the path to the
+executable in the environment:
+
+    meson compile -C release
+    BLKSUM=release/blksum pytest
 
 To run only blkhash tests:
 
-   ./blkhash_test
-
-To exit the virtual environment:
-
-    deactivate
-
-Or exit from the shell used for development.
+   meson compile -C debug
+   debug/blkhash_test
 
 ## License
 
