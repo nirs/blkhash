@@ -21,6 +21,9 @@ src = blkhash.c blksum.c file.c pipe.c nbd.c
 CFLAGS = -g -O3 -Wall -Werror
 LDLIBS = -lcrypto -lnbd
 
+TEST_CFLAGS = -I./unity/src -g -Wall -Werror -DUNITY_OUTPUT_COLOR
+TEST_LDLIBS = -lcrypto
+
 obj = $(src:.c=.o)
 dep = $(src:.c=.d)
 
@@ -29,11 +32,15 @@ dep = $(src:.c=.d)
 blksum: $(obj)
 	$(LINK.o) $^ $(LDLIBS) -o $@
 
-test: blksum
+test: blksum blkhash_test
 	pytest -v
+	./blkhash_test
+
+blkhash_test: blkhash.c blkhash_test.c ./unity/src/unity.c
+	$(CC) $(TEST_CFLAGS) $^ -o $@ $(TEST_LDLIBS)
 
 clean:
-	rm -f blksum *.[do]
+	rm -f blksum blkhash_test *.[do]
 
 %.o: %.c %.d
 	$(COMPILE.c) $< -MMD -MF $*.d -o $@

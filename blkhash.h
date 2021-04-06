@@ -32,12 +32,30 @@ struct blkhash;
 struct blkhash *blkhash_new(size_t block_size, const char *md_name);
 
 /*
- * hashes len bytes of data at buf into the hash h. This function can be
+ * Hashes len bytes of data at buf into the hash h. This function can be
  * called several times on the same hash to hash additional data. For
  * best performance, len should be aligned to the block size specified
  * in blkhash_new().
+ *
+ * This function etects zero blocks in buf to optimize hashing, so you
+ * don't need to do this yourself. However if you know that a byte range
+ * contains only zeroes, call blkhash_zero() instead, which is much
+ * faster.
  */
 void blkhash_update(struct blkhash *h, const void *buf, size_t len);
+
+/*
+ * Hashes len bytes of zeores efficiently into the hash h. This function
+ * can be called several times on the same hash to hash additional
+ * zeroes. For best performance, len should be aligned to the block size
+ * specified in blkhash_new().
+ *
+ * Should be used when you know that a range of bytes is read as zeroes.
+ * Example use cases are a hole in a sparse file, or area in qcow2 image
+ * that is a hole or reads as zeroes. If you don't the contents of the
+ * data, use blkhash_update().
+ */
+void blkhash_zero(struct blkhash *h, size_t len);
 
 /*
  * Finalize a hash and return a message digest. See blkhash_reset() if

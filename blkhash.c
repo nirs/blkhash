@@ -46,6 +46,7 @@ struct blkhash {
      * that is not aligned to block size. */
     unsigned char *pending;
     size_t pending_len;
+    bool pending_zero;
 
     /* Precomputed zero block digest. */
     unsigned char zero_md[EVP_MAX_MD_SIZE];
@@ -139,9 +140,24 @@ error:
     return NULL;
 }
 
-static size_t fill_pending(struct blkhash *h, const void *buf, size_t len)
+/*
+ * Add up to block_size bytes of data to the pending buffer, trying to
+ * fill the pending buffer. If the buffer kept pending zeroes, convert
+ * the pending zeroes to data.
+ *
+ * Return the number of bytes added to the pending buffer.
+ */
+static size_t add_pending_data(struct blkhash *h, const void *buf, size_t len)
 {
     size_t n = MIN(len, h->block_size - h->pending_len);
+
+    if (h->pending_zero) {
+        /*
+         * The buffer contains zeroes, convert pending zeros to data.
+         */
+        memset(h->pending, 0, h->pending_len);
+        h->pending_zero = false;
+    }
 
     memcpy(h->pending + h->pending_len, buf, n);
 
@@ -150,14 +166,53 @@ static size_t fill_pending(struct blkhash *h, const void *buf, size_t len)
     return n;
 }
 
-static void consume_block(struct blkhash *h, const void *buf, size_t len)
+/*
+ * Add up to block_size zero bytes to the pending buffer, trying to fill
+ * the pending buffer. If the buffer kept pending data, convert the
+ * zeroes to data.
+ *
+ * Return the number of bytes added to the pending buffer.
+ */
+static size_t add_pending_zeroes(struct blkhash *h, size_t len)
+{
+    size_t n = MIN(len, h->block_size - h->pending_len);
+
+    if (h->pending_len == 0) {
+        /* The buffer is empty, start collecting pending zeroes. */
+        h->pending_zero = true;
+    } else if (!h->pending_zero) {
+        /*
+         * The buffer contains some data, convert the zeroes to pending data.
+         */
+        memset(h->pending + h->pending_len, 0, n);
+    }
+
+    h->pending_len += n;
+
+    return n;
+}
+
+/*
+ * Consume full block of zeroes. This is several orders of magnitude
+ * faster than computing message digest.
+ */
+static inline void consume_zero_block(struct blkhash *h)
+{
+    EVP_DigestUpdate(h->root_ctx, h->zero_md, h->zero_md_len);
+}
+
+/*
+ * Consume len bytes of data from buf. If called with a full block, try
+ * to speed the computation by detecting zeroes. Detecting zeroes in
+ * order of magnitude faster compared with computing a message digest.
+ */
+static void consume_data(struct blkhash *h, const void *buf, size_t len)
 {
     if (len == h->block_size && is_zero(buf, len)) {
-        /* Fast path - reuse precomputed zero md. Detecting zero block
-         * is order of magnitude faster than computing md. */
-        EVP_DigestUpdate(h->root_ctx, h->zero_md, h->zero_md_len);
+        /* Fast path. */
+        consume_zero_block(h);
     } else {
-        /* Slow path - compute md for this block. */
+        /* Slow path - compute md for buf. */
         unsigned char md_value[EVP_MAX_MD_SIZE];
         unsigned int md_len;
 
@@ -166,40 +221,83 @@ static void consume_block(struct blkhash *h, const void *buf, size_t len)
     }
 }
 
+/*
+ * Consume all pending data or zeroes. The pending buffer may contain
+ * full or partial block of data or zeroes. The pending buffer is
+ * cleared after this call.
+ */
+static void consume_pending(struct blkhash *h)
+{
+    assert(h->pending_len <= h->block_size);
+
+    if (h->pending_len == h->block_size && h->pending_zero) {
+        /* Very fast path. */
+        consume_zero_block(h);
+    } else {
+        /*
+         * Slow path if pending is partial block, fast path is pending
+         * is full block and pending data is zeroes.
+         */
+        if (h->pending_zero) {
+            /* Convert partial block of zeroes to data. */
+            memset(h->pending, 0, h->pending_len);
+        }
+
+        consume_data(h, h->pending, h->pending_len);
+    }
+
+    h->pending_len = 0;
+    h->pending_zero = false;
+}
+
 void blkhash_update(struct blkhash *h, const void *buf, size_t len)
 {
-    /*
-     * If we have pending data try to fill the internal buffer and consume the
-     * data.
-     */
+    /* Try to fill the pending buffer and consume it. */
     if (h->pending_len > 0) {
-        size_t n = fill_pending(h, buf, len);
+        size_t n = add_pending_data(h, buf, len);
         buf += n;
         len -= n;
-
         if (h->pending_len == h->block_size) {
-            consume_block(h, h->pending, h->pending_len);
-            h->pending_len = 0;
+            consume_pending(h);
         }
     }
 
-    /*
-     * Consume full blocks in caller buffer.
-     */
+    /* Consume all full blocks in caller buffer. */
     while (len >= h->block_size) {
-        consume_block(h, buf, h->block_size);
+        consume_data(h, buf, h->block_size);
         buf += h->block_size;
         len -= h->block_size;
     }
 
-    /*
-     * If caller buffer was not aligned to block size, copy the data to the
-     * internal buffer.
-     */
+    /* Copy rest of the data to the internal buffer. */
     if (len > 0) {
-        size_t n = fill_pending(h, buf, len);
+        size_t n = add_pending_data(h, buf, len);
         buf += n;
         len -= n;
+    }
+
+    assert(len == 0);
+}
+
+void blkhash_zero(struct blkhash *h, size_t len)
+{
+    /* Try to fill the pending buffer and consume it. */
+    if (h->pending_len > 0) {
+        len -= add_pending_zeroes(h, len);
+        if (h->pending_len == h->block_size) {
+            consume_pending(h);
+        }
+    }
+
+    /* Consume all full zero blocks. */
+    while (len >= h->block_size) {
+        consume_zero_block(h);
+        len -= h->block_size;
+    }
+
+    /* Save the rest in the pending buffer. */
+    if (len > 0) {
+        len -= add_pending_zeroes(h, len);
     }
 
     assert(len == 0);
@@ -209,8 +307,7 @@ void blkhash_final(struct blkhash *h, unsigned char *md_value,
                   unsigned int *md_len)
 {
     if (h->pending_len > 0) {
-        consume_block(h, h->pending, h->pending_len);
-        h->pending_len = 0;
+        consume_pending(h);
     }
 
     EVP_DigestFinal_ex(h->root_ctx, md_value, md_len);
