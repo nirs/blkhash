@@ -149,6 +149,12 @@ build directory:
     cd build
     meson compile
 
+## Debugging
+
+To view debug logs run with:
+
+    BLKSUM_DEBUG=1 blksum sha1 disk.img
+
 ## Running the tests
 
 To run the tests, you need to enter the virtual environment:

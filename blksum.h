@@ -21,7 +21,18 @@
 #ifndef BLKSUM_H
 #define BLKSUM_H
 
+#include <stdbool.h>
 #include <stdint.h>
+
+#define PROG "blksum"
+
+#define DEBUG(fmt, ...)                                     \
+  do {                                                      \
+    if (debug)                                              \
+      fprintf (stderr, PROG ": " fmt "\n", ## __VA_ARGS__); \
+  } while (0)
+
+extern bool debug;
 
 struct src {
     struct src_ops *ops;

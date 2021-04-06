@@ -44,6 +44,7 @@ const size_t read_size = 2 * 1024 * 1024;
  */
 size_t block_size = 64 * 1024;
 
+bool debug = false;
 const char *digest_name;
 const char *filename;
 
@@ -135,6 +136,8 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Usage: blksum digestname [filename]\n");
         exit(2);
     }
+
+    debug = getenv ("BLKSUM_DEBUG") != NULL;
 
     digest_name = argv[1];
 
