@@ -35,6 +35,23 @@ Computing a checksum from stdin:
     $ blksum sha1 <disk.img
     9eeb7c21316d1e1569139ad36452b00eeaabb624  -
 
+To compute a checksum of qcow2 image export the image using qemu-nbd and
+specify a NBD URL instead of path to the image:
+
+    $ qemu-nbd --read-only --persistent --format=qcow2 fedora-32.qcow2
+
+    $ blksum sha1 nbd://localhost
+    1edf578c3c17322557208f85ddad67d8f0e129a8  nbd://localhost
+
+If the image is on the same host, using unix socket avoids managing
+ports:
+
+    $ qemu-nbd --read-only --persistent --format=qcow2 \
+        --socket=/tmp/nbd.sock fedora-32.qcow2
+
+    $ blksum sha1 nbd+unix:///?socket=/tmp/nbd.sock
+    1edf578c3c17322557208f85ddad67d8f0e129a8  nbd+unix:///?socket=/tmp/nbd.sock
+
 ## Benchmarks
 
 Here are some examples comparing blksum to sha1sum.
@@ -76,11 +93,6 @@ Fully allocated image full of zeroes, created with dd:
     Summary
       './blksum sha1 zero-6g.raw' ran
         9.75 ± 0.27 times faster than 'sha1sum zero-6g.raw'
-
-## Image formats
-
-Currently only raw images are supported. Supporting other format is
-planned via qemu-nbd.
 
 ## Portability
 
