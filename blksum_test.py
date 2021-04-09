@@ -19,17 +19,15 @@
 import hashlib
 import os
 import subprocess
+import time
+
+from contextlib import contextmanager
 
 import pytest
 
 BLOCK_SIZE = 64 * 1024
 DIGEST_NAMES = ["sha1", "blake2b512"]
 BLKSUM = os.environ.get("BLKSUM", "debug/blksum")
-
-
-@pytest.fixture
-def image(tmpdir):
-    return str(tmpdir.join("image"))
 
 
 @pytest.mark.parametrize("fmt", [
@@ -49,12 +47,29 @@ def image(tmpdir):
     pytest.param("A- -0 E- -", id="mix-unaligned"),
 ])
 @pytest.mark.parametrize("md", DIGEST_NAMES)
-def test_blksum(image, fmt, md):
-    create_image(image, fmt)
-    checksum = simple_blksum(md, image)
+def test_blksum(tmpdir, fmt, md):
+    image_raw = str(tmpdir.join("image.raw"))
+    create_image(image_raw, fmt)
+
+    checksum = simple_blksum(md, image_raw)
     print(checksum)
-    assert blksum_file(md, image) == [checksum, image]
-    assert blksum_pipe(md, image) == [checksum, "-"]
+
+    # Test raw format.
+    assert blksum_file(md, image_raw) == [checksum, image_raw]
+    assert blksum_pipe(md, image_raw) == [checksum, "-"]
+    with open_nbd(image_raw, "raw") as nbd_url:
+        assert blksum_nbd(md, nbd_url) == [checksum, nbd_url]
+
+    # Test qcow2 format.
+    image_qcow2 = str(tmpdir.join("image.qcow2"))
+    convert_image(image_raw, image_qcow2, "qcow2")
+    with open_nbd(image_qcow2, "qcow2") as nbd_url:
+        assert blksum_nbd(md, nbd_url) == [checksum, nbd_url]
+
+
+def blksum_nbd(md, nbd_url):
+    out = subprocess.check_output([BLKSUM, md, nbd_url])
+    return out.decode().strip().split("  ")
 
 
 def blksum_file(md, image):
@@ -85,6 +100,36 @@ def simple_blksum(md, image):
             h.update(digest)
 
     return h.hexdigest()
+
+
+@contextmanager
+def open_nbd(image, format):
+    sock = image + ".sock"
+    pidfile = image + ".pid"
+    p = subprocess.Popen([
+        "qemu-nbd",
+        "--read-only",
+        "--persistent",
+        "--socket={}".format(sock),
+        "--pid-file={}".format(pidfile),
+        "--format={}".format(format),
+        image,
+    ])
+    try:
+        while not os.path.exists(pidfile):
+            time.sleep(0.005)
+            if p.poll() is not None:
+                raise RuntimeError("Error running qemu-nbd")
+
+        yield "nbd+unix:///?socket=" + sock
+    finally:
+        p.kill()
+        p.wait()
+
+
+def convert_image(src, dst, format):
+    subprocess.check_call(
+        ["qemu-img", "convert", "-f", "raw", "-O", format, src, dst])
 
 
 def create_image(path, fmt, block_size=BLOCK_SIZE // 2):
