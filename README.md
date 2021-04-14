@@ -107,6 +107,7 @@ Install packages (for Fedora):
         gcc \
         git \
         libnbd-devel \
+        meson \
         openssl-devel \
         python3
 
@@ -119,19 +120,11 @@ Configure and update submodules:
     git submodule init
     git submodule update
 
-Create virtual environment:
+To run the tests, you need to setup a python environment:
 
     python3 -m venv ~/venv/blkhash
     source ~/venv/blkhash/bin/activate
-    pip install meson pytest
-    deactivate
-
-To build or run tests, you need to enter the virtual environment:
-
-    source ~/venv/blkhash/bin/activate
-
-When you are done, you can exit from the virtual environment:
-
+    pip install pytest
     deactivate
 
 ## Building
@@ -153,6 +146,14 @@ build directory:
     meson compile
 
 ## Running the tests
+
+To run the tests, you need to enter the virtual environment:
+
+    source ~/venv/blkhash/bin/activate
+
+When you are done, you can exit from the virtual environment:
+
+    deactivate
 
 To run all tests:
 
