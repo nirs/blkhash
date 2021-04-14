@@ -8,7 +8,10 @@ blkhash_lib = library(
   version: meson.project_version(),
   soversion: '0',
   dependencies: dependency('libcrypto'),
+  install: true,
 )
+
+install_headers('blkhash.h')
 
 blksum = executable(
   'blksum',
@@ -20,6 +23,7 @@ blksum = executable(
   ],
   link_with: blkhash_lib,
   dependencies: dependency('libnbd'),
+  install: true,
 )
 
 unity_dir = include_directories('unity/src')

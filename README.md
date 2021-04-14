@@ -136,8 +136,12 @@ To build debug version run:
 
 To build release version:
 
-    meson setup build --buildtype release
+    meson setup build --buildtype release --prefix /usr
     meson compile -C build
+
+To install use:
+
+    sudo meson install -C build
 
 Instead of specifying the directory, you can run the command inside the
 build directory:
