@@ -27,7 +27,7 @@ import pytest
 
 BLOCK_SIZE = 64 * 1024
 DIGEST_NAMES = ["sha1", "blake2b512"]
-BLKSUM = os.environ.get("BLKSUM", "debug/blksum")
+BLKSUM = os.environ.get("BLKSUM", "build/blksum")
 
 
 @pytest.mark.parametrize("fmt", [

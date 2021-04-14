@@ -107,7 +107,6 @@ Install packages (for Fedora):
         gcc \
         git \
         libnbd-devel \
-        make \
         openssl-devel \
         python3
 
@@ -144,47 +143,48 @@ To build debug version run:
 
 To build release version:
 
-    meson setup release --buildtype release
-    meson compile -C release
+    meson setup build --buildtype release
+    meson compile -C build
 
 Instead of specifying the directory, you can run the command inside the
 build directory:
 
-    cd debug
+    cd build
     meson compile
 
 ## Running the tests
 
-To run all tests using the debug build:
+To run all tests:
 
-    meson test -C debug
+    meson test -C build
 
 Instead of specifying the directory, you can run the command inside the
 build directory:
 
-    cd debug
+    cd build
     meson test
 
 To see verbose test output use:
 
-    meson test -C debug -v
+    meson test -C build -v
 
 To run specific blksum tests, use pytest directly:
 
-    meson -C debug compile
+    meson -C build compile
     pytest -v -k sha1-sparse
 
-pytest uses the debug build by default. If you want to test the release
-build, or installed blksum executable, specify the path to the
+pytest uses the "build" directory by default. If you want to use another
+directory name, or installed blksum executable, specify the path to the
 executable in the environment:
 
+    meson setup release --buildtype release
     meson compile -C release
     BLKSUM=release/blksum pytest
 
 To run only blkhash tests:
 
-   meson compile -C debug
-   debug/blkhash_test
+   meson compile -C build
+   build/blkhash_test
 
 ## License
 
