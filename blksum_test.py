@@ -26,6 +26,7 @@ from contextlib import contextmanager
 import pytest
 
 BLOCK_SIZE = 64 * 1024
+SEGMENT_SIZE = 128 * 1024 * 1024
 DIGEST_NAMES = ["sha1", "blake2b512"]
 BLKSUM = os.environ.get("BLKSUM", "build/blksum")
 
@@ -89,17 +90,36 @@ def blksum_pipe(md, image):
 
 
 def simple_blksum(md, image):
-    h = hashlib.new(md)
+    """
+    Compute root hash for segments:
+
+        H( H(segment 1) + H(segment 2) ... H(segment N)) )
+
+    H(segment N) is:
+
+        H( H(block 1) + H(block 2) ... H(block M)) )
+    """
+    size = os.path.getsize(image)
+    root = hashlib.new(md)
 
     with open(image, "rb") as f:
-        while True:
-            block = f.read(BLOCK_SIZE)
-            if not block:
-                break
-            digest = hashlib.new(md, block).digest()
-            h.update(digest)
+        for offset in range(0, size, SEGMENT_SIZE):
+            length = min(SEGMENT_SIZE, size - offset)
 
-    return h.hexdigest()
+            # Compute segment digest.
+            segment = hashlib.new(md)
+
+            while length:
+                # Compute block digest.
+                n = min(BLOCK_SIZE, length)
+                block = f.read(n)
+                block_digest = hashlib.new(md, block).digest()
+                segment.update(block_digest)
+                length -= n
+
+            root.update(segment.digest())
+
+    return root.hexdigest()
 
 
 @contextmanager

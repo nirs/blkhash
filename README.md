@@ -14,9 +14,29 @@ precomputed zero block digest.
 
 ## Computing a block hash
 
+First we split the image to segments of 128 MiB. If the image is not
+aligned to 128 MiB, the last segment will be smaller. Using segments
+makes it easy to use multiple threads to compute checksum in parallel.
+
+To compute checksum for segment, we split the segment to blocks of equal
+size. If the image is not aligned to block size, the last block of the
+last segment will be shorter.
+
+For every block, we detect if the block contains only null bytes, and
+reuse a precomputed zero block digest instead of computing the value.
+Detecting zero block is about order of magnitude faster than computing a
+checksum using fast algorithm such as sha1.
+
+When accessing an image via qemu-nbd, we can detect zero areas without
+reading any data, minimizing I/O and cpu usage.
+
 The hash is computed using:
 
-    H( H(block 1) + H(block 2) ... H(block N) )
+    H( H(segment 1) + H(segment 2) ... H(segment N) )
+
+Where H(segment N) is:
+
+    H( H(block 1) + H(block 2) ... H(block M) )
 
 H can be any message digest algorithm provided by openssl.
 
@@ -53,7 +73,8 @@ ports:
     1edf578c3c17322557208f85ddad67d8f0e129a8  nbd+unix:///?socket=/tmp/nbd.sock
 
 Using NBD URL is faster in most cases, since blksum can detect image
-extents without reading the entire image
+extents without reading the entire image. However for fully allocated
+image accessing the image directly is faster.
 
 ## Benchmarks
 

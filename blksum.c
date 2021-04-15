@@ -44,12 +44,20 @@ const size_t read_size = 2 * 1024 * 1024;
  */
 size_t block_size = 64 * 1024;
 
-/* Size of range to get extents. */
-size_t extents_size = 128 * 1024 * 1024;
+/* Size of image segment. */
+size_t segment_size = 128 * 1024 * 1024;
 
 bool debug = false;
 const char *digest_name;
 const char *filename;
+
+static void format_hex(unsigned char *md, unsigned int len, char *s)
+{
+    for (int i = 0; i < len; i++) {
+        snprintf(&s[i * 2], 3, "%02x", md[i]);
+    }
+    s[len * 2] = 0;
+}
 
 static inline ssize_t src_pread(struct src *s, void *buf, size_t len, int64_t offset)
 {
@@ -115,62 +123,113 @@ static void process_extent(struct src *s, struct blkhash *h, void *buf,
     }
 }
 
-static void process_full(struct src *s, struct blkhash *h, void *buf)
+static void process_segment(struct src *s, struct blkhash *h, void *buf,
+                            int64_t offset)
 {
-    int64_t offset = 0;
+    struct extent *extents = NULL;
+    size_t count = 0;
+    size_t length = (offset + segment_size <= s->size)
+        ? segment_size : s->size - offset;
+    struct extent *last;
+    struct extent *cur;
 
-    while (offset < s->size) {
-        struct extent *extents = NULL;
-        size_t count = 0;
-        size_t length = (offset + extents_size <= s->size)
-            ? extents_size : s->size - offset;
-        struct extent *last;
-        struct extent *cur;
+    src_extents(s, offset, length, &extents, &count);
 
-        src_extents(s, offset, length, &extents, &count);
+    last = &extents[0];
+    DEBUG("extent 0 length=%u zero=%d", last->length, last->zero);
 
-        last = &extents[0];
-        DEBUG("extent 0 length=%u zero=%d", last->length, last->zero);
+    for (int i = 1; i < count; i++) {
+        cur = &extents[i];
+        DEBUG("extent %d length=%u zero=%d", i, cur->length, cur->zero);
 
-        for (int i = 1; i < count; i++) {
-            cur = &extents[i];
-            DEBUG("extent %d length=%u zero=%d", i, cur->length, cur->zero);
-
-            if (cur->zero == last->zero) {
-                DEBUG("merge length=%u zero=%d", cur->length, cur->zero);
-                last->length += cur->length;
-                continue;
-            }
-
-            process_extent(s, h, buf, offset, last);
-            offset += last->length;
-            last = cur;
+        if (cur->zero == last->zero) {
+            DEBUG("merge length=%u zero=%d", cur->length, cur->zero);
+            last->length += cur->length;
+            continue;
         }
 
-        if (last->length > 0) {
-            process_extent(s, h, buf, offset, last);
-            offset += last->length;
+        process_extent(s, h, buf, offset, last);
+        offset += last->length;
+        last = cur;
+    }
+
+    if (last->length > 0) {
+        process_extent(s, h, buf, offset, last);
+        offset += last->length;
+    }
+
+    free(extents);
+}
+
+static void process_full(struct src *s, struct blkhash *h, void *buf,
+                         EVP_MD_CTX *root_ctx)
+{
+    unsigned char seg_md[EVP_MAX_MD_SIZE];
+    unsigned int seg_len;
+
+    size_t segment_count = (s->size + segment_size - 1) / segment_size;
+
+    for (size_t segment = 0; segment < segment_count; segment++) {
+        int64_t offset = segment * segment_size;
+
+        process_segment(s, h, buf, offset);
+        blkhash_final(h, seg_md, &seg_len);
+        blkhash_reset(h);
+
+        if (debug) {
+            char hex[EVP_MAX_MD_SIZE * 2 + 1];
+
+            format_hex(seg_md, seg_len, hex);
+            DEBUG("segment %ld offset %ld checksum %s",
+                  segment, offset, hex);
         }
 
-        free(extents);
+        EVP_DigestUpdate(root_ctx, seg_md, seg_len);
     }
 }
 
-static void process_eof(struct src *s, struct blkhash *h, void *buf)
+static void process_eof(struct src *s, struct blkhash *h, void *buf,
+                        EVP_MD_CTX *root_ctx)
 {
-    while (1) {
-        ssize_t n = src_read(s, buf, read_size);
-        if (n == 0)
+    unsigned char seg_md[EVP_MAX_MD_SIZE];
+    unsigned int seg_len;
+
+    for (size_t segment = 0;; segment++) {
+        size_t pos = 0;
+
+        while (pos < segment_size) {
+            size_t count = src_read(s, buf, read_size);
+            if (count == 0)
+                break;
+
+            blkhash_update(h, buf, count);
+            pos += count;
+        }
+
+        if (pos == 0)
             break;
 
-        blkhash_update(h, buf, n);
+        blkhash_final(h, seg_md, &seg_len);
+        blkhash_reset(h);
+
+        if (debug) {
+            char hex[EVP_MAX_MD_SIZE * 2 + 1];
+
+            format_hex(seg_md, seg_len, hex);
+            DEBUG("segment %ld offset %ld checksum %s",
+                  segment, segment * segment_size, hex);
+        }
+
+        EVP_DigestUpdate(root_ctx, seg_md, seg_len);
     }
 }
 
-static void blkhash_src(struct src *s, unsigned char *md, unsigned int *len)
+static void checksum(struct src *s, unsigned char *md, unsigned int *len)
 {
     struct blkhash *h;
     void *buf;
+    const EVP_MD *root_md;
+    EVP_MD_CTX *root_ctx;
 
     h = blkhash_new(block_size, digest_name);
     if (h == NULL) {
@@ -184,12 +243,28 @@ static void blkhash_src(struct src *s, unsigned char *md, unsigned int *len)
         exit(1);
     }
 
-    if (s->size != -1)
-        process_full(s, h, buf);
-    else
-        process_eof(s, h, buf);
+    root_md = EVP_get_digestbyname(digest_name);
+    if (root_md == NULL) {
+        perror("EVP_get_digestbyname");
+        exit(1);
+    }
 
-    blkhash_final(h, md, len);
+    root_ctx = EVP_MD_CTX_new();
+    if (root_ctx == NULL) {
+        perror("EVP_MD_CTX_new");
+        exit(1);
+    }
+
+    EVP_DigestInit_ex(root_ctx, root_md, NULL);
+
+    if (s->size != -1)
+        process_full(s, h, buf, root_ctx);
+    else
+        process_eof(s, h, buf, root_ctx);
+
+    EVP_DigestFinal_ex(root_ctx, md, len);
+
+    EVP_MD_CTX_free(root_ctx);
     blkhash_free(h);
     free(buf);
 }
@@ -208,14 +283,15 @@ int main(int argc, char *argv[])
 {
     struct src *s;
     unsigned char md_value[EVP_MAX_MD_SIZE];
-    unsigned int md_len, i;
+    char hex[EVP_MAX_MD_SIZE * 2 + 1];
+    unsigned int md_len;
 
     if (argc < 2) {
         fprintf(stderr, "Usage: blksum digestname [filename]\n");
         exit(2);
     }
 
-    debug = getenv ("BLKSUM_DEBUG") != NULL;
+    debug = getenv("BLKSUM_DEBUG") != NULL;
 
     digest_name = argv[1];
 
@@ -232,12 +308,10 @@ int main(int argc, char *argv[])
         s = open_pipe(STDIN_FILENO);
     }
 
-    blkhash_src(s, md_value, &md_len);
+    checksum(s, md_value, &md_len);
 
-    for (i = 0; i < md_len; i++)
-        printf("%02x", md_value[i]);
-
-    printf("  %s\n", filename);
+    format_hex(md_value, md_len, hex);
+    printf("%s  %s\n", hex, filename);
 
     src_close(s);
     exit(0);

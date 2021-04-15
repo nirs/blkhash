@@ -22,7 +22,10 @@ blksum = executable(
     'pipe.c',
   ],
   link_with: blkhash_lib,
-  dependencies: dependency('libnbd'),
+  dependencies: [
+    dependency('libnbd'),
+    dependency('libcrypto'),
+  ],
   install: true,
 )
 
