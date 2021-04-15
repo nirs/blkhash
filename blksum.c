@@ -115,6 +115,16 @@ static void blkhash_src(struct src *s, unsigned char *md, unsigned int *len)
     free(buf);
 }
 
+static bool is_nbd_uri(const char *s)
+{
+    /*
+     * libbnd supports more options like TLS and vsock, but I'm not sure
+     * these are relevant to this tool.
+     */
+    return strncmp(s, "nbd://", 6) == 0 ||
+           strncmp(s, "nbd+unix:///", 12) == 0;
+}
+
 int main(int argc, char *argv[])
 {
     struct src *s;
@@ -129,17 +139,12 @@ int main(int argc, char *argv[])
     digest_name = argv[1];
 
     if (argv[2] != NULL) {
-        struct stat sb;
         filename = argv[2];
 
-        if (stat(filename, &sb) == 0) {
-            s = open_file(filename);
-        } else {
-            /*
-             * Not a file, lets try using nbd.
-             * TODO: Check that filename is nbd uri.
-             */
+        if (is_nbd_uri(filename)) {
             s = open_nbd(filename);
+        } else {
+            s = open_file(filename);
         }
     } else {
         filename = "-";
