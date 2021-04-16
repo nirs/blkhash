@@ -10,3 +10,6 @@ blkhash_test
 
 # Python
 __pycache__
+
+# Build directories
+build/
