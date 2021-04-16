@@ -52,27 +52,45 @@ ports:
     $ blksum sha1 nbd+unix:///?socket=/tmp/nbd.sock
     1edf578c3c17322557208f85ddad67d8f0e129a8  nbd+unix:///?socket=/tmp/nbd.sock
 
+Using NBD URL is faster in most cases, since blksum can detect image
+extents without reading the entire image
+
 ## Benchmarks
 
 Here are some examples comparing blksum to sha1sum.
+The images are access both directly and via qemu-nbd.
 
-Fedora 32 raw image created with virt-builder:
+Fedora 32 raw and qcow2 images created with virt-builder:
 
-    $ ls -lhs fedora-32.raw
+    $ ls -lhs fedora-32.*
+    1.6G -rw-r--r--. 1 nsoffer nsoffer 1.6G Jan 28 01:01 fedora-32.qcow2
     1.6G -rw-r--r--. 1 nsoffer nsoffer 6.0G Jan 30 23:37 fedora-32.raw
 
-    $ hyperfine -w3 "./blksum sha1 fedora-32.raw" "sha1sum fedora-32.raw"
-    Benchmark #1: ./blksum sha1 fedora-32.raw
-      Time (mean ± σ):      2.446 s ±  0.035 s    [User: 1.638 s, System: 0.804 s]
-      Range (min … max):    2.401 s …  2.523 s    10 runs
+    $ hyperfine -w3 "release/blksum sha1 nbd+unix:///?socket=/tmp/raw.sock" \
+                    "release/blksum sha1 nbd+unix:///?socket=/tmp/qcow2.sock" \
+                    "release/blksum sha1 fedora-32.raw" \
+                    "sha1sum fedora-32.raw"
+    Benchmark #1: release/blksum sha1 nbd+unix:///?socket=/tmp/raw.sock
+      Time (mean ± σ):      2.454 s ±  0.062 s    [User: 1.802 s, System: 0.225 s]
+      Range (min … max):    2.346 s …  2.520 s    10 runs
 
-    Benchmark #2: sha1sum fedora-32.raw
-      Time (mean ± σ):      7.639 s ±  0.079 s    [User: 6.393 s, System: 1.234 s]
-      Range (min … max):    7.598 s …  7.860 s    10 runs
+    Benchmark #2: release/blksum sha1 nbd+unix:///?socket=/tmp/qcow2.sock
+      Time (mean ± σ):      2.354 s ±  0.023 s    [User: 1.756 s, System: 0.202 s]
+      Range (min … max):    2.318 s …  2.385 s    10 runs
+
+    Benchmark #3: release/blksum sha1 fedora-32.raw
+      Time (mean ± σ):      2.617 s ±  0.032 s    [User: 1.912 s, System: 0.700 s]
+      Range (min … max):    2.574 s …  2.663 s    10 runs
+
+    Benchmark #4: sha1sum fedora-32.raw
+      Time (mean ± σ):      7.158 s ±  0.079 s    [User: 6.390 s, System: 0.757 s]
+      Range (min … max):    7.086 s …  7.366 s    10 runs
 
     Summary
-      './blksum sha1 fedora-32.raw' ran
-        3.12 ± 0.05 times faster than 'sha1sum fedora-32.raw'
+      'release/blksum sha1 nbd+unix:///?socket=/tmp/qcow2.sock' ran
+        1.04 ± 0.03 times faster than 'release/blksum sha1 nbd+unix:///?socket=/tmp/raw.sock'
+        1.11 ± 0.02 times faster than 'release/blksum sha1 fedora-32.raw'
+        3.04 ± 0.04 times faster than 'sha1sum fedora-32.raw'
 
 Fully allocated image full of zeroes, created with dd:
 
@@ -81,18 +99,53 @@ Fully allocated image full of zeroes, created with dd:
     $ ls -lhs zero-6g.raw
     6.1G -rw-rw-r--. 1 nsoffer nsoffer 6.0G Feb 12 21:57 zero-6g.raw
 
-    $ hyperfine -w3 "./blksum sha1 zero-6g.raw" "sha1sum zero-6g.raw"
-    Benchmark #1: ./blksum sha1 zero-6g.raw
-      Time (mean ± σ):     754.1 ms ±  20.7 ms    [User: 148.3 ms, System: 604.1 ms]
-      Range (min … max):   743.7 ms … 810.8 ms    10 runs
+    $ hyperfine -w3 "release/blksum sha1 nbd+unix:///?socket=/tmp/raw.sock" \
+                    "release/blksum sha1 zero-6g.raw" \
+                    "sha1sum zero-6g.raw"
+    Benchmark #1: release/blksum sha1 nbd+unix:///?socket=/tmp/raw.sock
+      Time (mean ± σ):      4.213 s ±  0.112 s    [User: 478.8 ms, System: 890.5 ms]
+      Range (min … max):    4.054 s …  4.373 s    10 runs
 
-    Benchmark #2: sha1sum zero-6g.raw
-      Time (mean ± σ):      7.353 s ±  0.026 s    [User: 6.399 s, System: 0.942 s]
-      Range (min … max):    7.320 s …  7.401 s    10 runs
+    Benchmark #2: release/blksum sha1 zero-6g.raw
+      Time (mean ± σ):      1.033 s ±  0.003 s    [User: 247.1 ms, System: 783.4 ms]
+      Range (min … max):    1.030 s …  1.039 s    10 runs
+
+    Benchmark #3: sha1sum zero-6g.raw
+      Time (mean ± σ):      7.539 s ±  0.182 s    [User: 6.677 s, System: 0.847 s]
+      Range (min … max):    7.400 s …  8.008 s    10 runs
 
     Summary
-      './blksum sha1 zero-6g.raw' ran
-        9.75 ± 0.27 times faster than 'sha1sum zero-6g.raw'
+      'release/blksum sha1 zero-6g.raw' ran
+        4.08 ± 0.11 times faster than 'release/blksum sha1 nbd+unix:///?socket=/tmp/raw.sock'
+        7.29 ± 0.18 times faster than 'sha1sum zero-6g.raw'
+
+Empty image using raw and qcow2 format:
+
+    $ hyperfine -w3 "release/blksum sha1 empty-1g.raw" \
+                    "release/blksum sha1 nbd+unix:///?socket=/tmp/raw.sock" \
+                    "release/blksum sha1 nbd+unix:///?socket=/tmp/qcow2.sock" \
+                    "sha1sum empty-1g.raw"
+    Benchmark #1: release/blksum sha1 empty-1g.raw
+      Time (mean ± σ):     172.9 ms ±   1.3 ms    [User: 41.8 ms, System: 130.4 ms]
+      Range (min … max):   169.0 ms … 174.4 ms    17 runs
+
+    Benchmark #2: release/blksum sha1 nbd+unix:///?socket=/tmp/raw.sock
+      Time (mean ± σ):       3.7 ms ±   0.4 ms    [User: 2.2 ms, System: 1.2 ms]
+      Range (min … max):     3.2 ms …   5.8 ms    414 runs
+
+    Benchmark #3: release/blksum sha1 nbd+unix:///?socket=/tmp/qcow2.sock
+      Time (mean ± σ):       3.5 ms ±   0.3 ms    [User: 2.0 ms, System: 1.2 ms]
+      Range (min … max):     3.0 ms …   5.2 ms    495 runs
+
+    Benchmark #4: sha1sum empty-1g.raw
+      Time (mean ± σ):      1.267 s ±  0.022 s    [User: 1.123 s, System: 0.142 s]
+      Range (min … max):    1.222 s …  1.288 s    10 runs
+
+    Summary
+      'release/blksum sha1 nbd+unix:///?socket=/tmp/qcow2.sock' ran
+        1.06 ± 0.15 times faster than 'release/blksum sha1 nbd+unix:///?socket=/tmp/raw.sock'
+       49.35 ± 4.68 times faster than 'release/blksum sha1 empty-1g.raw'
+      361.73 ± 34.78 times faster than 'sha1sum empty-1g.raw'
 
 ## Portability
 
@@ -148,6 +201,12 @@ build directory:
 
     cd build
     meson compile
+
+## Debugging
+
+To view debug logs run with:
+
+    BLKSUM_DEBUG=1 blksum sha1 disk.img
 
 ## Running the tests
 

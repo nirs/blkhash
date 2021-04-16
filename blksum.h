@@ -21,11 +21,28 @@
 #ifndef BLKSUM_H
 #define BLKSUM_H
 
+#include <stdbool.h>
 #include <stdint.h>
+
+#define PROG "blksum"
+
+#define DEBUG(fmt, ...)                                     \
+  do {                                                      \
+    if (debug)                                              \
+      fprintf (stderr, PROG ": " fmt "\n", ## __VA_ARGS__); \
+  } while (0)
+
+extern bool debug;
 
 struct src {
     struct src_ops *ops;
     int64_t size;
+    bool can_extents;
+};
+
+struct extent {
+    uint32_t length;
+    bool zero;
 };
 
 struct src_ops {
@@ -40,6 +57,16 @@ struct src_ops {
      * the number of bytes read. Optional if pread() is available.
      */
     ssize_t (*read)(struct src *s, void *buf, size_t len);
+
+    /*
+     * Get image extents for a byte range. Caller must free the returned
+     * extents list. The number and range of returned extents are:
+     * - At least one extent is retruned.
+     * - The first extent starts at specified offset.
+     * - The last extent may end before offset + length.
+     */
+    int (*extents)(struct src *s, int64_t offset, int64_t length,
+                   struct extent **extents, size_t *count);
 
     /*
      * Close the source.

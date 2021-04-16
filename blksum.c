@@ -44,6 +44,10 @@ const size_t read_size = 2 * 1024 * 1024;
  */
 size_t block_size = 64 * 1024;
 
+/* Size of range to get extents. */
+size_t extents_size = 128 * 1024 * 1024;
+
+bool debug = false;
 const char *digest_name;
 const char *filename;
 
@@ -57,9 +61,58 @@ static inline ssize_t src_read(struct src *s, void *buf, size_t len)
     return s->ops->read(s, buf, len);
 }
 
+static inline void src_extents(struct src *s, int64_t offset, int64_t length,
+                              struct extent **extents, size_t *count)
+{
+    if (s->can_extents) {
+        DEBUG("get extents offset=%ld length=%ld", offset, length);
+        if (s->ops->extents(s, offset, length, extents, count) == 0) {
+            DEBUG("got %lu extents", *count);
+            return;
+        }
+    }
+
+    /*
+     * If getting extents failed or source does not support extents,
+     * fallback to single data extent.
+     */
+
+    struct extent *fallback = malloc(sizeof(*fallback));
+    if (fallback == NULL) {
+        perror("malloc");
+        exit(1);
+    }
+
+    fallback->length = length;
+    fallback->zero = false;
+
+    *extents = fallback;
+    *count = 1;
+}
+
 static inline void src_close(struct src *s)
 {
     s->ops->close(s);
+}
+
+static void process_extent(struct src *s, struct blkhash *h, void *buf,
+                           int64_t offset, struct extent *extent)
+{
+    DEBUG("process extent offset=%ld length=%u zero=%d",
+          offset, extent->length, extent->zero);
+
+    if (extent->zero) {
+        blkhash_zero(h, extent->length);
+    } else {
+        uint32_t todo = extent->length;
+        while (todo) {
+            size_t n = (todo > read_size) ? read_size : todo;
+            src_pread(s, buf, n, offset);
+            blkhash_update(h, buf, n);
+            offset += n;
+            todo -= n;
+        }
+    }
 }
 
 static void process_full(struct src *s, struct blkhash *h, void *buf)
@@ -67,13 +120,39 @@ static void process_full(struct src *s, struct blkhash *h, void *buf)
     int64_t offset = 0;
 
     while (offset < s->size) {
-        size_t n = (offset + read_size <= s->size)
-            ? read_size : s->size - offset;
+        struct extent *extents = NULL;
+        size_t count = 0;
+        size_t length = (offset + extents_size <= s->size)
+            ? extents_size : s->size - offset;
+        struct extent *last;
+        struct extent *cur;
 
-        src_pread(s, buf, n, offset);
-        blkhash_update(h, buf, n);
+        src_extents(s, offset, length, &extents, &count);
 
-        offset += n;
+        last = &extents[0];
+        DEBUG("extent 0 length=%u zero=%d", last->length, last->zero);
+
+        for (int i = 1; i < count; i++) {
+            cur = &extents[i];
+            DEBUG("extent %d length=%u zero=%d", i, cur->length, cur->zero);
+
+            if (cur->zero == last->zero) {
+                DEBUG("merge length=%u zero=%d", cur->length, cur->zero);
+                last->length += cur->length;
+                continue;
+            }
+
+            process_extent(s, h, buf, offset, last);
+            offset += last->length;
+            last = cur;
+        }
+
+        if (last->length > 0) {
+            process_extent(s, h, buf, offset, last);
+            offset += last->length;
+        }
+
+        free(extents);
     }
 }
 
@@ -135,6 +214,8 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Usage: blksum digestname [filename]\n");
         exit(2);
     }
+
+    debug = getenv ("BLKSUM_DEBUG") != NULL;
 
     digest_name = argv[1];
 
