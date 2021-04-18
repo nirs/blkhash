@@ -51,6 +51,12 @@ bool debug = false;
 const char *digest_name;
 const char *filename;
 
+/* Message digest used to compute the hash. */
+const EVP_MD *digest;
+
+/* Size of segment digest. */
+int digest_size;
+
 static void format_hex(unsigned char *md, unsigned int len, char *s)
 {
     for (int i = 0; i < len; i++) {
@@ -165,7 +171,6 @@ static void process_full(struct src *s, struct blkhash *h, void *buf,
                          EVP_MD_CTX *root_ctx)
 {
     unsigned char seg_md[EVP_MAX_MD_SIZE];
-    unsigned int seg_len;
 
     size_t segment_count = (s->size + segment_size - 1) / segment_size;
 
@@ -173,18 +178,18 @@ static void process_full(struct src *s, struct blkhash *h, void *buf,
         int64_t offset = segment * segment_size;
 
         process_segment(s, h, buf, offset);
-        blkhash_final(h, seg_md, &seg_len);
+        blkhash_final(h, seg_md, NULL);
         blkhash_reset(h);
 
         if (debug) {
             char hex[EVP_MAX_MD_SIZE * 2 + 1];
 
-            format_hex(seg_md, seg_len, hex);
+            format_hex(seg_md, digest_size, hex);
             DEBUG("segment %ld offset %ld checksum %s",
                   segment, offset, hex);
         }
 
-        EVP_DigestUpdate(root_ctx, seg_md, seg_len);
+        EVP_DigestUpdate(root_ctx, seg_md, digest_size);
     }
 }
 
@@ -192,7 +197,6 @@ static void process_eof(struct src *s, struct blkhash *h, void *buf,
                         EVP_MD_CTX *root_ctx)
 {
     unsigned char seg_md[EVP_MAX_MD_SIZE];
-    unsigned int seg_len;
 
     for (size_t segment = 0;; segment++) {
         size_t pos = 0;
@@ -209,26 +213,25 @@ static void process_eof(struct src *s, struct blkhash *h, void *buf,
         if (pos == 0)
             break;
 
-        blkhash_final(h, seg_md, &seg_len);
+        blkhash_final(h, seg_md, NULL);
         blkhash_reset(h);
 
         if (debug) {
             char hex[EVP_MAX_MD_SIZE * 2 + 1];
 
-            format_hex(seg_md, seg_len, hex);
+            format_hex(seg_md, digest_size, hex);
             DEBUG("segment %ld offset %ld checksum %s",
                   segment, segment * segment_size, hex);
         }
 
-        EVP_DigestUpdate(root_ctx, seg_md, seg_len);
+        EVP_DigestUpdate(root_ctx, seg_md, digest_size);
     }
 }
 
-static void checksum(struct src *s, unsigned char *md, unsigned int *len)
+static void checksum(struct src *s, unsigned char *md)
 {
     struct blkhash *h;
     void *buf;
-    const EVP_MD *root_md;
     EVP_MD_CTX *root_ctx;
 
     h = blkhash_new(block_size, digest_name);
@@ -243,26 +246,20 @@ static void checksum(struct src *s, unsigned char *md, unsigned int *len)
         exit(1);
     }
 
-    root_md = EVP_get_digestbyname(digest_name);
-    if (root_md == NULL) {
-        perror("EVP_get_digestbyname");
-        exit(1);
-    }
-
     root_ctx = EVP_MD_CTX_new();
     if (root_ctx == NULL) {
         perror("EVP_MD_CTX_new");
         exit(1);
     }
 
-    EVP_DigestInit_ex(root_ctx, root_md, NULL);
+    EVP_DigestInit_ex(root_ctx, digest, NULL);
 
     if (s->size != -1)
         process_full(s, h, buf, root_ctx);
     else
         process_eof(s, h, buf, root_ctx);
 
-    EVP_DigestFinal_ex(root_ctx, md, len);
+    EVP_DigestFinal_ex(root_ctx, md, NULL);
 
     EVP_MD_CTX_free(root_ctx);
     blkhash_free(h);
@@ -282,9 +279,8 @@ static bool is_nbd_uri(const char *s)
 int main(int argc, char *argv[])
 {
     struct src *s;
-    unsigned char md_value[EVP_MAX_MD_SIZE];
+    unsigned char md[EVP_MAX_MD_SIZE];
     char hex[EVP_MAX_MD_SIZE * 2 + 1];
-    unsigned int md_len;
 
     if (argc < 2) {
         fprintf(stderr, "Usage: blksum digestname [filename]\n");
@@ -294,6 +290,14 @@ int main(int argc, char *argv[])
     debug = getenv("BLKSUM_DEBUG") != NULL;
 
     digest_name = argv[1];
+
+    digest = EVP_get_digestbyname(digest_name);
+    if (digest == NULL) {
+        fprintf(stderr, "Unknown digest: %s\n", digest_name);
+        exit(2);
+    }
+
+    digest_size = EVP_MD_size(digest);
 
     if (argv[2] != NULL) {
         filename = argv[2];
@@ -308,9 +312,9 @@ int main(int argc, char *argv[])
         s = open_pipe(STDIN_FILENO);
     }
 
-    checksum(s, md_value, &md_len);
+    checksum(s, md);
 
-    format_hex(md_value, md_len, hex);
+    format_hex(md, digest_size, hex);
     printf("%s  %s\n", hex, filename);
 
     src_close(s);
