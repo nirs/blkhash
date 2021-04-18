@@ -20,6 +20,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <stdbool.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -50,12 +51,75 @@ size_t segment_size = 128 * 1024 * 1024;
 bool debug = false;
 const char *digest_name;
 const char *filename;
+size_t max_workers = 4;
 
 /* Message digest used to compute the hash. */
 const EVP_MD *digest;
 
 /* Size of segment digest. */
 int digest_size;
+
+/* Size of source image. */
+int64_t src_size;
+
+/* Number of segments in image when computing parallel checksum. */
+size_t segment_count;
+
+/* Mutex protecting segment. */
+pthread_mutex_t segment_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+/* Next segment to process. */
+size_t segment = 0;
+
+/*
+ * Buffer containing message digest for every image segment when
+ * computing parallel checksum. Workers copy digests into this buffer
+ * using the current segment index.
+ */
+unsigned char *digests_buffer;
+
+static bool is_nbd_uri(const char *s)
+{
+    /*
+     * libbnd supports more options like TLS and vsock, but I'm not sure
+     * these are relevant to this tool.
+     */
+    return strncmp(s, "nbd://", 6) == 0 ||
+           strncmp(s, "nbd+unix:///", 12) == 0;
+}
+
+static struct src *open_src(const char *filename)
+{
+    if (is_nbd_uri(filename)) {
+        return open_nbd(filename);
+    } else {
+        return open_file(filename);
+    }
+}
+
+static ssize_t next_segment()
+{
+    int err;
+    ssize_t index = -1;
+
+    err = pthread_mutex_lock(&segment_mutex);
+    if (err) {
+        fprintf(stderr, "pthread_mutex_lock: %s\n", strerror(err));
+        exit(1);
+    }
+
+    if (segment < segment_count) {
+        index = segment++;
+    }
+
+    err = pthread_mutex_unlock(&segment_mutex);
+    if (err) {
+        fprintf(stderr, "pthread_mutex_unlock: %s\n", strerror(err));
+        exit(1);
+    }
+
+    return index;
+}
 
 static void format_hex(unsigned char *md, unsigned int len, char *s)
 {
@@ -134,8 +198,8 @@ static void process_segment(struct src *s, struct blkhash *h, void *buf,
 {
     struct extent *extents = NULL;
     size_t count = 0;
-    size_t length = (offset + segment_size <= s->size)
-        ? segment_size : s->size - offset;
+    size_t length = (offset + segment_size <= src_size)
+        ? segment_size : src_size - offset;
     struct extent *last;
     struct extent *cur;
 
@@ -167,38 +231,150 @@ static void process_segment(struct src *s, struct blkhash *h, void *buf,
     free(extents);
 }
 
-static void process_full(struct src *s, struct blkhash *h, void *buf,
-                         EVP_MD_CTX *root_ctx)
+static void *worker_thread(void *arg)
 {
-    unsigned char seg_md[EVP_MAX_MD_SIZE];
+    size_t id = (size_t)arg;
+    struct src *s;
+    struct blkhash *h;
+    void *buf;
+    ssize_t i;
 
-    size_t segment_count = (s->size + segment_size - 1) / segment_size;
+    DEBUG("worker %ld started", id);
 
-    for (size_t segment = 0; segment < segment_count; segment++) {
-        int64_t offset = segment * segment_size;
+    s = open_src(filename);
+
+    h = blkhash_new(block_size, digest_name);
+    if (h == NULL) {
+        perror("blkhash_new");
+        exit(1);
+    }
+
+    buf = malloc(read_size);
+    if (buf == NULL) {
+        perror("malloc");
+        exit(1);
+    }
+
+    while ((i = next_segment()) != -1) {
+        int64_t offset = i * segment_size;
+        unsigned char *seg_md = &digests_buffer[i * digest_size];
+
+        DEBUG("worker %ld processing segemnt %lu offset %ld",
+              id, segment, offset);
 
         process_segment(s, h, buf, offset);
         blkhash_final(h, seg_md, NULL);
         blkhash_reset(h);
+    }
+
+    free(buf);
+    blkhash_free(h);
+    src_close(s);
+
+    DEBUG("worker %ld finished", id);
+    return NULL;
+}
+
+static void checksum_parallel(unsigned char *md)
+{
+    EVP_MD_CTX *root_ctx;
+    size_t worker_count;
+    pthread_t *workers;
+    int err;
+
+    segment_count = (src_size + segment_size - 1) / segment_size;
+    worker_count = segment_count < max_workers ? segment_count : max_workers;
+
+    digests_buffer = malloc(segment_count * digest_size);
+    if (digests_buffer == NULL) {
+        perror("malloc");
+        exit(1);
+    }
+
+    workers = malloc(worker_count * sizeof(*workers));
+    if (workers == NULL) {
+        perror("malloc");
+        exit(1);
+    }
+
+    for (size_t i = 0; i < worker_count; i++) {
+        DEBUG("starting worker %ld", i);
+        err = pthread_create(&workers[i], NULL, worker_thread, (void *)i);
+        if (err) {
+            fprintf(stderr, "pthread_create: %s\n", strerror(err));
+            exit(1);
+        }
+    }
+
+    for (int i = 0; i < worker_count; i++) {
+        DEBUG("joining worker %d", i);
+        err = pthread_join(workers[i], NULL);
+        if (err) {
+            fprintf(stderr, "pthread_join: %s\n", strerror(err));
+            exit(1);
+        }
+    }
+
+    root_ctx = EVP_MD_CTX_new();
+    if (root_ctx == NULL) {
+        perror("EVP_MD_CTX_new");
+        exit(1);
+    }
+
+    EVP_DigestInit_ex(root_ctx, digest, NULL);
+
+    for (size_t i = 0; i < segment_count; i++) {
+        unsigned char *seg_md = &digests_buffer[i * digest_size];
 
         if (debug) {
             char hex[EVP_MAX_MD_SIZE * 2 + 1];
 
             format_hex(seg_md, digest_size, hex);
             DEBUG("segment %ld offset %ld checksum %s",
-                  segment, offset, hex);
+                  i, i * segment_size, hex);
         }
 
         EVP_DigestUpdate(root_ctx, seg_md, digest_size);
     }
+
+    EVP_DigestFinal_ex(root_ctx, md, NULL);
+
+    EVP_MD_CTX_free(root_ctx);
+    free(digests_buffer);
+    free(workers);
 }
 
-static void process_eof(struct src *s, struct blkhash *h, void *buf,
-                        EVP_MD_CTX *root_ctx)
+static void checksum_pipe(unsigned char *md)
 {
+    struct src *s;
+    struct blkhash *h;
+    void *buf;
+    EVP_MD_CTX *root_ctx;
     unsigned char seg_md[EVP_MAX_MD_SIZE];
 
-    for (size_t segment = 0;; segment++) {
+    s = open_pipe(STDIN_FILENO);
+
+    h = blkhash_new(block_size, digest_name);
+    if (h == NULL) {
+        perror("blkhash_new");
+        exit(1);
+    }
+
+    buf = malloc(read_size);
+    if (buf == NULL) {
+        perror("malloc");
+        exit(1);
+    }
+
+    root_ctx = EVP_MD_CTX_new();
+    if (root_ctx == NULL) {
+        perror("EVP_MD_CTX_new");
+        exit(1);
+    }
+
+    EVP_DigestInit_ex(root_ctx, digest, NULL);
+
+    for (;; segment++) {
         size_t pos = 0;
 
         while (pos < segment_size) {
@@ -226,59 +402,17 @@ static void process_eof(struct src *s, struct blkhash *h, void *buf,
 
         EVP_DigestUpdate(root_ctx, seg_md, digest_size);
     }
-}
-
-static void checksum(struct src *s, unsigned char *md)
-{
-    struct blkhash *h;
-    void *buf;
-    EVP_MD_CTX *root_ctx;
-
-    h = blkhash_new(block_size, digest_name);
-    if (h == NULL) {
-        perror("blkhash_new");
-        exit(1);
-    }
-
-    buf = malloc(read_size);
-    if (buf == NULL) {
-        perror("malloc");
-        exit(1);
-    }
-
-    root_ctx = EVP_MD_CTX_new();
-    if (root_ctx == NULL) {
-        perror("EVP_MD_CTX_new");
-        exit(1);
-    }
-
-    EVP_DigestInit_ex(root_ctx, digest, NULL);
-
-    if (s->size != -1)
-        process_full(s, h, buf, root_ctx);
-    else
-        process_eof(s, h, buf, root_ctx);
 
     EVP_DigestFinal_ex(root_ctx, md, NULL);
 
     EVP_MD_CTX_free(root_ctx);
-    blkhash_free(h);
     free(buf);
-}
-
-static bool is_nbd_uri(const char *s)
-{
-    /*
-     * libbnd supports more options like TLS and vsock, but I'm not sure
-     * these are relevant to this tool.
-     */
-    return strncmp(s, "nbd://", 6) == 0 ||
-           strncmp(s, "nbd+unix:///", 12) == 0;
+    blkhash_free(h);
+    src_close(s);
 }
 
 int main(int argc, char *argv[])
 {
-    struct src *s;
     unsigned char md[EVP_MAX_MD_SIZE];
     char hex[EVP_MAX_MD_SIZE * 2 + 1];
 
@@ -300,23 +434,22 @@ int main(int argc, char *argv[])
     digest_size = EVP_MD_size(digest);
 
     if (argv[2] != NULL) {
+        struct src *s;
+
         filename = argv[2];
 
-        if (is_nbd_uri(filename)) {
-            s = open_nbd(filename);
-        } else {
-            s = open_file(filename);
-        }
+        s = open_src(filename);
+        src_size = s->size;
+        src_close(s);
+
+        checksum_parallel(md);
     } else {
         filename = "-";
-        s = open_pipe(STDIN_FILENO);
+        checksum_pipe(md);
     }
-
-    checksum(s, md);
 
     format_hex(md, digest_size, hex);
     printf("%s  %s\n", hex, filename);
 
-    src_close(s);
     exit(0);
 }

@@ -130,6 +130,7 @@ def open_nbd(image, format):
         "qemu-nbd",
         "--read-only",
         "--persistent",
+        "--shared=4",
         "--socket={}".format(sock),
         "--pid-file={}".format(pidfile),
         "--format={}".format(format),

@@ -25,6 +25,7 @@ blksum = executable(
   dependencies: [
     dependency('libnbd'),
     dependency('libcrypto'),
+    dependency('threads'),
   ],
   install: true,
 )
