@@ -30,6 +30,7 @@
 #include <openssl/evp.h>
 #include "blkhash.h"
 #include "blksum.h"
+#include "util.h"
 
 /*
  * Bigger size is optimal for reading, espcially when reading for remote
@@ -119,14 +120,6 @@ static ssize_t next_segment()
     }
 
     return index;
-}
-
-static void format_hex(unsigned char *md, unsigned int len, char *s)
-{
-    for (int i = 0; i < len; i++) {
-        snprintf(&s[i * 2], 3, "%02x", md[i]);
-    }
-    s[len * 2] = 0;
 }
 
 static inline ssize_t src_pread(struct src *s, void *buf, size_t len, int64_t offset)

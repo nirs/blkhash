@@ -25,6 +25,7 @@
 
 #include "unity.h"
 #include "blkhash.h"
+#include "util.h"
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
@@ -35,14 +36,6 @@ static const unsigned int hexdigest_len = digest_len * 2 + 1; /* NULL */
 
 void setUp() {}
 void tearDown() {}
-
-static void format_hex(unsigned char *md, unsigned int len, char *s)
-{
-    for (int i = 0; i < len; i++) {
-        snprintf(&s[i * 2], 3, "%02x", md[i]);
-    }
-    s[len * 2] = 0;
-}
 
 struct extent {
     char byte;
