@@ -21,16 +21,26 @@
 #ifndef BLKSUM_H
 #define BLKSUM_H
 
+#include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 #define PROG "blksum"
 
-#define DEBUG(fmt, ...)                                     \
-  do {                                                      \
-    if (debug)                                              \
-      fprintf (stderr, PROG ": " fmt "\n", ## __VA_ARGS__); \
-  } while (0)
+#define DEBUG(fmt, ...)                                             \
+    do {                                                            \
+        if (debug)                                                  \
+            fprintf (stderr, PROG ": " fmt "\n", ## __VA_ARGS__);   \
+    } while (0)
+
+#define FAIL(fmt, ...)                                              \
+    do {                                                            \
+        fprintf (stderr, PROG ": " fmt "\n", ## __VA_ARGS__);       \
+        exit(1);                                                    \
+    } while (0)
+
+#define FAIL_ERRNO(msg) FAIL("%s: %s", msg, strerror(errno))
 
 extern bool debug;
 

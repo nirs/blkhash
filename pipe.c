@@ -42,10 +42,8 @@ static ssize_t pipe_ops_read(struct src *s, void *buf, size_t len)
             n = read(ps->fd, buf + pos, len - pos);
         } while (n == -1 && errno == EINTR);
 
-        if (n < 0) {
-            perror("read");
-            exit(1);
-        }
+        if (n < 0)
+            FAIL_ERRNO("read");
 
         if (n == 0)
             /* End of file. */
@@ -75,10 +73,8 @@ struct src *open_pipe(int fd)
     struct pipe_src *ps;
 
     ps = calloc(1, sizeof(*ps));
-    if (ps == NULL) {
-        perror("calloc");
-        exit(1);
-    }
+    if (ps == NULL)
+        FAIL_ERRNO("calloc");
 
     ps->src.ops = &pipe_ops;
     ps->src.size = -1;

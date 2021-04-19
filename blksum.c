@@ -104,20 +104,16 @@ static ssize_t next_segment()
     ssize_t index = -1;
 
     err = pthread_mutex_lock(&segment_mutex);
-    if (err) {
-        fprintf(stderr, "pthread_mutex_lock: %s\n", strerror(err));
-        exit(1);
-    }
+    if (err)
+        FAIL("pthread_mutex_lock: %s", strerror(err));
 
     if (segment < segment_count) {
         index = segment++;
     }
 
     err = pthread_mutex_unlock(&segment_mutex);
-    if (err) {
-        fprintf(stderr, "pthread_mutex_unlock: %s\n", strerror(err));
-        exit(1);
-    }
+    if (err)
+        FAIL("pthread_mutex_unlock: %s", strerror(err));
 
     return index;
 }
@@ -149,10 +145,8 @@ static inline void src_extents(struct src *s, int64_t offset, int64_t length,
      */
 
     struct extent *fallback = malloc(sizeof(*fallback));
-    if (fallback == NULL) {
-        perror("malloc");
-        exit(1);
-    }
+    if (fallback == NULL)
+        FAIL_ERRNO("malloc");
 
     fallback->length = length;
     fallback->zero = false;
@@ -237,16 +231,12 @@ static void *worker_thread(void *arg)
     s = open_src(filename);
 
     h = blkhash_new(block_size, digest_name);
-    if (h == NULL) {
-        perror("blkhash_new");
-        exit(1);
-    }
+    if (h == NULL)
+        FAIL_ERRNO("blkhash_new");
 
     buf = malloc(read_size);
-    if (buf == NULL) {
-        perror("malloc");
-        exit(1);
-    }
+    if (buf == NULL)
+        FAIL_ERRNO("malloc");
 
     while ((i = next_segment()) != -1) {
         int64_t offset = i * segment_size;
@@ -279,40 +269,30 @@ static void checksum_parallel(unsigned char *md)
     worker_count = segment_count < max_workers ? segment_count : max_workers;
 
     digests_buffer = malloc(segment_count * digest_size);
-    if (digests_buffer == NULL) {
-        perror("malloc");
-        exit(1);
-    }
+    if (digests_buffer == NULL)
+        FAIL_ERRNO("malloc");
 
     workers = malloc(worker_count * sizeof(*workers));
-    if (workers == NULL) {
-        perror("malloc");
-        exit(1);
-    }
+    if (workers == NULL)
+        FAIL_ERRNO("malloc");
 
     for (size_t i = 0; i < worker_count; i++) {
         DEBUG("starting worker %ld", i);
         err = pthread_create(&workers[i], NULL, worker_thread, (void *)i);
-        if (err) {
-            fprintf(stderr, "pthread_create: %s\n", strerror(err));
-            exit(1);
-        }
+        if (err)
+            FAIL("pthread_create: %s", strerror(err));
     }
 
     for (int i = 0; i < worker_count; i++) {
         DEBUG("joining worker %d", i);
         err = pthread_join(workers[i], NULL);
-        if (err) {
-            fprintf(stderr, "pthread_join: %s\n", strerror(err));
-            exit(1);
-        }
+        if (err)
+            FAIL("pthread_join: %s", strerror(err));
     }
 
     root_ctx = EVP_MD_CTX_new();
-    if (root_ctx == NULL) {
-        perror("EVP_MD_CTX_new");
-        exit(1);
-    }
+    if (root_ctx == NULL)
+        FAIL_ERRNO("EVP_MD_CTX_new");
 
     EVP_DigestInit_ex(root_ctx, digest, NULL);
 
@@ -348,22 +328,16 @@ static void checksum_pipe(unsigned char *md)
     s = open_pipe(STDIN_FILENO);
 
     h = blkhash_new(block_size, digest_name);
-    if (h == NULL) {
-        perror("blkhash_new");
-        exit(1);
-    }
+    if (h == NULL)
+        FAIL_ERRNO("blkhash_new");
 
     buf = malloc(read_size);
-    if (buf == NULL) {
-        perror("malloc");
-        exit(1);
-    }
+    if (buf == NULL)
+        FAIL_ERRNO("malloc");
 
     root_ctx = EVP_MD_CTX_new();
-    if (root_ctx == NULL) {
-        perror("EVP_MD_CTX_new");
-        exit(1);
-    }
+    if (root_ctx == NULL)
+        FAIL_ERRNO("EVP_MD_CTX_new");
 
     EVP_DigestInit_ex(root_ctx, digest, NULL);
 
@@ -444,5 +418,5 @@ int main(int argc, char *argv[])
     format_hex(md, digest_size, hex);
     printf("%s  %s\n", hex, filename);
 
-    exit(0);
+    return 0;
 }
