@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 #define PROG "blksum"
@@ -87,5 +88,12 @@ struct src_ops {
 struct src *open_file(const char *path);
 struct src *open_pipe(int fd);
 struct src *open_nbd(const char *uri);
+struct src *open_src(const char *filename);
+
+ssize_t src_pread(struct src *s, void *buf, size_t len, int64_t offset);
+ssize_t src_read(struct src *s, void *buf, size_t len);
+void src_extents(struct src *s, int64_t offset, int64_t length,
+                 struct extent **extents, size_t *count);
+void src_close(struct src *s);
 
 #endif /* BLKSUM_H */

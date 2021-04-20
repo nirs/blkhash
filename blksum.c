@@ -79,25 +79,6 @@ size_t segment = 0;
  */
 unsigned char *digests_buffer;
 
-static bool is_nbd_uri(const char *s)
-{
-    /*
-     * libbnd supports more options like TLS and vsock, but I'm not sure
-     * these are relevant to this tool.
-     */
-    return strncmp(s, "nbd://", 6) == 0 ||
-           strncmp(s, "nbd+unix:///", 12) == 0;
-}
-
-static struct src *open_src(const char *filename)
-{
-    if (is_nbd_uri(filename)) {
-        return open_nbd(filename);
-    } else {
-        return open_file(filename);
-    }
-}
-
 static ssize_t next_segment()
 {
     int err;
@@ -116,48 +97,6 @@ static ssize_t next_segment()
         FAIL("pthread_mutex_unlock: %s", strerror(err));
 
     return index;
-}
-
-static inline ssize_t src_pread(struct src *s, void *buf, size_t len, int64_t offset)
-{
-    return s->ops->pread(s, buf, len, offset);
-}
-
-static inline ssize_t src_read(struct src *s, void *buf, size_t len)
-{
-    return s->ops->read(s, buf, len);
-}
-
-static inline void src_extents(struct src *s, int64_t offset, int64_t length,
-                              struct extent **extents, size_t *count)
-{
-    if (s->can_extents) {
-        DEBUG("get extents offset=%ld length=%ld", offset, length);
-        if (s->ops->extents(s, offset, length, extents, count) == 0) {
-            DEBUG("got %lu extents", *count);
-            return;
-        }
-    }
-
-    /*
-     * If getting extents failed or source does not support extents,
-     * fallback to single data extent.
-     */
-
-    struct extent *fallback = malloc(sizeof(*fallback));
-    if (fallback == NULL)
-        FAIL_ERRNO("malloc");
-
-    fallback->length = length;
-    fallback->zero = false;
-
-    *extents = fallback;
-    *count = 1;
-}
-
-static inline void src_close(struct src *s)
-{
-    s->ops->close(s);
 }
 
 static void process_extent(struct src *s, struct blkhash *h, void *buf,
