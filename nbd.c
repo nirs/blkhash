@@ -95,7 +95,7 @@ static int extent_callback (void *user_data, const char *metacontext,
 
         reply_length += length;
         r->extents[i].length = length;
-        r->extents[i].zero = flags & LIBNBD_STATE_ZERO != 0;
+        r->extents[i].zero = (flags & LIBNBD_STATE_ZERO) != 0;
     }
 
     r->count = i;
