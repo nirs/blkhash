@@ -127,7 +127,14 @@ static int nbd_ops_extents(struct src *s, int64_t offset, int64_t length,
     *extents = r.extents;
     *count = r.count;
 
-    return 0;
+    /*
+     * According to nbd_block_status(3), the extent callback may not be
+     * called at all if the server does not support base:allocation, or
+     * could not retrun the requested data for some reason. Treat this
+     * as a temporary error so caller can use a fallback. Hopefully the
+     * next call would succeed.
+     */
+    return r.count > 0 ? 0 : -1;
 }
 
 static void nbd_ops_close(struct src *s)
