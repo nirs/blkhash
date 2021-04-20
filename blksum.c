@@ -32,25 +32,29 @@
 #include "blksum.h"
 #include "util.h"
 
-/*
- * Bigger size is optimal for reading, espcially when reading for remote
- * storage. Should be aligned to block size for best performance.
- * TODO: Requires more testing with different storage.
- */
-const size_t read_size = 2 * 1024 * 1024;
+struct options opt = {
 
-/*
- * Smaller size is optimal for hashing and detecting holes. This give best
- * perforamnce when testing on zero image on local nvme drive.
- * TODO: Requires more testing with different storage.
- */
-size_t block_size = 64 * 1024;
+    /*
+     * Bigger size is optimal for reading, espcially when reading for
+     * remote storage. Should be aligned to block size for best
+     * performance.
+     * TODO: Requires more testing with different storage.
+     */
+    .read_size = 2 * 1024 * 1024,
 
-/* Size of image segment. */
-size_t segment_size = 128 * 1024 * 1024;
+    /*
+     * Smaller size is optimal for hashing and detecting holes. This
+     * give best perforamnce when testing on zero image on local nvme
+     * drive.
+     * TODO: Requires more testing with different storage.
+     */
+    .block_size = 64 * 1024,
+
+    /* Size of image segment. */
+    .segment_size = 128 * 1024 * 1024,
+};
 
 bool debug = false;
-const char *digest_name;
 const char *filename;
 size_t max_workers = 4;
 
@@ -110,7 +114,7 @@ static void process_extent(struct src *s, struct blkhash *h, void *buf,
     } else {
         uint32_t todo = extent->length;
         while (todo) {
-            size_t n = (todo > read_size) ? read_size : todo;
+            size_t n = (todo > opt.read_size) ? opt.read_size : todo;
             src_pread(s, buf, n, offset);
             blkhash_update(h, buf, n);
             offset += n;
@@ -124,8 +128,8 @@ static void process_segment(struct src *s, struct blkhash *h, void *buf,
 {
     struct extent *extents = NULL;
     size_t count = 0;
-    size_t length = (offset + segment_size <= src_size)
-        ? segment_size : src_size - offset;
+    size_t length = (offset + opt.segment_size <= src_size)
+        ? opt.segment_size : src_size - offset;
     struct extent *last;
     struct extent *cur;
 
@@ -169,16 +173,16 @@ static void *worker_thread(void *arg)
 
     s = open_src(filename);
 
-    h = blkhash_new(block_size, digest_name);
+    h = blkhash_new(opt.block_size, opt.digest_name);
     if (h == NULL)
         FAIL_ERRNO("blkhash_new");
 
-    buf = malloc(read_size);
+    buf = malloc(opt.read_size);
     if (buf == NULL)
         FAIL_ERRNO("malloc");
 
     while ((i = next_segment()) != -1) {
-        int64_t offset = i * segment_size;
+        int64_t offset = i * opt.segment_size;
         unsigned char *seg_md = &digests_buffer[i * digest_size];
 
         DEBUG("worker %ld processing segemnt %lu offset %ld",
@@ -204,7 +208,7 @@ static void checksum_parallel(unsigned char *md)
     pthread_t *workers;
     int err;
 
-    segment_count = (src_size + segment_size - 1) / segment_size;
+    segment_count = (src_size + opt.segment_size - 1) / opt.segment_size;
     worker_count = segment_count < max_workers ? segment_count : max_workers;
 
     digests_buffer = malloc(segment_count * digest_size);
@@ -243,7 +247,7 @@ static void checksum_parallel(unsigned char *md)
 
             format_hex(seg_md, digest_size, hex);
             DEBUG("segment %ld offset %ld checksum %s",
-                  i, i * segment_size, hex);
+                  i, i * opt.segment_size, hex);
         }
 
         EVP_DigestUpdate(root_ctx, seg_md, digest_size);
@@ -256,69 +260,9 @@ static void checksum_parallel(unsigned char *md)
     free(workers);
 }
 
-static void checksum_pipe(unsigned char *md)
-{
-    struct src *s;
-    struct blkhash *h;
-    void *buf;
-    EVP_MD_CTX *root_ctx;
-    unsigned char seg_md[EVP_MAX_MD_SIZE];
-
-    s = open_pipe(STDIN_FILENO);
-
-    h = blkhash_new(block_size, digest_name);
-    if (h == NULL)
-        FAIL_ERRNO("blkhash_new");
-
-    buf = malloc(read_size);
-    if (buf == NULL)
-        FAIL_ERRNO("malloc");
-
-    root_ctx = EVP_MD_CTX_new();
-    if (root_ctx == NULL)
-        FAIL_ERRNO("EVP_MD_CTX_new");
-
-    EVP_DigestInit_ex(root_ctx, digest, NULL);
-
-    for (;; segment++) {
-        size_t pos = 0;
-
-        while (pos < segment_size) {
-            size_t count = src_read(s, buf, read_size);
-            if (count == 0)
-                break;
-
-            blkhash_update(h, buf, count);
-            pos += count;
-        }
-
-        if (pos == 0)
-            break;
-
-        blkhash_final(h, seg_md, NULL);
-        blkhash_reset(h);
-
-        if (debug) {
-            char hex[EVP_MAX_MD_SIZE * 2 + 1];
-
-            format_hex(seg_md, digest_size, hex);
-            DEBUG("segment %ld offset %ld checksum %s",
-                  segment, segment * segment_size, hex);
-        }
-
-        EVP_DigestUpdate(root_ctx, seg_md, digest_size);
-    }
-
-    EVP_DigestFinal_ex(root_ctx, md, NULL);
-
-    EVP_MD_CTX_free(root_ctx);
-    free(buf);
-    blkhash_free(h);
-    src_close(s);
-}
-
 int main(int argc, char *argv[])
 {
+    struct src *s;
     unsigned char md[EVP_MAX_MD_SIZE];
     char hex[EVP_MAX_MD_SIZE * 2 + 1];
 
@@ -329,19 +273,17 @@ int main(int argc, char *argv[])
 
     debug = getenv("BLKSUM_DEBUG") != NULL;
 
-    digest_name = argv[1];
+    opt.digest_name = argv[1];
 
-    digest = EVP_get_digestbyname(digest_name);
+    digest = EVP_get_digestbyname(opt.digest_name);
     if (digest == NULL) {
-        fprintf(stderr, "Unknown digest: %s\n", digest_name);
+        fprintf(stderr, "Unknown digest: %s\n", opt.digest_name);
         exit(2);
     }
 
     digest_size = EVP_MD_size(digest);
 
     if (argv[2] != NULL) {
-        struct src *s;
-
         filename = argv[2];
 
         s = open_src(filename);
@@ -351,7 +293,9 @@ int main(int argc, char *argv[])
         checksum_parallel(md);
     } else {
         filename = "-";
-        checksum_pipe(md);
+        s = open_pipe(STDIN_FILENO);
+        simple_checksum(s, &opt, md);
+        src_close(s);
     }
 
     format_hex(md, digest_size, hex);
