@@ -55,9 +55,7 @@ void src_extents(struct src *s, int64_t offset, int64_t length,
                  struct extent **extents, size_t *count)
 {
     if (s->can_extents) {
-        DEBUG("get extents offset=%ld length=%ld", offset, length);
         if (s->ops->extents(s, offset, length, extents, count) == 0) {
-            DEBUG("got %lu extents", *count);
             return;
         }
     }

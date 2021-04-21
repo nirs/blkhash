@@ -22,6 +22,7 @@ blksum = executable(
     'pipe.c',
     'src.c',
     'simple.c',
+    'parallel.c',
     'util.c',
   ],
   link_with: blkhash_lib,

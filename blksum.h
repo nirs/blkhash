@@ -43,7 +43,6 @@
 
 #define FAIL_ERRNO(msg) FAIL("%s: %s", msg, strerror(errno))
 
-/* Options defined in blksum.c */
 extern bool debug;
 
 struct options {
@@ -51,6 +50,7 @@ struct options {
     size_t read_size;
     size_t block_size;
     size_t segment_size;
+    size_t max_workers;
 };
 
 struct src {
@@ -105,5 +105,7 @@ void src_extents(struct src *s, int64_t offset, int64_t length,
 void src_close(struct src *s);
 
 void simple_checksum(struct src *s, struct options *opt, unsigned char *out);
+void parallel_checksum(const char *filename, struct options *opt,
+                       unsigned char *out);
 
 #endif /* BLKSUM_H */
