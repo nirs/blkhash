@@ -235,6 +235,11 @@ To build debug version run:
     meson setup build
     meson compile -C build
 
+If "meson compile" does not work, you probably have old meson (< 0.55)
+and need to run:
+
+    ninja-build -C build
+
 To build release version:
 
     meson setup build --buildtype release --prefix /usr
