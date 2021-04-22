@@ -50,7 +50,7 @@ blkhash_test = executable(
 test(
   'blksum', find_program('pytest'),
   depends: blksum,
-  env: {'BLKSUM': blksum.full_path()},
+  env: ['BLKSUM=' + blksum.full_path()],
   workdir: meson.current_source_dir(),
 )
 
