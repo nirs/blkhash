@@ -141,7 +141,7 @@ static void nbd_ops_close(struct src *s)
 {
     struct nbd_src *ns = (struct nbd_src *)s;
 
-    nbd_shutdown(ns->h, LIBNBD_SHUTDOWN_ABANDON_PENDING);
+    nbd_shutdown(ns->h, 0);
     nbd_close(ns->h);
 
     free(ns);
