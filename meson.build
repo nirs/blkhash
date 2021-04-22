@@ -47,11 +47,15 @@ blkhash_test = executable(
   link_with: [blkhash_lib, unity_lib]
 )
 
-test(
-  'blksum', find_program('pytest'),
-  depends: blksum,
-  env: ['BLKSUM=' + blksum.full_path()],
-  workdir: meson.current_source_dir(),
-)
-
 test('blkhash', blkhash_test)
+
+pytest = find_program('pytest', required: false)
+
+if pytest.found()
+  test(
+    'blksum', pytest,
+    depends: blksum,
+    env: ['BLKSUM=' + blksum.full_path()],
+    workdir: meson.current_source_dir(),
+  )
+endif
