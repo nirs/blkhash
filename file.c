@@ -38,10 +38,9 @@ static ssize_t file_ops_pread(struct src *s, void *buf, size_t len, int64_t offs
     struct file_src *fs = (struct file_src *)s;
     size_t pos = 0;
 
-    if (offset + len > s->size) {
-        fprintf(stderr, "read after end of file");
-        exit(1);
-    }
+    if (offset + len > s->size)
+        FAIL("read after end of file offset=%ld len=%ld size=%ld",
+             offset, len, s->size);
 
     while (pos < len) {
         ssize_t n;
@@ -50,10 +49,8 @@ static ssize_t file_ops_pread(struct src *s, void *buf, size_t len, int64_t offs
             n = pread(fs->fd, buf + pos, len - pos, offset + pos);
         } while (n == -1 && errno == EINTR);
 
-        if (n < 0) {
-            perror("pread");
-            exit(1);
-        }
+        if (n < 0)
+            FAIL_ERRNO("pread");
 
         pos += n;
     }
@@ -81,21 +78,15 @@ struct src *open_file(const char *path)
     struct file_src *fs;
 
     fd = open(path, O_RDONLY);
-    if (fd == -1) {
-        perror("open");
-        exit(1);
-    }
+    if (fd == -1)
+        FAIL_ERRNO("open");
 
-    if (fstat(fd, &sb)) {
-        perror("fstat");
-        exit(1);
-    }
+    if (fstat(fd, &sb))
+        FAIL_ERRNO("fstat");
 
     fs = calloc(1, sizeof(*fs));
-    if (fs == NULL)  {
-        perror("calloc");
-        exit(1);
-    }
+    if (fs == NULL)
+        FAIL_ERRNO("calloc");
 
     /* Best effort, ignore errors. */
     posix_fadvise(fd, 0, sb.st_size, POSIX_FADV_SEQUENTIAL);

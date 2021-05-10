@@ -21,18 +21,37 @@
 #ifndef BLKSUM_H
 #define BLKSUM_H
 
+#include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 
 #define PROG "blksum"
 
-#define DEBUG(fmt, ...)                                     \
-  do {                                                      \
-    if (debug)                                              \
-      fprintf (stderr, PROG ": " fmt "\n", ## __VA_ARGS__); \
-  } while (0)
+#define DEBUG(fmt, ...)                                             \
+    do {                                                            \
+        if (debug)                                                  \
+            fprintf (stderr, PROG ": " fmt "\n", ## __VA_ARGS__);   \
+    } while (0)
+
+#define FAIL(fmt, ...)                                              \
+    do {                                                            \
+        fprintf (stderr, PROG ": " fmt "\n", ## __VA_ARGS__);       \
+        exit(1);                                                    \
+    } while (0)
+
+#define FAIL_ERRNO(msg) FAIL("%s: %s", msg, strerror(errno))
 
 extern bool debug;
+
+struct options {
+    const char *digest_name;
+    size_t read_size;
+    size_t block_size;
+    size_t segment_size;
+    size_t max_workers;
+};
 
 struct src {
     struct src_ops *ops;
@@ -77,5 +96,16 @@ struct src_ops {
 struct src *open_file(const char *path);
 struct src *open_pipe(int fd);
 struct src *open_nbd(const char *uri);
+struct src *open_src(const char *filename);
+
+ssize_t src_pread(struct src *s, void *buf, size_t len, int64_t offset);
+ssize_t src_read(struct src *s, void *buf, size_t len);
+void src_extents(struct src *s, int64_t offset, int64_t length,
+                 struct extent **extents, size_t *count);
+void src_close(struct src *s);
+
+void simple_checksum(struct src *s, struct options *opt, unsigned char *out);
+void parallel_checksum(const char *filename, struct options *opt,
+                       unsigned char *out);
 
 #endif /* BLKSUM_H */

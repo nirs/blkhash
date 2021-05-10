@@ -20,6 +20,10 @@ blksum = executable(
     'file.c',
     'nbd.c',
     'pipe.c',
+    'src.c',
+    'simple.c',
+    'parallel.c',
+    'util.c',
   ],
   link_with: blkhash_lib,
   dependencies: [
@@ -42,6 +46,7 @@ blkhash_test = executable(
   'blkhash_test',
   [
     'blkhash_test.c',
+    'util.c',
   ],
   include_directories : unity_dir,
   link_with: [blkhash_lib, unity_lib]

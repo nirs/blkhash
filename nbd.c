@@ -26,6 +26,8 @@
 
 #include "blksum.h"
 
+#define FAIL_NBD() FAIL("%s", nbd_get_error())
+
 struct nbd_src {
     struct src src;
     struct nbd_handle *h;
@@ -42,16 +44,13 @@ static ssize_t nbd_ops_pread(struct src *s, void *buf, size_t len, int64_t offse
     struct nbd_src *ns = (struct nbd_src *)s;
     int res = -1;
 
-    if (offset + len > s->size) {
-        fprintf(stderr, "read after end of nbd");
-        exit(1);
-    }
+    if (offset + len > s->size)
+        FAIL("read after end of file offset=%ld len=%ld size=%ld",
+             offset, len, s->size);
 
     res = nbd_pread(ns->h, buf, len, offset, 0);
-    if (res == -1) {
-        fprintf(stderr, "%s\n", nbd_get_error());
-        exit(1);
-    }
+    if (res == -1)
+        FAIL_NBD();
 
     return len;
 }
@@ -71,10 +70,8 @@ static int extent_callback (void *user_data, const char *metacontext,
     }
 
     r->extents = malloc(count * sizeof(*r->extents));
-    if (r->extents == NULL) {
-        perror("malloc");
-        exit(1);
-    }
+    if (r->extents == NULL)
+        FAIL_ERRNO("malloc");
 
     /*
      * NBD protocol allows the last request to end after the specified
@@ -159,26 +156,18 @@ struct src *open_nbd(const char *uri)
     struct nbd_src *ns;
 
     h = nbd_create();
-    if (h == NULL) {
-        perror("nbd_create");
-        exit(1);
-    }
+    if (h == NULL)
+        FAIL_NBD();
 
-    if (nbd_add_meta_context(h, LIBNBD_CONTEXT_BASE_ALLOCATION)) {
-        fprintf (stderr, "%s\n", nbd_get_error());
-        exit(1);
-    }
+    if (nbd_add_meta_context(h, LIBNBD_CONTEXT_BASE_ALLOCATION))
+        FAIL_NBD();
 
-    if (nbd_connect_uri(h, uri)) {
-        perror("nbd_connect_uri");
-        exit(1);
-    }
+    if (nbd_connect_uri(h, uri))
+        FAIL_NBD();
 
     ns = calloc(1, sizeof(*ns));
-    if (ns == NULL)  {
-        perror("calloc");
-        exit(1);
-    }
+    if (ns == NULL)
+        FAIL_ERRNO("calloc");
 
     ns->src.ops = &nbd_ops;
     ns->src.size = nbd_get_size(h);
