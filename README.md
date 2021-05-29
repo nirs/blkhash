@@ -197,12 +197,19 @@ Empty image using raw and qcow2 format:
 
 ## Portability
 
-blkhash it developed and tested only on Linux, but it should be portable
-to other platforms where openssl works.
+blkhash it developed on Linux, but it should be portable to other platforms
+where openssl is avaialble.
+
+NBD suppoort requires libnbd. If libdnb is not availble, blksum is built
+without NBD support.
+
+Tested on:
+- Fedora 32
+- FreeBSD 13 (without libnbd)
 
 ## Setting up development environment
 
-Install packages (for Fedora):
+Fedora:
 
     dnf install \
         asciidoc \
@@ -211,7 +218,19 @@ Install packages (for Fedora):
         libnbd-devel \
         meson \
         openssl-devel \
-        python3
+        python3 \
+        qemu-img
+
+FreeBSD:
+
+    pkg install \
+        asciidoc \
+        git \
+        meson \
+        openssl \
+        pkgconf \
+        python3 \
+        qemu-utils
 
 Get the source:
 
@@ -229,11 +248,32 @@ To run the tests, you need to setup a python environment:
     pip install pytest
     deactivate
 
-## Building
+On FreeBSD using the default shell (sh), use "." instead of "source":
 
-To build debug version run:
+    . ~/venv/blkhash/bin/activate
+
+## Configuring
+
+Create a build directory with default options:
 
     meson setup build
+
+The default options:
+
+- nbd=auto - Support NBD if libnbd is available.
+
+To configure build directory for release installing in /usr:
+
+    meson configure build --buildtype=release --prefix=/usr
+
+To see all available options and possible values:
+
+    meson configure build
+
+## Building
+
+To build run:
+
     meson compile -C build
 
 If "meson compile" does not work, you probably have old meson (< 0.55)
@@ -241,20 +281,17 @@ and need to run:
 
     ninja-build -C build
 
-To build release version:
-
-    meson setup build --buildtype release --prefix /usr
-    meson compile -C build
-
-To install use:
-
-    sudo meson install -C build
-
 Instead of specifying the directory, you can run the command inside the
 build directory:
 
     cd build
     meson compile
+
+## Installing
+
+To install at configured --prefix:
+
+    sudo meson install -C build
 
 ## Debugging
 
@@ -289,13 +326,17 @@ To see verbose test output use:
 To run specific blksum tests, use pytest directly:
 
     meson -C build compile
-    pytest -v -k sha1-sparse
+    pytest -k sha1-sparse
+
+If blksum is built with NBD support, enable the NBD tests:
+
+    HAVE_NBD=1 pytest -k sha1-sparse
 
 pytest uses the "build" directory by default. If you want to use another
 directory name, or installed blksum executable, specify the path to the
 executable in the environment:
 
-    meson setup release --buildtype release
+    meson setup release --buildtype=release
     meson compile -C release
     BLKSUM=release/blksum pytest
 

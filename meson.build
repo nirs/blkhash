@@ -1,5 +1,10 @@
 project('blkhash', 'c', version: '0.1')
 
+libnbd = dependency('libnbd', required: get_option('nbd'))
+if libnbd.found()
+  add_project_arguments('-DHAVE_NBD=1', language : 'c')
+endif
+
 blkhash_lib = library(
   'blkhash',
   [
@@ -27,7 +32,7 @@ blksum = executable(
   ],
   link_with: blkhash_lib,
   dependencies: [
-    dependency('libnbd'),
+    libnbd,
     dependency('libcrypto'),
     dependency('threads'),
   ],
@@ -96,10 +101,14 @@ test('example', example)
 pytest = find_program('pytest', required: false)
 
 if pytest.found()
+  env = environment()
+  env.set('BLKSUM', blksum.full_path())
+  env.set('HAVE_NBD', libnbd.found() ? '1' : '')
   test(
-    'blksum', pytest,
+    'blksum',
+    pytest,
     depends: blksum,
-    env: ['BLKSUM=' + blksum.full_path()],
+    env: env,
     workdir: meson.current_source_dir(),
   )
 endif
