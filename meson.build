@@ -34,6 +34,44 @@ blksum = executable(
   install: true,
 )
 
+a2x = find_program('a2x')
+
+blksum_1 = custom_target(
+  'blksum.1',
+  command: [a2x, '--format=manpage', '--destination-dir=@BUILD_ROOT@', '@INPUT@'],
+  input: 'blksum.1.adoc',
+  output: 'blksum.1',
+  install: true,
+  install_dir: join_paths(get_option('prefix'), get_option('mandir'), 'man1')
+)
+
+blksum_1 = custom_target(
+  'blkhash.3',
+  command: [a2x, '--format=manpage', '--destination-dir=@BUILD_ROOT@', '@INPUT@'],
+  input: 'blkhash.3.adoc',
+  output: [
+    'blkhash_new.3',
+    'blkhash_update.3',
+    'blkhash_zero.3',
+    'blkhash_final.3',
+    'blkhash_reset.3',
+    'blkhash_free.3',
+  ],
+  install: true,
+  install_dir: join_paths(get_option('prefix'), get_option('mandir'), 'man3')
+)
+
+example = executable(
+  'example',
+  [
+    'example.c',
+  ],
+  link_with: blkhash_lib,
+  dependencies: [
+    dependency('libcrypto'),
+  ],
+)
+
 unity_dir = include_directories('unity/src')
 
 unity_lib = static_library(
@@ -53,6 +91,7 @@ blkhash_test = executable(
 )
 
 test('blkhash', blkhash_test)
+test('example', example)
 
 pytest = find_program('pytest', required: false)
 

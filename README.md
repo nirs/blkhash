@@ -205,6 +205,7 @@ to other platforms where openssl works.
 Install packages (for Fedora):
 
     dnf install \
+        asciidoc \
         gcc \
         git \
         libnbd-devel \

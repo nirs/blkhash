@@ -1,0 +1,62 @@
+BLKSUM(1)
+=========
+:doctype: manpage
+
+NAME
+----
+
+blksum - compute message digest for disk images
+
+SYNOPSYS
+--------
+
+*blksum* 'DIGEST' ['SOURCE']
+
+DESCRIPTION
+-----------
+
+blksum print a checksum for disk image guest visible content. You can
+compare the checksum for disk images in different image format.
+
+'DIGEST' is any message digest name supported by openssl. To list
+availabe names run:
+
+    openssl dgst -list
+
+'SOURCE' can be a file or NBD URL.
+
+To compute a checksum for a qcow2 disk image export the image with
+qemu-nbd(8):
+
+    qemu-nbd -r -t -e 4 -f qcow2 -k /tmp/sock disk.qcow2
+
+And specify NBD URL as 'SOURCE':
+
+    blksum sha1 nbd+unix:///?socket=/tmp/sock
+
+This works for any image format supported by qemu-nbd(8).
+
+If 'SOURCE' is not specified, read data from stadard input. This can be
+used only for raw images.
+
+EXAMPLES
+--------
+
+`blksum sha1 disk.img`::
+    Print a sha1 checkum for raw disk.img.
+
+`blksum blake2b512 nbd+unix:///?socket=/tmp/nbd.sock`::
+    Print a blake2b checksum for image exported at NBD URL.
+
+`blksum sha1 <disk.img`::
+    Print a sha1 checksum for data read from standard input.
+
+COPYRIGHT
+---------
+
+Copyright (C) Nir Soffer. License LGPLv2+.
+
+SEE ALSO
+--------
+
+qemu-nbd(8), openssl(1)
