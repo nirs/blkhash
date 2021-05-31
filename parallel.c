@@ -147,7 +147,8 @@ static void process_extent(struct worker *w, int64_t offset,
 {
     struct options *opt = w->job->opt;
 
-    DEBUG("worker %d process extent offset=%ld length=%u zero=%d",
+    DEBUG("worker %d process extent offset=%" PRIi64" length=%" PRIu32
+          " zero=%d",
           w->id, offset, extent->length, extent->zero);
 
     if (extent->zero) {
@@ -175,7 +176,7 @@ static void process_segment(struct worker *w, int64_t offset)
     struct extent *last;
     struct extent *cur;
 
-    DEBUG("worker %d get extents offset=%ld length=%ld",
+    DEBUG("worker %d get extents offset=%" PRIi64 " length=%zu",
           w->id, offset, length);
 
     src_extents(w->s, offset, length, &extents, &count);
@@ -234,7 +235,7 @@ static void *worker_thread(void *arg)
         int64_t offset = i * opt->segment_size;
         unsigned char *seg_md = segment_md(job, i);
 
-        DEBUG("worker %d processing segemnt %lu offset %ld",
+        DEBUG("worker %d processing segemnt %zd offset %" PRIi64,
               w->id, i, offset);
 
         process_segment(w, offset);
