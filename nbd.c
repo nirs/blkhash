@@ -18,6 +18,8 @@
  * 02110-1301 USA
  */
 
+#ifdef HAVE_NBD
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -177,3 +179,5 @@ struct src *open_nbd(const char *uri)
 
     return &ns->src;
 }
+
+#endif /* HAVE_NBD */

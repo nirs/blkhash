@@ -29,6 +29,7 @@ BLOCK_SIZE = 64 * 1024
 SEGMENT_SIZE = 128 * 1024 * 1024
 DIGEST_NAMES = ["sha1", "blake2b512"]
 BLKSUM = os.environ.get("BLKSUM", "build/blksum")
+HAVE_NBD = bool(os.environ.get("HAVE_NBD"))
 
 
 @pytest.mark.parametrize("fmt", [
@@ -58,14 +59,17 @@ def test_blksum(tmpdir, fmt, md):
     # Test raw format.
     assert blksum_file(md, image_raw) == [checksum, image_raw]
     assert blksum_pipe(md, image_raw) == [checksum, "-"]
-    with open_nbd(image_raw, "raw") as nbd_url:
-        assert blksum_nbd(md, nbd_url) == [checksum, nbd_url]
 
-    # Test qcow2 format.
-    image_qcow2 = str(tmpdir.join("image.qcow2"))
-    convert_image(image_raw, image_qcow2, "qcow2")
-    with open_nbd(image_qcow2, "qcow2") as nbd_url:
-        assert blksum_nbd(md, nbd_url) == [checksum, nbd_url]
+    if HAVE_NBD:
+        # Test raw format.
+        with open_nbd(image_raw, "raw") as nbd_url:
+            assert blksum_nbd(md, nbd_url) == [checksum, nbd_url]
+
+        # Test qcow2 format.
+        image_qcow2 = str(tmpdir.join("image.qcow2"))
+        convert_image(image_raw, image_qcow2, "qcow2")
+        with open_nbd(image_qcow2, "qcow2") as nbd_url:
+            assert blksum_nbd(md, nbd_url) == [checksum, nbd_url]
 
 
 def blksum_nbd(md, nbd_url):

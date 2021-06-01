@@ -35,7 +35,11 @@ static bool is_nbd_uri(const char *s)
 struct src *open_src(const char *filename)
 {
     if (is_nbd_uri(filename)) {
+#ifdef HAVE_NBD
         return open_nbd(filename);
+#else
+	FAIL("NBD not supported");
+#endif
     } else {
         return open_file(filename);
     }

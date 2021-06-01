@@ -1,0 +1,1 @@
+option('nbd', type: 'feature', value: 'auto', description: 'Support NBD URL')
