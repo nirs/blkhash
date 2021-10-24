@@ -74,25 +74,31 @@ static struct src_ops file_ops = {
 struct src *open_file(const char *path)
 {
     int fd;
-    struct stat sb;
     struct file_src *fs;
+    off_t size;
 
     fd = open(path, O_RDONLY);
     if (fd == -1)
         FAIL_ERRNO("open");
 
-    if (fstat(fd, &sb))
-        FAIL_ERRNO("fstat");
+    /* This works with both regular file and block device. */
+    size = lseek(fd, 0, SEEK_END);
+    if (size == -1)
+        FAIL_ERRNO("lseek");
+
+    /* Not required since we use pread() but nicer. */
+    if (lseek(fd, 0, SEEK_SET) == -1)
+        FAIL_ERRNO("lseek");
 
     fs = calloc(1, sizeof(*fs));
     if (fs == NULL)
         FAIL_ERRNO("calloc");
 
     /* Best effort, ignore errors. */
-    posix_fadvise(fd, 0, sb.st_size, POSIX_FADV_SEQUENTIAL);
+    posix_fadvise(fd, 0, size, POSIX_FADV_SEQUENTIAL);
 
     fs->src.ops = &file_ops;
-    fs->src.size = sb.st_size;
+    fs->src.size = size;
     fs->fd = fd;
 
     return &fs->src;
