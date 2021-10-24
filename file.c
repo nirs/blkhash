@@ -39,7 +39,7 @@ static ssize_t file_ops_pread(struct src *s, void *buf, size_t len, int64_t offs
     size_t pos = 0;
 
     if (offset + len > s->size)
-        FAIL("read after end of file offset=%ld len=%ld size=%ld",
+        FAIL("read after end of file offset=%" PRIi64 " len=%zu size=%" PRIi64,
              offset, len, s->size);
 
     while (pos < len) {
@@ -94,8 +94,10 @@ struct src *open_file(const char *path)
     if (fs == NULL)
         FAIL_ERRNO("calloc");
 
+#ifdef POSIX_FADV_SEQUENTIAL
     /* Best effort, ignore errors. */
     posix_fadvise(fd, 0, size, POSIX_FADV_SEQUENTIAL);
+#endif
 
     fs->src.ops = &file_ops;
     fs->src.size = size;
