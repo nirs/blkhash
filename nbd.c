@@ -143,6 +143,7 @@ static void nbd_ops_close(struct src *s)
     nbd_shutdown(ns->h, 0);
     nbd_close(ns->h);
 
+    free((char *)ns->src.uri);
     free(ns);
 }
 
@@ -156,6 +157,11 @@ struct src *open_nbd(const char *uri)
 {
     struct nbd_handle *h;
     struct nbd_src *ns;
+    const char *prv_uri;
+
+    prv_uri = strdup(uri);
+    if (prv_uri == NULL)
+        FAIL_ERRNO("strdup");
 
     h = nbd_create();
     if (h == NULL)
@@ -172,6 +178,7 @@ struct src *open_nbd(const char *uri)
         FAIL_ERRNO("calloc");
 
     ns->src.ops = &nbd_ops;
+    ns->src.uri = prv_uri;
     ns->src.size = nbd_get_size(h);
     ns->src.can_extents = nbd_can_meta_context(
         h, LIBNBD_CONTEXT_BASE_ALLOCATION) > 0;

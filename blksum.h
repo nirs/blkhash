@@ -56,6 +56,14 @@ struct options {
 
 struct src {
     struct src_ops *ops;
+
+    /*
+     * Filename or NBD URI used to open this source. When starting NBD server
+     * for local file, this will be the NBD URI, not the filename specified by
+     * the user.
+     */
+    const char *uri;
+
     int64_t size;
     bool can_extents;
 };

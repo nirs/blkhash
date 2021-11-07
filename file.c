@@ -22,6 +22,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -63,6 +64,7 @@ static void file_ops_close(struct src *s)
     struct file_src *fs = (struct file_src *)s;
 
     close(fs->fd);
+    free((char *)fs->src.uri);
     free(fs);
 }
 
@@ -75,7 +77,12 @@ struct src *open_file(const char *path)
 {
     int fd;
     struct file_src *fs;
+    const char *uri;
     off_t size;
+
+    uri = strdup(path);
+    if (uri == NULL)
+        FAIL_ERRNO("strdup");
 
     fd = open(path, O_RDONLY);
     if (fd == -1)
@@ -100,6 +107,7 @@ struct src *open_file(const char *path)
 #endif
 
     fs->src.ops = &file_ops;
+    fs->src.uri = uri;
     fs->src.size = size;
     fs->fd = fd;
 
