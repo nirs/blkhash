@@ -288,6 +288,6 @@ void parallel_checksum(const char *filename, struct options *opt,
 
     compute_root_hash(&job, out);
 
-    destroy_job(&job);
     free(workers);
+    destroy_job(&job);
 }
