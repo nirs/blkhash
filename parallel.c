@@ -56,7 +56,7 @@ static void init_job(struct job *job, const char *filename,
 {
     int err;
 
-    job->src = open_src(filename);
+    job->src = open_src(filename, true /* nbd_server */);
     job->opt = opt;
     job->md = EVP_get_digestbyname(opt->digest_name);
     if (job->md == NULL)
@@ -222,7 +222,7 @@ static void *worker_thread(void *arg)
 
     DEBUG("worker %d started", w->id);
 
-    w->s = open_src(job->src->uri);
+    w->s = open_src(job->src->uri, false /* nbd_server */);
 
     w->h = blkhash_new(opt->block_size, opt->digest_name);
     if (w->h == NULL)

@@ -63,6 +63,8 @@ static void file_ops_close(struct src *s)
 {
     struct file_src *fs = (struct file_src *)s;
 
+    DEBUG("Closing FILE %s", fs->src.uri);
+
     close(fs->fd);
     free((char *)fs->src.uri);
     free(fs);
@@ -83,6 +85,8 @@ struct src *open_file(const char *path)
     uri = strdup(path);
     if (uri == NULL)
         FAIL_ERRNO("strdup");
+
+    DEBUG("Opening FILE %s", path);
 
     fd = open(path, O_RDONLY);
     if (fd == -1)
