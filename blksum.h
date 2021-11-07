@@ -102,6 +102,7 @@ struct src_ops {
     void (*close)(struct src *s);
 };
 
+const char *probe_format(const char *path);
 struct src *open_file(const char *path);
 struct src *open_pipe(int fd);
 struct src *open_nbd(const char *uri);
