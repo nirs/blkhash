@@ -177,6 +177,45 @@ Empty image using raw and qcow2 format:
        95.50 ± 8.08 times faster than 'blksum sha1 <empty.raw'
       722.79 ± 60.87 times faster than 'sha1sum empty.raw'
 
+## Command line options
+
+### -w, --workers
+
+Set the number of workers. The default (4) gives good performance on 8
+core laptop. On larger machines you may want to use more workers. The
+valid value is 1 to the number of online cpus.
+
+Here is example showing how number of core affects performance on 8 core
+laptop.
+
+    $ hyperfine -w1 -r3 -L workers 1,2,4,6,8 "blksum sha1 -w {workers} fedora-32.qcow2"
+    Benchmark 1: blksum sha1 -w 1 fedora-32.qcow2
+      Time (mean ± σ):      2.363 s ±  0.089 s    [User: 1.631 s, System: 1.003 s]
+      Range (min … max):    2.261 s …  2.416 s    3 runs
+
+    Benchmark 2: blksum sha1 -w 2 fedora-32.qcow2
+      Time (mean ± σ):      1.362 s ±  0.005 s    [User: 1.785 s, System: 1.138 s]
+      Range (min … max):    1.357 s …  1.367 s    3 runs
+
+    Benchmark 3: blksum sha1 -w 4 fedora-32.qcow2
+      Time (mean ± σ):     949.7 ms ±  30.1 ms    [User: 2.212 s, System: 1.412 s]
+      Range (min … max):   916.7 ms … 975.8 ms    3 runs
+
+    Benchmark 4: blksum sha1 -w 6 fedora-32.qcow2
+      Time (mean ± σ):     857.3 ms ±  73.6 ms    [User: 2.751 s, System: 1.601 s]
+      Range (min … max):   798.3 ms … 939.8 ms    3 runs
+
+    Benchmark 5: blksum sha1 -w 8 fedora-32.qcow2
+      Time (mean ± σ):     825.1 ms ±  67.5 ms    [User: 2.883 s, System: 1.645 s]
+      Range (min … max):   748.2 ms … 874.3 ms    3 runs
+
+    Summary
+      'blksum sha1 -w 8 fedora-32.qcow2' ran
+        1.04 ± 0.12 times faster than 'blksum sha1 -w 6 fedora-32.qcow2'
+        1.15 ± 0.10 times faster than 'blksum sha1 -w 4 fedora-32.qcow2'
+        1.65 ± 0.14 times faster than 'blksum sha1 -w 2 fedora-32.qcow2'
+        2.86 ± 0.26 times faster than 'blksum sha1 -w 1 fedora-32.qcow2'
+
 ## Portability
 
 blkhash it developed on Linux, but it should be portable to other platforms

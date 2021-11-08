@@ -10,7 +10,7 @@ blksum - compute message digest for disk images
 SYNOPSYS
 --------
 
-*blksum* 'DIGEST' ['SOURCE']
+*blksum* [-w WORKERS] 'DIGEST' ['SOURCE']
 
 DESCRIPTION
 -----------
@@ -25,28 +25,34 @@ availabe names run:
 
 'SOURCE' can be a file or NBD URL.
 
-To compute a checksum for a qcow2 disk image export the image with
-qemu-nbd(8):
-
-    qemu-nbd -r -t -e 4 -f qcow2 -k /tmp/sock disk.qcow2
-
-And specify NBD URL as 'SOURCE':
-
-    blksum sha1 nbd+unix:///?socket=/tmp/sock
-
-This works for any image format supported by qemu-nbd(8).
-
 If 'SOURCE' is not specified, read data from stadard input. This can be
 used only for raw images.
+
+OPTIONS
+-------
+
+*-w, --workers*='WORKERS'::
+  Set the number of workers. The default (4) gives good performance but on
+  large machines you may want to use more workers. The valid value is 1 up to
+  the number of online cpus.
+
+USING QEMU-NBD
+--------------
+
+For best performance when exporting images via 'qemu-nbd(8)' set the '--shared'
+option to value larger than the number of workers. For example if using 4
+workers, use:
+
+    qemu-nbd --shared 5 -t -r -k /tmp/nbd.sock -f qcow2 disk.qcow2
 
 EXAMPLES
 --------
 
-`blksum sha1 disk.img`::
-    Print a sha1 checkum for raw disk.img.
+`blksum sha1 disk.qcow2`::
+    Print a sha1 checkum for disk.qcow2.
 
 `blksum blake2b512 nbd+unix:///?socket=/tmp/nbd.sock`::
-    Print a blake2b checksum for image exported at NBD URL.
+    Print a blake2b checksum for and image exported via NBD server.
 
 `blksum sha1 <disk.img`::
     Print a sha1 checksum for data read from standard input.

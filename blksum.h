@@ -52,6 +52,7 @@ struct options {
     size_t block_size;
     size_t segment_size;
     size_t max_workers;
+    const char *filename;
 };
 
 struct src {

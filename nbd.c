@@ -163,7 +163,7 @@ struct src *open_nbd_server(const char *filename, const char *format)
         "qemu-nbd",
         "--read-only",
         "--persistent",
-        "--shared", "8",
+        "--shared", "16",  /* TODO: opt.max_workers + 1 */
         "--format", (char *)format,
         (char *)filename,
         NULL

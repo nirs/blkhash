@@ -21,6 +21,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
+#include <getopt.h>
 
 #include <openssl/evp.h>
 #include "blkhash.h"
@@ -29,7 +30,7 @@
 
 bool debug = false;
 
-struct options opt = {
+static struct options opt = {
 
     /*
      * Bigger size is optimal for reading, espcially when reading for
@@ -54,41 +55,89 @@ struct options opt = {
     .max_workers = 4,
 };
 
+/* Start with ':' to enable detection of missing argument. */
+static const char *short_options = ":w:";
+
+static struct option long_options[] = {
+   {"workers", required_argument, 0,  'w'},
+   {0,         0,                 0,  0 }
+};
+
+static void parse_options(int argc, char *argv[])
+{
+    const char *optname;
+    int c;
+
+    /* Parse options. */
+
+    /* Silence getopt_long error messages. */
+    opterr = 0;
+
+    while (1) {
+        optname = argv[optind];
+        c = getopt_long(argc, argv, short_options, long_options, NULL);
+
+        if (c == -1)
+            break;
+
+        switch (c) {
+        case 'w':
+            char *end;
+            opt.max_workers = strtol(optarg, &end, 10);
+            if (*end != '\0' || end == optarg)
+                FAIL("Invalid value for option %s: '%s'", optname, optarg);
+
+            int online_cpus = sysconf(_SC_NPROCESSORS_ONLN);
+            if (opt.max_workers < 1 || opt.max_workers > online_cpus)
+                FAIL("Invalid number of workers: %ld (1-%d)",
+                     opt.max_workers, online_cpus);
+
+            break;
+        case ':':
+            FAIL("Option %s requires an argument", optname);
+        case '?':
+        default:
+            FAIL("Invalid option: %s", optname);
+        }
+    }
+
+    /* Parse arguments */
+
+    if (optind == argc)
+        FAIL("Usage: blksum [-w WORKERS] digestname [filename]");
+
+    opt.digest_name = argv[optind++];
+
+    if (optind < argc)
+        opt.filename = argv[optind++];
+}
+
 int main(int argc, char *argv[])
 {
-    const char *filename;
     const EVP_MD *md;
     unsigned char md_value[EVP_MAX_MD_SIZE];
     char md_hex[EVP_MAX_MD_SIZE * 2 + 1];
 
-    if (argc < 2) {
-        fprintf(stderr, "Usage: blksum digestname [filename]\n");
-        exit(2);
-    }
-
     debug = getenv("BLKSUM_DEBUG") != NULL;
 
-    opt.digest_name = argv[1];
+    parse_options(argc, argv);
 
     md = EVP_get_digestbyname(opt.digest_name);
-    if (md == NULL) {
-        fprintf(stderr, "Unknown digest: %s\n", opt.digest_name);
-        exit(2);
-    }
+    if (md == NULL)
+        FAIL("Unknown digest '%s'", opt.digest_name);
 
-    if (argv[2] != NULL) {
-        filename = argv[2];
-        parallel_checksum(filename, &opt, md_value);
+    if (opt.filename) {
+        /* TODO: remove filename parameter */
+        parallel_checksum(opt.filename, &opt, md_value);
     } else {
         struct src *s;
-        filename = "-";
         s = open_pipe(STDIN_FILENO);
         simple_checksum(s, &opt, md_value);
         src_close(s);
     }
 
     format_hex(md_value, EVP_MD_size(md), md_hex);
-    printf("%s  %s\n", md_hex, filename);
+    printf("%s  %s\n", md_hex, opt.filename ? opt.filename : "-");
 
     return 0;
 }
