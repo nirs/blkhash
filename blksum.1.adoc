@@ -49,7 +49,7 @@ EXAMPLES
 --------
 
 `blksum sha1 disk.qcow2`::
-    Print a sha1 checkum for disk.qcow2.
+    Print a sha1 checksum for disk.qcow2.
 
 `blksum blake2b512 nbd+unix:///?socket=/tmp/nbd.sock`::
     Print a blake2b checksum for and image exported via NBD server.
