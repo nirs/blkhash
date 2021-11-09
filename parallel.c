@@ -27,11 +27,15 @@
 #include "util.h"
 
 struct job {
-    const char *filename;
+    /*
+     * Source used to get inital image details, and when running NBD server to
+     * start and terminate the NBD server.
+     */
+    struct src *src;
+
     struct options *opt;
     const EVP_MD *md;
     int md_size;
-    int64_t src_size;
     size_t segment_count;
     pthread_mutex_t mutex;
     size_t segment;
@@ -51,17 +55,15 @@ static void init_job(struct job *job, const char *filename,
                      struct options *opt)
 {
     int err;
-    struct src *s = open_src(filename);
 
-    job->filename = filename;
+    job->src = open_src(filename, true /* nbd_server */);
     job->opt = opt;
     job->md = EVP_get_digestbyname(opt->digest_name);
     if (job->md == NULL)
         FAIL_ERRNO("EVP_get_digestbyname");
 
     job->md_size = EVP_MD_size(job->md);
-    job->src_size = s->size;
-    job->segment_count = (s->size + opt->segment_size - 1)
+    job->segment_count = (job->src->size + opt->segment_size - 1)
         / opt->segment_size;
     err = pthread_mutex_init(&job->mutex, NULL);
     if (err)
@@ -71,14 +73,13 @@ static void init_job(struct job *job, const char *filename,
     job->digests_buffer = malloc(job->segment_count * job->md_size);
     if (job->digests_buffer == NULL)
         FAIL_ERRNO("malloc");
-
-    src_close(s);
 }
 
 static void destroy_job(struct job *job)
 {
     int err;
 
+    src_close(job->src);
     err = pthread_mutex_destroy(&job->mutex);
     if (err)
         FAIL("pthread_mutex_destroy: %s", strerror(err));
@@ -171,8 +172,8 @@ static void process_segment(struct worker *w, int64_t offset)
     struct options *opt = job->opt;
     struct extent *extents = NULL;
     size_t count = 0;
-    size_t length = (offset + opt->segment_size <= job->src_size)
-        ? opt->segment_size : job->src_size - offset;
+    size_t length = (offset + opt->segment_size <= job->src->size)
+        ? opt->segment_size : job->src->size - offset;
     struct extent *last;
     struct extent *cur;
 
@@ -221,7 +222,7 @@ static void *worker_thread(void *arg)
 
     DEBUG("worker %d started", w->id);
 
-    w->s = open_src(job->filename);
+    w->s = open_src(job->src->uri, false /* nbd_server */);
 
     w->h = blkhash_new(opt->block_size, opt->digest_name);
     if (w->h == NULL)
@@ -287,6 +288,6 @@ void parallel_checksum(const char *filename, struct options *opt,
 
     compute_root_hash(&job, out);
 
-    destroy_job(&job);
     free(workers);
+    destroy_job(&job);
 }

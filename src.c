@@ -32,17 +32,30 @@ static bool is_nbd_uri(const char *s)
            strncmp(s, "nbd+unix:///", 12) == 0;
 }
 
-struct src *open_src(const char *filename)
+struct src *open_src(const char *filename, bool nbd_server)
 {
+    /* If the user run the nbd server use it. */
     if (is_nbd_uri(filename)) {
 #ifdef HAVE_NBD
         return open_nbd(filename);
 #else
-	FAIL("NBD not supported");
+        FAIL("NBD is not supported");
 #endif
-    } else {
-        return open_file(filename);
     }
+
+#ifdef HAVE_NBD
+    /*
+     * If we can run nbd server, start a server and return nbd source
+     * connected to the server.
+     */
+    if (nbd_server) {
+        const char *format = probe_format(filename);
+        return open_nbd_server(filename, format);
+    }
+#endif
+
+    /* Othewise open as a raw image. */
+    return open_file(filename);
 }
 
 ssize_t src_pread(struct src *s, void *buf, size_t len, int64_t offset)

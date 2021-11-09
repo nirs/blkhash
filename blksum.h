@@ -52,10 +52,19 @@ struct options {
     size_t block_size;
     size_t segment_size;
     size_t max_workers;
+    const char *filename;
 };
 
 struct src {
     struct src_ops *ops;
+
+    /*
+     * Filename or NBD URI used to open this source. When starting NBD server
+     * for local file, this will be the NBD URI, not the filename specified by
+     * the user.
+     */
+    const char *uri;
+
     int64_t size;
     bool can_extents;
 };
@@ -94,10 +103,20 @@ struct src_ops {
     void (*close)(struct src *s);
 };
 
+const char *probe_format(const char *path);
 struct src *open_file(const char *path);
 struct src *open_pipe(int fd);
 struct src *open_nbd(const char *uri);
-struct src *open_src(const char *filename);
+struct src *open_nbd_server(const char *path, const char *format);
+
+/*
+ * Open source for filename and return a connected source.
+ *
+ * If built with NBD support and server is true, start a nbd server and
+ * return a nbd source. The nbd server is terminated when closing the
+ * source.
+ */
+struct src *open_src(const char *filename, bool nbd_server);
 
 ssize_t src_pread(struct src *s, void *buf, size_t len, int64_t offset);
 ssize_t src_read(struct src *s, void *buf, size_t len);

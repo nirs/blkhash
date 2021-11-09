@@ -140,9 +140,12 @@ static void nbd_ops_close(struct src *s)
 {
     struct nbd_src *ns = (struct nbd_src *)s;
 
+    DEBUG("Closing NBD %s", ns->src.uri);
+
     nbd_shutdown(ns->h, 0);
     nbd_close(ns->h);
 
+    free((char *)ns->src.uri);
     free(ns);
 }
 
@@ -152,10 +155,20 @@ static struct src_ops nbd_ops = {
     .close = nbd_ops_close,
 };
 
-struct src *open_nbd(const char *uri)
+struct src *open_nbd_server(const char *filename, const char *format)
 {
     struct nbd_handle *h;
     struct nbd_src *ns;
+    char *args[] = {
+        "qemu-nbd",
+        "--read-only",
+        "--persistent",
+        "--shared", "16",  /* TODO: opt.max_workers + 1 */
+        "--format", (char *)format,
+        (char *)filename,
+        NULL
+    };
+    const char *uri;
 
     h = nbd_create();
     if (h == NULL)
@@ -163,6 +176,50 @@ struct src *open_nbd(const char *uri)
 
     if (nbd_add_meta_context(h, LIBNBD_CONTEXT_BASE_ALLOCATION))
         FAIL_NBD();
+
+    DEBUG("Opening NBD server for %s", filename);
+
+    if (nbd_connect_systemd_socket_activation(h, args))
+        FAIL_NBD();
+
+    uri = nbd_get_uri(h);
+    if (uri == NULL)
+        FAIL_NBD();
+
+    DEBUG("Using NBD URI: %s", uri);
+
+    ns = calloc(1, sizeof(*ns));
+    if (ns == NULL)
+        FAIL_ERRNO("calloc");
+
+    ns->src.ops = &nbd_ops;
+    ns->src.uri = uri;
+    ns->src.size = nbd_get_size(h);
+    ns->src.can_extents = nbd_can_meta_context(
+        h, LIBNBD_CONTEXT_BASE_ALLOCATION) > 0;
+    ns->h = h;
+
+    return &ns->src;
+}
+
+struct src *open_nbd(const char *uri)
+{
+    struct nbd_handle *h;
+    struct nbd_src *ns;
+    const char *prv_uri;
+
+    prv_uri = strdup(uri);
+    if (prv_uri == NULL)
+        FAIL_ERRNO("strdup");
+
+    h = nbd_create();
+    if (h == NULL)
+        FAIL_NBD();
+
+    if (nbd_add_meta_context(h, LIBNBD_CONTEXT_BASE_ALLOCATION))
+        FAIL_NBD();
+
+    DEBUG("Opening NBD URI %s", uri);
 
     if (nbd_connect_uri(h, uri))
         FAIL_NBD();
@@ -172,6 +229,7 @@ struct src *open_nbd(const char *uri)
         FAIL_ERRNO("calloc");
 
     ns->src.ops = &nbd_ops;
+    ns->src.uri = prv_uri;
     ns->src.size = nbd_get_size(h);
     ns->src.can_extents = nbd_can_meta_context(
         h, LIBNBD_CONTEXT_BASE_ALLOCATION) > 0;
