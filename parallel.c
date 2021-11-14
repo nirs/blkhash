@@ -262,8 +262,8 @@ void parallel_checksum(const char *filename, struct options *opt,
 
     init_job(&job, filename, opt);
 
-    worker_count = (job.segment_count < opt->max_workers)
-        ? job.segment_count : opt->max_workers;
+    worker_count = (job.segment_count < opt->workers)
+        ? job.segment_count : opt->workers;
 
     workers = calloc(worker_count, sizeof(*workers));
     if (workers == NULL)

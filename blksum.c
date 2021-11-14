@@ -52,7 +52,7 @@ static struct options opt = {
     .segment_size = 128 * 1024 * 1024,
 
     /* Number of worker threads to use. */
-    .max_workers = 4,
+    .workers = 4,
 };
 
 /* Start with ':' to enable detection of missing argument. */
@@ -83,14 +83,14 @@ static void parse_options(int argc, char *argv[])
         switch (c) {
         case 'w':
             char *end;
-            opt.max_workers = strtol(optarg, &end, 10);
+            opt.workers = strtol(optarg, &end, 10);
             if (*end != '\0' || end == optarg)
                 FAIL("Invalid value for option %s: '%s'", optname, optarg);
 
             int online_cpus = sysconf(_SC_NPROCESSORS_ONLN);
-            if (opt.max_workers < 1 || opt.max_workers > online_cpus)
+            if (opt.workers < 1 || opt.workers > online_cpus)
                 FAIL("Invalid number of workers: %ld (1-%d)",
-                     opt.max_workers, online_cpus);
+                     opt.workers, online_cpus);
 
             break;
         case ':':

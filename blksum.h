@@ -51,7 +51,7 @@ struct options {
     size_t read_size;
     size_t block_size;
     size_t segment_size;
-    size_t max_workers;
+    size_t workers;
     const char *filename;
 };
 
