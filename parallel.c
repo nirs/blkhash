@@ -59,7 +59,8 @@ static void init_job(struct job *job, const char *filename,
     job->src = open_src(
         filename,
         true,   /* Start NBD server if needed. */
-        NULL    /* Format unknown, probe if nedeed. */
+        NULL,   /* Format unknown, probe if nedeed. */
+        opt     /* Use opt when starting nbd server. */
     );
 
     job->opt = opt;
@@ -230,7 +231,8 @@ static void *worker_thread(void *arg)
     w->s = open_src(
         job->src->uri,
         false, /* Don't start NBD server. */
-        job->src->format
+        job->src->format,
+        NULL  /* Options not needed. */
     );
 
     w->h = blkhash_new(opt->block_size, opt->digest_name);

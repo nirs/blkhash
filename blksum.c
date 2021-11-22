@@ -53,13 +53,17 @@ static struct options opt = {
 
     /* Number of worker threads to use. */
     .workers = 4,
+
+    /* Avoid host page cache. */
+    .nocache = false,
 };
 
 /* Start with ':' to enable detection of missing argument. */
-static const char *short_options = ":w:";
+static const char *short_options = ":w:n";
 
 static struct option long_options[] = {
    {"workers", required_argument, 0,  'w'},
+   {"nocache", no_argument,       0,  'n'},
    {0,         0,                 0,  0 }
 };
 
@@ -94,6 +98,9 @@ static void parse_options(int argc, char *argv[])
 
             break;
         }
+        case 'n':
+            opt.nocache = true;
+            break;
         case ':':
             FAIL("Option %s requires an argument", optname);
         case '?':
@@ -105,7 +112,7 @@ static void parse_options(int argc, char *argv[])
     /* Parse arguments */
 
     if (optind == argc)
-        FAIL("Usage: blksum [-w WORKERS] digestname [filename]");
+        FAIL("Usage: blksum [-w WORKERS] [-n] digestname [filename]");
 
     opt.digest_name = argv[optind++];
 
