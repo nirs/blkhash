@@ -112,6 +112,7 @@ struct src *open_file(const char *path)
 
     fs->src.ops = &file_ops;
     fs->src.uri = uri;
+    fs->src.format = "raw";
     fs->src.size = size;
     fs->fd = fd;
 

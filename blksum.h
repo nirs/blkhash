@@ -65,6 +65,12 @@ struct src {
      */
     const char *uri;
 
+    /*
+     * Set to "raw" or "qcow2" if image format was probed when opening this
+     * source. Otherwise set to NULL.
+     */
+    const char *format;
+
     int64_t size;
     bool can_extents;
 };
