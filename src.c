@@ -56,7 +56,11 @@ struct src *open_src(const char *filename, bool nbd_server, const char *format)
     }
 #endif
 
-    /* Othewise open as a raw image. */
+    /* Otherwise if the image is raw, open the file directly. */
+
+    if (strcmp(format, "raw") != 0)
+        FAIL("%s format requires NBD", format);
+
     return open_file(filename);
 }
 
