@@ -121,8 +121,11 @@ struct src *open_nbd_server(const char *path, const char *format);
  * If built with NBD support and server is true, start a nbd server and
  * return a nbd source. The nbd server is terminated when closing the
  * source.
+ *
+ * If format is NULL, and filename is not a NBD URL, probe filename
+ * format. If format was probed, it will reported by the open source.
  */
-struct src *open_src(const char *filename, bool nbd_server);
+struct src *open_src(const char *filename, bool nbd_server, const char *format);
 
 ssize_t src_pread(struct src *s, void *buf, size_t len, int64_t offset);
 ssize_t src_read(struct src *s, void *buf, size_t len);
