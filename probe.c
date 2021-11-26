@@ -82,11 +82,16 @@ const char *probe_format(const char *path)
 {
     char buf[PROBE_SIZE];
     size_t len;
+    const char *format;
 
     len = read_probe(path, &buf);
 
     if (is_qcow2(buf, len))
-        return "qcow2";
+        format = "qcow2";
     else
-        return "raw";
+        format = "raw";
+
+    DEBUG("Probed image format: %s", format);
+
+    return format;
 }
