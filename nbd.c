@@ -194,6 +194,7 @@ struct src *open_nbd_server(const char *filename, const char *format)
 
     ns->src.ops = &nbd_ops;
     ns->src.uri = uri;
+    ns->src.format = format;
     ns->src.size = nbd_get_size(h);
     ns->src.can_extents = nbd_can_meta_context(
         h, LIBNBD_CONTEXT_BASE_ALLOCATION) > 0;
@@ -230,6 +231,7 @@ struct src *open_nbd(const char *uri)
 
     ns->src.ops = &nbd_ops;
     ns->src.uri = prv_uri;
+    ns->src.format = NULL;
     ns->src.size = nbd_get_size(h);
     ns->src.can_extents = nbd_can_meta_context(
         h, LIBNBD_CONTEXT_BASE_ALLOCATION) > 0;

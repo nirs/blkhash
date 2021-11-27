@@ -16,7 +16,8 @@ DESCRIPTION
 -----------
 
 blksum print a checksum for disk image guest visible content. You can
-compare the checksum for disk images in different image format.
+compare the checksum for disk images in 'raw' or 'qcow2' format. 'qcow2'
+format is supported only if 'blksum' was built with NBD support.
 
 'DIGEST' is any message digest name supported by openssl. To list
 availabe names run:
@@ -26,7 +27,7 @@ availabe names run:
 'SOURCE' can be a file or NBD URL.
 
 If 'SOURCE' is not specified, read data from stadard input. This can be
-used only for raw images.
+used only for 'raw' images.
 
 OPTIONS
 -------
