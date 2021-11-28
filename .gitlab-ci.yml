@@ -1,0 +1,12 @@
+image: quay.io/nirsof/blkhash-fedora-35
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
+before_script:
+  - meson setup build
+  - meson compile -C build
+
+test:
+  script:
+    - meson test -C build -v
