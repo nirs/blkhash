@@ -81,7 +81,7 @@ static void parse_options(int argc, char *argv[])
             break;
 
         switch (c) {
-        case 'w':
+        case 'w': {
             char *end;
             opt.workers = strtol(optarg, &end, 10);
             if (*end != '\0' || end == optarg)
@@ -93,6 +93,7 @@ static void parse_options(int argc, char *argv[])
                      opt.workers, online_cpus);
 
             break;
+        }
         case ':':
             FAIL("Option %s requires an argument", optname);
         case '?':
