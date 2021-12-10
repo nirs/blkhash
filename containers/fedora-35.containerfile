@@ -1,7 +1,8 @@
 FROM registry.fedoraproject.org/fedora:35
 
 # Runtime packages.
-RUN dnf install -y \
+RUN echo v2 \
+    && dnf install -y \
         asciidoc \
         gcc \
         git \
