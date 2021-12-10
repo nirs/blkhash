@@ -58,15 +58,17 @@ def test_blksum(tmpdir, fmt, md):
     checksum = simple_blksum(md, image_raw)
     print(checksum)
 
-    # Test file - blksum supports both raw and qcow2.
+    # Test file.
     assert blksum_file(md, image_raw) == [checksum, image_raw]
-    assert blksum_file(md, image_qcow2) == [checksum, image_qcow2]
+    if HAVE_NBD:
+        # We can test also qcow2 format.
+        assert blksum_file(md, image_qcow2) == [checksum, image_qcow2]
 
     # Test pipe- blksum cannot process qcow2 via pipe.
     assert blksum_pipe(md, image_raw) == [checksum, "-"]
 
     if HAVE_NBD:
-        # We can test any image format supported by qemu-nbd.
+        # Test using external qemu-nbd process.
         with open_nbd(image_raw, "raw") as nbd_url:
             assert blksum_nbd(md, nbd_url) == [checksum, nbd_url]
         with open_nbd(image_qcow2, "qcow2") as nbd_url:
