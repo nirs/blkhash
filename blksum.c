@@ -22,6 +22,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <signal.h>
 
 #include <openssl/evp.h>
 #include "blkhash.h"
@@ -120,6 +121,32 @@ static void parse_options(int argc, char *argv[])
         opt.filename = argv[optind++];
 }
 
+void terminate(int signum)
+{
+    /* Kill child processes using same signal. */
+    kill(0, signum);
+
+    /* And exit with the expected exit code. */
+    exit(signum + 128);
+}
+
+void setup_signals(void)
+{
+    sigset_t all;
+    sigfillset(&all);
+
+    struct sigaction act = {
+        .sa_handler = terminate,
+        .sa_mask = all,
+    };
+
+    if (sigaction(SIGINT, &act, NULL) != 0)
+        FAIL_ERRNO("sigaction");
+
+    if (sigaction(SIGTERM, &act, NULL) != 0)
+        FAIL_ERRNO("sigaction");
+}
+
 int main(int argc, char *argv[])
 {
     const EVP_MD *md;
@@ -133,6 +160,8 @@ int main(int argc, char *argv[])
     md = EVP_get_digestbyname(opt.digest_name);
     if (md == NULL)
         FAIL("Unknown digest '%s'", opt.digest_name);
+
+    setup_signals();
 
     if (opt.filename) {
         /* TODO: remove filename parameter */
