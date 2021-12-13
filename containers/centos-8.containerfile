@@ -1,7 +1,10 @@
-FROM registry.fedoraproject.org/fedora:35
+FROM quay.io/centos/centos:stream8
 
 # Runtime packages.
-RUN echo v2 \
+RUN echo v1 \
+    && dnf install -y \
+        dnf-plugins-core \
+    && dnf config-manager --set-enabled powertools \
     && dnf install -y \
         asciidoc \
         gcc \

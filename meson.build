@@ -1,6 +1,10 @@
 project('blkhash', 'c', version: '0.1')
 
-libnbd = dependency('libnbd', required: get_option('nbd'))
+libnbd = dependency(
+  'libnbd',
+  version : '>=1.10.2',
+  required: get_option('nbd'),
+)
 if libnbd.found()
   add_project_arguments('-DHAVE_NBD=1', language : 'c')
 endif
