@@ -10,7 +10,7 @@ blksum - compute message digest for disk images
 SYNOPSYS
 --------
 
-*blksum* [-w WORKERS] 'DIGEST' ['SOURCE']
+*blksum* [-w WORKERS] [-n] 'DIGEST' ['SOURCE']
 
 DESCRIPTION
 -----------
@@ -36,6 +36,12 @@ OPTIONS
   Set the number of workers. The default (4) gives good performance but on
   large machines you may want to use more workers. The valid value is 1 up to
   the number of online cpus.
+
+*-n, --nocache*::
+  Avoid host page cache (Linux only). This is may be slower, but it prevents
+  polluting host page cache with data that is unlikely to be used. May be
+  required when computing a checksum for block device connected to multiple
+  hosts, if the block device was modified on another host.
 
 USING QEMU-NBD
 --------------

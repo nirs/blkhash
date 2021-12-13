@@ -155,14 +155,19 @@ static struct src_ops nbd_ops = {
     .close = nbd_ops_close,
 };
 
-struct src *open_nbd_server(const char *filename, const char *format)
+struct src *open_nbd_server(const char *filename, const char *format,
+                            bool nocache)
 {
     struct nbd_handle *h;
     struct nbd_src *ns;
+    const char *cache = nocache ? "none": "writeback";
+    const char *aio = nocache ? "native" : "threads";
     char *args[] = {
         "qemu-nbd",
         "--read-only",
         "--persistent",
+        "--cache", (char *)cache,
+        "--aio", (char *)aio,
         "--shared", "16",  /* TODO: opt.max_workers + 1 */
         "--format", (char *)format,
         (char *)filename,

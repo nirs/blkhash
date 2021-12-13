@@ -52,6 +52,7 @@ struct options {
     size_t block_size;
     size_t segment_size;
     size_t workers;
+    bool nocache;
     const char *filename;
 };
 
@@ -113,7 +114,7 @@ const char *probe_format(const char *path);
 struct src *open_file(const char *path);
 struct src *open_pipe(int fd);
 struct src *open_nbd(const char *uri);
-struct src *open_nbd_server(const char *path, const char *format);
+struct src *open_nbd_server(const char *path, const char *format, bool nocache);
 
 /*
  * Open source for filename and return a connected source.
@@ -124,8 +125,10 @@ struct src *open_nbd_server(const char *path, const char *format);
  *
  * If format is NULL, and filename is not a NBD URL, probe filename
  * format. If format was probed, it will reported by the open source.
+ *
+ * When starting NBD server, use opt to configure the server.
  */
-struct src *open_src(const char *filename, bool nbd_server, const char *format);
+struct src *open_src(const char *filename, bool nbd_server, const char *format, const struct options *opt);
 
 ssize_t src_pread(struct src *s, void *buf, size_t len, int64_t offset);
 ssize_t src_read(struct src *s, void *buf, size_t len);

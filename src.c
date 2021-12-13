@@ -32,7 +32,7 @@ static bool is_nbd_uri(const char *s)
            strncmp(s, "nbd+unix:///", 12) == 0;
 }
 
-struct src *open_src(const char *filename, bool nbd_server, const char *format)
+struct src *open_src(const char *filename, bool nbd_server, const char *format, const struct options *opt)
 {
     /* If the user run the nbd server use it. */
     if (is_nbd_uri(filename)) {
@@ -52,7 +52,7 @@ struct src *open_src(const char *filename, bool nbd_server, const char *format)
      */
 #ifdef HAVE_NBD
     if (nbd_server) {
-        return open_nbd_server(filename, format);
+        return open_nbd_server(filename, format, opt->nocache);
     }
 #endif
 

@@ -59,10 +59,15 @@ def test_blksum(tmpdir, fmt, md):
     print(checksum)
 
     # Test file.
-    assert blksum_file(md, image_raw) == [checksum, image_raw]
+    res = [checksum, image_raw]
+    assert blksum_file(md, image_raw, cache=True) == res
+    assert blksum_file(md, image_raw, cache=False) == res
+
     if HAVE_NBD:
         # We can test also qcow2 format.
-        assert blksum_file(md, image_qcow2) == [checksum, image_qcow2]
+        res = [checksum, image_qcow2]
+        assert blksum_file(md, image_qcow2, cache=True) == res
+        assert blksum_file(md, image_qcow2, cache=False) == res
 
     # Test pipe- blksum cannot process qcow2 via pipe.
     assert blksum_pipe(md, image_raw) == [checksum, "-"]
@@ -80,8 +85,12 @@ def blksum_nbd(md, nbd_url):
     return out.decode().strip().split("  ")
 
 
-def blksum_file(md, image):
-    out = subprocess.check_output([BLKSUM, md, image])
+def blksum_file(md, image, cache=True):
+    cmd = [BLKSUM, md]
+    if not cache:
+        cmd.append("-n")
+    cmd.append(image)
+    out = subprocess.check_output(cmd)
     return out.decode().strip().split("  ")
 
 
