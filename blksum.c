@@ -13,6 +13,7 @@
 #include "util.h"
 
 bool debug = false;
+bool io_only = false;
 
 static struct options opt = {
 
@@ -137,6 +138,7 @@ int main(int argc, char *argv[])
     char md_hex[EVP_MAX_MD_SIZE * 2 + 1];
 
     debug = getenv("BLKSUM_DEBUG") != NULL;
+    io_only = getenv("BLKSUM_IO_ONLY") != NULL;
 
     parse_options(argc, argv);
 

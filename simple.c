@@ -45,7 +45,8 @@ void simple_checksum(struct src *s, struct options *opt, unsigned char *out)
             if (count == 0)
                 break;
 
-            blkhash_update(h, buf, count);
+            if (!io_only)
+                blkhash_update(h, buf, count);
             pos += count;
         }
 
