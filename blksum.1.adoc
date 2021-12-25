@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Red Hat Inc
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 BLKSUM(1)
 =========
 :doctype: manpage
@@ -64,10 +67,20 @@ EXAMPLES
 `blksum sha1 <disk.img`::
     Print a sha1 checksum for data read from standard input.
 
+AUTHORS
+-------
+
+Nir Soffer <nirsof@gmail.com>
+
 COPYRIGHT
 ---------
 
-Copyright (C) Nir Soffer. License LGPLv2+.
+Copyright Red Hat Inc.
+
+LICENSE
+-------
+
+LGPL-2.1-or-later.
 
 SEE ALSO
 --------
