@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Red Hat Inc
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 project('blkhash', 'c', version: '0.1')
 
 libnbd = dependency(

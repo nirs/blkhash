@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: Red Hat Inc
+SPDX-License-Identifier: LGPL-2.1-or-later
+-->
+
 # blkhash
 
 Block based hash optimized for disk images.
@@ -368,5 +373,5 @@ To run only blkhash tests:
 
 ## License
 
-blkhash licensed under the GNU Lesser General Public License version 2.1.
-See the file `LICENCE` for details.
+blkhash is licensed under the GNU Lesser General Public License version
+2.1 or later. See the file `LICENSES/LGPL-2.1-or-later.txt` for details.

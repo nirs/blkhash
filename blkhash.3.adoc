@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Red Hat Inc
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 blkhash(3)
 ==========
 :doctype: manpage
@@ -101,7 +104,17 @@ Program source:
 include::example.c[]
 --------------------
 
+AUTHORS
+-------
+
+Nir Soffer <nirsof@gmail.com>
+
 COPYRIGHT
 ---------
 
-Copyright (C) Nir Soffer. License LGPLv2+.
+Copyright Red Hat Inc.
+
+LICENSE
+-------
+
+LGPL-2.1-or-later.
