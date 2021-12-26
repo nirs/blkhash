@@ -5,7 +5,7 @@
 
 #include "blksum.h"
 
-static bool is_nbd_uri(const char *s)
+bool is_nbd_uri(const char *s)
 {
     /*
      * libbnd supports more options like TLS and vsock, but I'm not sure
@@ -15,9 +15,8 @@ static bool is_nbd_uri(const char *s)
            strncmp(s, "nbd+unix:///", 12) == 0;
 }
 
-struct src *open_src(const char *filename, bool nbd_server, const char *format, const struct options *opt)
+struct src *open_src(const char *filename)
 {
-    /* If the user run the nbd server use it. */
     if (is_nbd_uri(filename)) {
 #ifdef HAVE_NBD
         return open_nbd(filename);
@@ -25,24 +24,6 @@ struct src *open_src(const char *filename, bool nbd_server, const char *format, 
         FAIL("NBD is not supported");
 #endif
     }
-
-    if (format == NULL)
-        format = probe_format(filename);
-
-    /*
-     * If we can run nbd server, start a server and return nbd source
-     * connected to the server.
-     */
-#ifdef HAVE_NBD
-    if (nbd_server) {
-        return open_nbd_server(filename, format, opt->nocache);
-    }
-#endif
-
-    /* Otherwise if the image is raw, open the file directly. */
-
-    if (strcmp(format, "raw") != 0)
-        FAIL("%s format requires NBD", format);
 
     return open_file(filename);
 }

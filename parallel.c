@@ -10,12 +10,8 @@
 #include "util.h"
 
 struct job {
-    /*
-     * Source used to get inital image details, and when running NBD server to
-     * start and terminate the NBD server.
-     */
-    struct src *src;
-
+    char *uri;
+    uint64_t size;
     struct options *opt;
     const EVP_MD *md;
     int md_size;
@@ -23,6 +19,9 @@ struct job {
     pthread_mutex_t mutex;
     size_t segment;
     unsigned char *digests_buffer;
+
+    /* Set if job started a nbd server to serve filename. */
+    struct nbd_server *nbd_server;
 };
 
 struct worker {
@@ -38,21 +37,52 @@ static void init_job(struct job *job, const char *filename,
                      struct options *opt)
 {
     int err;
+    struct src *src;
 
-    job->src = open_src(
-        filename,
-        true,   /* Start NBD server if needed. */
-        NULL,   /* Format unknown, probe if nedeed. */
-        opt     /* Use opt when starting nbd server. */
-    );
+    if (is_nbd_uri(filename)) {
+        /* Use user provided nbd server. */
+        job->uri = strdup(filename);
+        if (job->uri == NULL)
+            FAIL_ERRNO("strdup");
+    } else {
+        /*
+         * If we have NBD, start nbd server and use nbd uri. Otherwise use file
+         * directly if it is a raw format.
+         */
+        const char *format = probe_format(filename);
 
+#ifdef HAVE_NBD
+        struct server_options options = {
+            .filename=filename,
+            .format=format,
+            .nocache=opt->nocache,
+        };
+
+        job->nbd_server = start_nbd_server(&options);
+        job->uri = nbd_server_uri(job->nbd_server);
+#else
+        if (strcmp(format, "raw") != 0)
+            FAIL("%s format requires NBD", format);
+
+        job->uri = strdup(filename);
+        if (job->uri == NULL)
+            FAIL_ERRNO("strdup");
+#endif
+    }
+
+    /* Connect to source for getting size. */
+    src = open_src(job->uri);
+    job->size = src->size;
+    src_close(src);
+
+    /* Initalize job. */
     job->opt = opt;
     job->md = EVP_get_digestbyname(opt->digest_name);
     if (job->md == NULL)
         FAIL_ERRNO("EVP_get_digestbyname");
 
     job->md_size = EVP_MD_size(job->md);
-    job->segment_count = (job->src->size + opt->segment_size - 1)
+    job->segment_count = (job->size + opt->segment_size - 1)
         / opt->segment_size;
     err = pthread_mutex_init(&job->mutex, NULL);
     if (err)
@@ -68,13 +98,23 @@ static void destroy_job(struct job *job)
 {
     int err;
 
-    src_close(job->src);
     err = pthread_mutex_destroy(&job->mutex);
     if (err)
         FAIL("pthread_mutex_destroy: %s", strerror(err));
 
     free(job->digests_buffer);
     job->digests_buffer = NULL;
+
+    free(job->uri);
+    job->uri = NULL;
+
+#ifdef HAVE_NBD
+    if (job->nbd_server) {
+        stop_nbd_server(job->nbd_server);
+        free(job->nbd_server);
+        job->nbd_server = NULL;
+    }
+#endif
 }
 
 static inline unsigned char *segment_md(struct job *job, size_t n)
@@ -163,8 +203,8 @@ static void process_segment(struct worker *w, int64_t offset)
     struct options *opt = job->opt;
     struct extent *extents = NULL;
     size_t count = 0;
-    size_t length = (offset + opt->segment_size <= job->src->size)
-        ? opt->segment_size : job->src->size - offset;
+    size_t length = (offset + opt->segment_size <= job->size)
+        ? opt->segment_size : job->size - offset;
     struct extent *last;
     struct extent *cur;
 
@@ -213,12 +253,7 @@ static void *worker_thread(void *arg)
 
     DEBUG("worker %d started", w->id);
 
-    w->s = open_src(
-        job->src->uri,
-        false, /* Don't start NBD server. */
-        job->src->format,
-        NULL  /* Options not needed. */
-    );
+    w->s = open_src(job->uri);
 
     w->h = blkhash_new(opt->block_size, opt->digest_name);
     if (w->h == NULL)
@@ -251,7 +286,7 @@ static void *worker_thread(void *arg)
 void parallel_checksum(const char *filename, struct options *opt,
                        unsigned char *out)
 {
-    struct job job;
+    struct job job = {0};
     struct worker *workers;
     size_t worker_count;
     int err;

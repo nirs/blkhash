@@ -5,7 +5,7 @@ project('blkhash', 'c', version: '0.1')
 
 libnbd = dependency(
   'libnbd',
-  version : '>=1.10.2',
+  version : '>=1.2.2',  # RHEL 8.5
   required: get_option('nbd'),
 )
 if libnbd.found()
@@ -31,6 +31,7 @@ blksum = executable(
     'blksum.c',
     'file.c',
     'nbd.c',
+    'nbdserver.c',
     'parallel.c',
     'pipe.c',
     'probe.c',

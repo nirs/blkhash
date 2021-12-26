@@ -49,7 +49,6 @@ static void file_ops_close(struct src *s)
     DEBUG("Closing FILE %s", fs->src.uri);
 
     close(fs->fd);
-    free((char *)fs->src.uri);
     free(fs);
 }
 
@@ -62,12 +61,7 @@ struct src *open_file(const char *path)
 {
     int fd;
     struct file_src *fs;
-    const char *uri;
     off_t size;
-
-    uri = strdup(path);
-    if (uri == NULL)
-        FAIL_ERRNO("strdup");
 
     DEBUG("Opening FILE %s", path);
 
@@ -94,8 +88,7 @@ struct src *open_file(const char *path)
 #endif
 
     fs->src.ops = &file_ops;
-    fs->src.uri = uri;
-    fs->src.format = "raw";
+    fs->src.uri = path;
     fs->src.size = size;
     fs->fd = fd;
 
