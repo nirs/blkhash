@@ -142,13 +142,15 @@ static void process_extent(struct worker *w, int64_t offset,
           w->id, offset, extent->length, extent->zero);
 
     if (extent->zero) {
-        blkhash_zero(w->h, extent->length);
+        if (!io_only)
+            blkhash_zero(w->h, extent->length);
     } else {
         uint32_t todo = extent->length;
         while (todo) {
             size_t n = (todo > opt->read_size) ? opt->read_size : todo;
             src_pread(w->s, w->buf, n, offset);
-            blkhash_update(w->h, w->buf, n);
+            if (!io_only)
+                blkhash_update(w->h, w->buf, n);
             offset += n;
             todo -= n;
         }

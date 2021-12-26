@@ -28,6 +28,7 @@
 #define FAIL_ERRNO(msg) FAIL("%s: %s", msg, strerror(errno))
 
 extern bool debug;
+extern bool io_only;
 
 struct options {
     const char *digest_name;
