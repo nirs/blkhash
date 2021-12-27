@@ -18,25 +18,29 @@ bool io_only = false;
 static struct options opt = {
 
     /*
-     * Bigger size is optimal for reading, espcially when reading for
-     * remote storage. Should be aligned to block size for best
-     * performance.
-     * TODO: Requires more testing with different storage.
+     * Maximum read size in bytes. The curent value gives best
+     * performance with i7-10850H when reading from fast NVMe. More
+     * testing is needed with shared storage and different CPUs.
      */
-    .read_size = 2 * 1024 * 1024,
+    .read_size = 256 * 1024,
 
     /*
-     * Smaller size is optimal for hashing and detecting holes. This
-     * give best perforamnce when testing on zero image on local nvme
-     * drive.
-     * TODO: Requires more testing with different storage.
+     * Maximum number of inflight async reads per worker. The default
+     * works best when using 4 workers. When using smaller number of
+     * workers, a higher queue depth may be faster.
+     */
+    .queue_depth = 8,
+
+    /*
+     * Smaller size is optimal for hashing and detecting holes.
      */
     .block_size = 64 * 1024,
 
     /* Size of image segment. */
     .segment_size = 128 * 1024 * 1024,
 
-    /* Number of worker threads to use. */
+    /* Number of worker threads to use. This is the most important
+     * configuration for best performance. */
     .workers = 4,
 
     /* Avoid host page cache. */

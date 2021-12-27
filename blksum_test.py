@@ -32,6 +32,7 @@ HAVE_NBD = bool(os.environ.get("HAVE_NBD"))
     pytest.param("AB CD E", id="full-unaligned"),
     pytest.param("A- -0 E- -0", id="mix"),
     pytest.param("A- -0 E- -", id="mix-unaligned"),
+    pytest.param("AA AA AA AA BB -- CC CC CC CC CC -- DD", id="read-size"),
 ])
 @pytest.mark.parametrize("md", DIGEST_NAMES)
 def test_blksum(tmpdir, fmt, md):

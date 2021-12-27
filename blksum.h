@@ -35,6 +35,7 @@ extern bool io_only;
 struct options {
     const char *digest_name;
     size_t read_size;
+    size_t queue_depth;
     size_t block_size;
     size_t segment_size;
     size_t workers;
@@ -73,6 +74,11 @@ struct extent {
     bool zero;
 };
 
+/*
+ * Callback invoked when an async command completes.
+ */
+typedef int (*completion_callback)(void *user_data, int *error);
+
 struct src_ops {
     /*
      * Always read exactly len bytes, offset + len must be less than size.
@@ -85,6 +91,22 @@ struct src_ops {
      * the number of bytes read. Optional if pread() is available.
      */
     ssize_t (*read)(struct src *s, void *buf, size_t len);
+
+    /*
+     * Always read exactly len bytes, offset + len must be less than
+     * size.  When the read completes, cb is invoked with user_data.
+     * Optional if read() is available.
+     */
+    int (*aio_pread)(struct src *s, void *buf, size_t len, int64_t offset,
+                     completion_callback cb, void *user_data);
+
+    /*
+     * Run source event loop until at least one in-flight command completes.
+     * Must be implemented if aio_pread() is available.
+     *
+     * Return 0 on timeout, 1 if at least one command completed.
+     */
+    int (*aio_run)(struct src *s, int timeout);
 
     /*
      * Get image extents for a byte range. Caller must free the returned
@@ -114,10 +136,13 @@ struct src *open_pipe(int fd);
 struct src *open_nbd(const char *uri);
 struct src *open_src(const char *filename);
 
-ssize_t src_pread(struct src *s, void *buf, size_t len, int64_t offset);
-ssize_t src_read(struct src *s, void *buf, size_t len);
 void src_extents(struct src *s, int64_t offset, int64_t length,
                  struct extent **extents, size_t *count);
+ssize_t src_read(struct src *s, void *buf, size_t len);
+ssize_t src_pread(struct src *s, void *buf, size_t len, int64_t offset);
+int src_aio_pread(struct src *s, void *buf, size_t len, int64_t offset,
+                  completion_callback cb, void* user_data);
+int src_aio_run(struct src *s, int timeout);
 void src_close(struct src *s);
 
 void simple_checksum(struct src *s, struct options *opt, unsigned char *out);

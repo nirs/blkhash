@@ -63,6 +63,17 @@ void src_extents(struct src *s, int64_t offset, int64_t length,
     *count = 1;
 }
 
+int src_aio_pread(struct src *s, void *buf, size_t len, int64_t offset,
+                  completion_callback cb, void* user_data)
+{
+    return s->ops->aio_pread(s, buf, len, offset, cb, user_data);
+}
+
+int src_aio_run(struct src *s, int timeout)
+{
+    return s->ops->aio_run(s, timeout);
+}
+
 void src_close(struct src *s)
 {
     s->ops->close(s);

@@ -119,6 +119,56 @@ static int nbd_ops_extents(struct src *s, int64_t offset, int64_t length,
     return r.count > 0 ? 0 : -1;
 }
 
+static int nbd_ops_aio_pread(struct src *s, void *buf, size_t len,
+                             int64_t offset, completion_callback cb,
+                             void *user_data)
+{
+    struct nbd_src *ns = (struct nbd_src *)s;
+    int64_t res;
+
+    if (offset + len > s->size)
+        FAIL("read after end of file offset=%ld len=%ld size=%ld",
+             offset, len, s->size);
+
+    res = nbd_aio_pread(
+        ns->h, buf, len, offset,
+        (nbd_completion_callback) {
+            .callback=cb,
+            .user_data=user_data,
+        },
+        0);
+
+    if (res < 0)
+        FAIL_NBD();
+
+    return 0;
+}
+
+static int nbd_ops_aio_run(struct src *s, int timeout)
+{
+    struct nbd_src *ns = (struct nbd_src *)s;
+    int res;
+    unsigned in_flight;
+
+    in_flight = nbd_aio_in_flight(ns->h);
+
+    if (in_flight == 0)
+        return 1;
+
+    /*
+     * Testing shows that we need to poll 1-7 times before a command
+     * complete.
+     */
+    do {
+        res = nbd_poll(ns->h, timeout);
+    } while (res == 1 && nbd_aio_in_flight(ns->h) >= in_flight);
+
+    if (res == -1)
+        FAIL_NBD();
+
+    return res;
+}
+
 static void nbd_ops_close(struct src *s)
 {
     struct nbd_src *ns = (struct nbd_src *)s;
@@ -134,6 +184,8 @@ static void nbd_ops_close(struct src *s)
 static struct src_ops nbd_ops = {
     .pread = nbd_ops_pread,
     .extents = nbd_ops_extents,
+    .aio_pread = nbd_ops_aio_pread,
+    .aio_run = nbd_ops_aio_run,
     .close = nbd_ops_close,
 };
 
