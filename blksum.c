@@ -47,13 +47,20 @@ static struct options opt = {
     .nocache = false,
 };
 
+enum {
+    QUEUE_DEPTH=CHAR_MAX + 1,
+    READ_SIZE,
+};
+
 /* Start with ':' to enable detection of missing argument. */
 static const char *short_options = ":w:n";
 
 static struct option long_options[] = {
-   {"workers", required_argument, 0,  'w'},
-   {"nocache", no_argument,       0,  'n'},
-   {0,         0,                 0,  0 }
+   {"workers",      required_argument,  0,  'w'},
+   {"nocache",      no_argument,        0,  'n'},
+   {"queue-depth",  required_argument,  0,  QUEUE_DEPTH},
+   {"read-size",    required_argument,  0,  READ_SIZE},
+   {0,              0,                  0,  0}
 };
 
 static void parse_options(int argc, char *argv[])
@@ -90,6 +97,33 @@ static void parse_options(int argc, char *argv[])
         case 'n':
             opt.nocache = true;
             break;
+        case QUEUE_DEPTH: {
+            char *end;
+            opt.queue_depth = strtol(optarg, &end, 10);
+            if (*end != '\0' || end == optarg)
+                FAIL("Invalid value for option %s: '%s'", optname, optarg);
+
+            if (opt.queue_depth < 1 || opt.queue_depth > 128)
+                FAIL("Invalid queue-depth value: %ld (1-128)",
+                     opt.queue_depth);
+
+            break;
+        }
+        case READ_SIZE: {
+            char *end;
+            opt.read_size = strtol(optarg, &end, 10);
+            if (*end != '\0' || end == optarg)
+                FAIL("Invalid value for option %s: '%s'", optname, optarg);
+
+            if (opt.read_size < opt.block_size || opt.read_size > 16777216)
+                FAIL("Invalid read-size value: %ld (%ld-16777216)",
+                     opt.read_size, opt.block_size);
+
+            if (opt.read_size % opt.block_size)
+                FAIL("Invalid read-size is not a multiply of block size (%ld)",
+                     opt.block_size);
+            break;
+        }
         case ':':
             FAIL("Option %s requires an argument", optname);
         case '?':
@@ -101,7 +135,9 @@ static void parse_options(int argc, char *argv[])
     /* Parse arguments */
 
     if (optind == argc)
-        FAIL("Usage: blksum [-w WORKERS] [-n] digestname [filename]");
+        FAIL("Usage: blksum [-w N|--workers=N] [-n|--nocache]\n"
+             "              [--queue-depth=N] [--read-size=N]\n"
+             "              digestname [filename]");
 
     opt.digest_name = argv[optind++];
 
