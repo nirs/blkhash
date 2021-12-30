@@ -26,6 +26,12 @@ struct job {
     struct nbd_server *nbd_server;
 };
 
+struct extent_array {
+    struct extent *array;
+    size_t count;
+    size_t index;
+};
+
 struct command {
     STAILQ_ENTRY(command) entry;
     uint64_t seq;
@@ -49,6 +55,7 @@ struct worker {
     struct job *job;
     struct src *s;
     struct blkhash *h;
+    struct extent_array extents;
     struct command_queue queue;
 
     /* Ensure that we process commands in order. */
@@ -326,29 +333,62 @@ static void finish_command(struct worker *w)
     free_command(cmd);
 }
 
-static void process_segment(struct worker *w, int64_t offset)
+static void fetch_extents(struct worker *w, int64_t offset)
 {
     struct job *job = w->job;
     struct options *opt = job->opt;
-    struct extent *extents = NULL;
-    size_t count = 0;
+
     size_t length = (offset + opt->segment_size <= job->size)
         ? opt->segment_size : job->size - offset;
-    struct extent *current;
-    int index = 0;
 
     DEBUG("worker %d get extents offset=%" PRIi64 " length=%zu",
           w->id, offset, length);
 
-    src_extents(w->s, offset, length, &extents, &count);
+    src_extents(w->s, offset, length, &w->extents.array, &w->extents.count);
 
-    DEBUG("worker %d got %lu extents", w->id, count);
+    DEBUG("worker %d got %lu extents", w->id, w->extents.count);
 
-    /* Get the first extent. */
-    current = &extents[index];
-    DEBUG("worker %d extent %d length=%u zero=%d",
-          w->id, index, current->length, current->zero);
-    index++;
+    w->extents.index = 0;
+}
+
+static void clear_extents(struct worker *w)
+{
+    if (w->extents.array) {
+        free(w->extents.array);
+        w->extents.array = NULL;
+        w->extents.count = 0;
+        w->extents.index = 0;
+    }
+}
+
+static inline bool has_extent(struct worker *w)
+{
+    return w->extents.index < w->extents.count;
+}
+
+static struct extent *next_extent(struct worker *w)
+{
+    struct extent *extent;
+
+    assert(w->extents.index < w->extents.count);
+
+    extent = &w->extents.array[w->extents.index];
+
+    DEBUG("worker %d extent %ld length=%u zero=%d",
+          w->id, w->extents.index, extent->length, extent->zero);
+
+    w->extents.index++;
+
+    return extent;
+}
+
+static void process_segment(struct worker *w, int64_t offset)
+{
+    struct options *opt = w->job->opt;
+    struct extent *current;
+
+    fetch_extents(w, offset);
+    current = next_extent(w);
 
     while (w->queue.len || current->length > 0) {
 
@@ -370,12 +410,8 @@ static void process_segment(struct worker *w, int64_t offset)
             offset += len;
             current->length -= len;
 
-            if (current->length == 0 && index < count) {
-                current = &extents[index];
-                DEBUG("worker %d extent %d length=%u zero=%d",
-                      w->id, index, current->length, current->zero);
-                index++;
-            }
+            if (current->length == 0 && has_extent(w))
+                current = next_extent(w);
         }
 
         src_aio_run(w->s, 1000);
@@ -384,7 +420,7 @@ static void process_segment(struct worker *w, int64_t offset)
             finish_command(w);
     }
 
-    free(extents);
+    clear_extents(w);
 }
 
 static void *worker_thread(void *arg)
