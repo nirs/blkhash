@@ -40,7 +40,7 @@ struct command {
 struct command_queue {
     STAILQ_HEAD(, command) head;
     int len;
-    int depth;
+    int size;
 };
 
 struct worker {
@@ -56,30 +56,35 @@ struct worker {
     uint64_t cmd_processed;
 };
 
-static inline void queue_init(struct command_queue *q, int depth)
+static inline uint32_t cost(bool zero, uint32_t len)
+{
+    return zero ? 4096 : len;
+}
+
+static inline void queue_init(struct command_queue *q, int size)
 {
     STAILQ_INIT(&q->head);
     q->len = 0;
-    q->depth = depth;
+    q->size = size;
 }
 
 static inline void queue_push(struct command_queue *q, struct command *cmd)
 {
-    assert(q->len < q->depth);
+    q->len += cost(cmd->zero, cmd->length);
+    assert(q->len <= q->size);
 
     STAILQ_INSERT_TAIL(&q->head, cmd, entry);
-    q->len++;
 }
 
 static inline struct command *queue_pop(struct command_queue *q)
 {
     struct command *cmd;
 
-    assert(q->len > 0);
-
     cmd = STAILQ_FIRST(&q->head);
     STAILQ_REMOVE_HEAD(&q->head, entry);
-    q->len--;
+
+    q->len -= cost(cmd->zero, cmd->length);
+    assert(q->len >= 0);
 
     return cmd;
 }
@@ -87,6 +92,11 @@ static inline struct command *queue_pop(struct command_queue *q)
 static inline bool queue_ready(struct command_queue *q)
 {
     return q->len > 0 && STAILQ_FIRST(&q->head)->ready;
+}
+
+static inline int can_push(struct command_queue *q, bool zero, uint32_t len)
+{
+    return q->size - q->len >= cost(zero, len);
 }
 
 static void init_job(struct job *job, const char *filename,
@@ -343,7 +353,7 @@ static void process_segment(struct worker *w, int64_t offset)
     while (w->queue.len || current->length > 0) {
 
         /* Consume extents until queue is full or extents consumed. */
-        while (w->queue.len < w->queue.depth && current->length > 0) {
+        while (current->length > 0) {
             uint32_t len;
 
             if (current->zero)
@@ -351,6 +361,9 @@ static void process_segment(struct worker *w, int64_t offset)
             else
                 len = current->length < opt->read_size ?
                     current->length : opt->read_size;
+
+            if (!can_push(&w->queue, current->zero, len))
+                break;
 
             start_command(w, current->zero, offset, len);
 
@@ -429,7 +442,7 @@ void parallel_checksum(const char *filename, struct options *opt,
         struct worker *w = &workers[i];
         w->id = i;
         w->job = &job;
-        queue_init(&w->queue, opt->queue_depth);
+        queue_init(&w->queue, opt->queue_size);
 
         DEBUG("starting worker %d", i);
         err = pthread_create(&w->thread, NULL, worker_thread, w);

@@ -12,6 +12,8 @@
 #include "blksum.h"
 #include "util.h"
 
+#define MAX_QUEUE_SIZE (8 * 1024 * 1024)
+
 bool debug = false;
 bool io_only = false;
 
@@ -25,11 +27,12 @@ static struct options opt = {
     .read_size = 256 * 1024,
 
     /*
-     * Maximum number of inflight async reads per worker. The default
-     * works best when using 4 workers. When using smaller number of
-     * workers, a higher queue depth may be faster.
+     * Maximum number of bytes to queue for inflight async reads. With
+     * the default read_size (256k) this will queue up to 4 inflight
+     * requests with 256k length, or up to 64 inflight requests with 4k
+     * length.
      */
-    .queue_depth = 8,
+    .queue_size = 1024 * 1024,
 
     /*
      * Smaller size is optimal for hashing and detecting holes.
@@ -48,7 +51,7 @@ static struct options opt = {
 };
 
 enum {
-    QUEUE_DEPTH=CHAR_MAX + 1,
+    QUEUE_SIZE=CHAR_MAX + 1,
     READ_SIZE,
 };
 
@@ -58,7 +61,7 @@ static const char *short_options = ":w:n";
 static struct option long_options[] = {
    {"workers",      required_argument,  0,  'w'},
    {"nocache",      no_argument,        0,  'n'},
-   {"queue-depth",  required_argument,  0,  QUEUE_DEPTH},
+   {"queue-size",   required_argument,  0,  QUEUE_SIZE},
    {"read-size",    required_argument,  0,  READ_SIZE},
    {0,              0,                  0,  0}
 };
@@ -97,15 +100,11 @@ static void parse_options(int argc, char *argv[])
         case 'n':
             opt.nocache = true;
             break;
-        case QUEUE_DEPTH: {
+        case QUEUE_SIZE: {
             char *end;
-            opt.queue_depth = strtol(optarg, &end, 10);
+            opt.queue_size = strtol(optarg, &end, 10);
             if (*end != '\0' || end == optarg)
                 FAIL("Invalid value for option %s: '%s'", optname, optarg);
-
-            if (opt.queue_depth < 1 || opt.queue_depth > 128)
-                FAIL("Invalid queue-depth value: %ld (1-128)",
-                     opt.queue_depth);
 
             break;
         }
@@ -115,13 +114,6 @@ static void parse_options(int argc, char *argv[])
             if (*end != '\0' || end == optarg)
                 FAIL("Invalid value for option %s: '%s'", optname, optarg);
 
-            if (opt.read_size < opt.block_size || opt.read_size > 16777216)
-                FAIL("Invalid read-size value: %ld (%ld-16777216)",
-                     opt.read_size, opt.block_size);
-
-            if (opt.read_size % opt.block_size)
-                FAIL("Invalid read-size is not a multiply of block size (%ld)",
-                     opt.block_size);
             break;
         }
         case ':':
@@ -132,11 +124,32 @@ static void parse_options(int argc, char *argv[])
         }
     }
 
+    /*
+     * Validate arguments - must be done after all arguments are set,
+     * since they depend on each other.
+     */
+
+    if (opt.read_size % opt.block_size)
+        FAIL("Invalid read-size is not a multiply of block size (%ld)",
+             opt.block_size);
+
+    if (opt.read_size < opt.block_size)
+        FAIL("read-size %ld is larger than block size %ld",
+             opt.read_size, opt.block_size);
+
+    if (opt.read_size > opt.queue_size)
+        FAIL("read-size %ld is larger than queue-size %ld",
+             opt.read_size, opt.queue_size);
+
+    if (opt.queue_size > MAX_QUEUE_SIZE)
+        FAIL("queue-size %ld is larger than maximum queue size %d",
+             opt.queue_size, MAX_QUEUE_SIZE);
+
     /* Parse arguments */
 
     if (optind == argc)
         FAIL("Usage: blksum [-w N|--workers=N] [-n|--nocache]\n"
-             "              [--queue-depth=N] [--read-size=N]\n"
+             "              [--queue-size=N] [--read-size=N]\n"
              "              digestname [filename]");
 
     opt.digest_name = argv[optind++];

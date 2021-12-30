@@ -35,7 +35,7 @@ extern bool io_only;
 struct options {
     const char *digest_name;
     size_t read_size;
-    size_t queue_depth;
+    size_t queue_size;
     size_t block_size;
     size_t segment_size;
     size_t workers;
