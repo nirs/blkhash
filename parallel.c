@@ -332,24 +332,6 @@ static void finish_command(struct worker *w)
     free_command(cmd);
 }
 
-static void fetch_extents(struct worker *w, int64_t offset)
-{
-    struct job *job = w->job;
-    struct options *opt = job->opt;
-
-    size_t length = (offset + opt->segment_size <= job->size)
-        ? opt->segment_size : job->size - offset;
-
-    DEBUG("worker %d get extents offset=%" PRIi64 " length=%zu",
-          w->id, offset, length);
-
-    src_extents(w->s, offset, length, &w->extents.array, &w->extents.count);
-
-    DEBUG("worker %d got %lu extents", w->id, w->extents.count);
-
-    w->extents.index = 0;
-}
-
 static void clear_extents(struct worker *w)
 {
     if (w->extents.array) {
@@ -360,10 +342,21 @@ static void clear_extents(struct worker *w)
     }
 }
 
-static inline bool has_extent(struct worker *w)
+static void fetch_extents(struct worker *w, int64_t offset, uint32_t length)
 {
-    return w->extents.index < w->extents.count &&
-           &w->extents.array[w->extents.index].length > 0;
+    clear_extents(w);
+
+    DEBUG("worker %d get extents offset=%" PRIi64 " length=%" PRIu32,
+          w->id, offset, length);
+
+    src_extents(w->s, offset, length, &w->extents.array, &w->extents.count);
+
+    DEBUG("worker %d got %lu extents", w->id, w->extents.count);
+}
+
+static inline bool need_extents(struct worker *w)
+{
+    return w->extents.index == w->extents.count;
 }
 
 static void next_extent(struct worker *w, struct extent *extent)
@@ -397,21 +390,31 @@ static void next_extent(struct worker *w, struct extent *extent)
 
 static void process_segment(struct worker *w, int64_t offset)
 {
-    struct extent extent;
+    struct job *job = w->job;
+    struct options *opt = job->opt;
+    int64_t end;
+    struct extent extent = {0};
 
-    fetch_extents(w, offset);
-    next_extent(w, &extent);
+    end = offset + opt->segment_size;
+    if (end > job->size)
+        end = job->size;
 
-    while (w->queue.len || extent.length) {
+    while (w->queue.len || offset < end) {
 
-        while (extent.length && can_push(&w->queue, &extent)) {
+        while (offset < end) {
+
+            if (extent.length == 0) {
+                if (need_extents(w))
+                    fetch_extents(w, offset, end - offset);
+                next_extent(w, &extent);
+            }
+
+            if (!can_push(&w->queue, &extent))
+                break;
+
             start_command(w, offset, &extent);
             offset += extent.length;
-
-            if (has_extent(w))
-                next_extent(w, &extent);
-            else
-                extent.length = 0;
+            extent.length = 0;
         }
 
         src_aio_run(w->s, 1000);
