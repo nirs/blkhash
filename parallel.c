@@ -4,6 +4,8 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <openssl/evp.h>
+#include <assert.h>
+#include <sys/queue.h>
 
 #include "blkhash.h"
 #include "blksum.h"
@@ -24,14 +26,78 @@ struct job {
     struct nbd_server *nbd_server;
 };
 
+struct command {
+    STAILQ_ENTRY(command) entry;
+    uint64_t seq;
+    uint64_t started;
+    void *buf;
+    uint32_t length;
+    int wid;
+    bool ready;
+    bool zero;
+};
+
+struct command_queue {
+    STAILQ_HEAD(, command) head;
+    int len;
+    int size;
+};
+
 struct worker {
     pthread_t thread;
     int id;
     struct job *job;
     struct src *s;
     struct blkhash *h;
-    void *buf;
+    struct command_queue queue;
+
+    /* Ensure that we process commands in order. */
+    uint64_t cmd_queued;
+    uint64_t cmd_processed;
 };
+
+static inline uint32_t cost(bool zero, uint32_t len)
+{
+    return zero ? 4096 : len;
+}
+
+static inline void queue_init(struct command_queue *q, int size)
+{
+    STAILQ_INIT(&q->head);
+    q->len = 0;
+    q->size = size;
+}
+
+static inline void queue_push(struct command_queue *q, struct command *cmd)
+{
+    q->len += cost(cmd->zero, cmd->length);
+    assert(q->len <= q->size);
+
+    STAILQ_INSERT_TAIL(&q->head, cmd, entry);
+}
+
+static inline struct command *queue_pop(struct command_queue *q)
+{
+    struct command *cmd;
+
+    cmd = STAILQ_FIRST(&q->head);
+    STAILQ_REMOVE_HEAD(&q->head, entry);
+
+    q->len -= cost(cmd->zero, cmd->length);
+    assert(q->len >= 0);
+
+    return cmd;
+}
+
+static inline bool queue_ready(struct command_queue *q)
+{
+    return q->len > 0 && STAILQ_FIRST(&q->head)->ready;
+}
+
+static inline int can_push(struct command_queue *q, bool zero, uint32_t len)
+{
+    return q->size - q->len >= cost(zero, len);
+}
 
 static void init_job(struct job *job, const char *filename,
                      struct options *opt)
@@ -172,29 +238,92 @@ static void compute_root_hash(struct job *job, unsigned char *out)
     EVP_MD_CTX_free(md_ctx);
 }
 
-static void process_extent(struct worker *w, int64_t offset,
-                           struct extent *extent)
+static struct command *create_command(bool zero, int64_t offset,
+                                      uint32_t length, int wid, uint64_t seq)
 {
-    struct options *opt = w->job->opt;
+    struct command *c;
 
-    DEBUG("worker %d process extent offset=%" PRIi64" length=%" PRIu32
-          " zero=%d",
-          w->id, offset, extent->length, extent->zero);
+    c = calloc(1, sizeof(*c));
+    if (c == NULL)
+        FAIL_ERRNO("calloc");
 
-    if (extent->zero) {
-        if (!io_only)
-            blkhash_zero(w->h, extent->length);
-    } else {
-        uint32_t todo = extent->length;
-        while (todo) {
-            size_t n = (todo > opt->read_size) ? opt->read_size : todo;
-            src_pread(w->s, w->buf, n, offset);
-            if (!io_only)
-                blkhash_update(w->h, w->buf, n);
-            offset += n;
-            todo -= n;
-        }
+    if (!zero) {
+        c->buf = malloc(length);
+        if (c->buf == NULL)
+            FAIL_ERRNO("malloc");
     }
+
+    c->seq = seq;
+
+    if (debug)
+        c->started = gettime();
+
+    c->length = length;
+    c->wid = wid;
+    c->ready = zero;
+    c->zero = zero;
+
+    return c;
+}
+
+static int read_completed(void *user_data, int *error)
+{
+    struct command *cmd = user_data;
+
+    DEBUG("worker %d command %" PRIu64 " ready in %" PRIu64 " usec",
+          cmd->wid, cmd->seq, gettime() - cmd->started);
+
+    cmd->ready = true;
+    return 1;
+}
+
+static void free_command(struct command *c)
+{
+    if (c) {
+        free(c->buf);
+        free(c);
+    }
+}
+
+static void start_command(struct worker *w, bool zero, int64_t offset,
+                          uint32_t length)
+{
+    struct command *cmd;
+
+    DEBUG("worker %d command %" PRIu64 " started offset=%" PRIi64
+          " length=%" PRIu32 " zero=%d",
+          w->id, w->cmd_queued, offset, length, zero);
+
+    cmd = create_command(zero, offset, length, w->id, w->cmd_queued);
+    queue_push(&w->queue, cmd);
+    w->cmd_queued++;
+
+    if (!zero)
+        src_aio_pread(w->s, cmd->buf, length, offset, read_completed, cmd);
+}
+
+static void finish_command(struct worker *w)
+{
+    struct command *cmd = queue_pop(&w->queue);
+
+    assert(cmd->ready);
+
+    /* Esnure we process commands in order. */
+    assert(cmd->seq == w->cmd_processed);
+    w->cmd_processed++;
+
+    if (!io_only) {
+        if (cmd->zero)
+            blkhash_zero(w->h, cmd->length);
+        else
+            blkhash_update(w->h, cmd->buf, cmd->length);
+    }
+
+    DEBUG("worker %d command %" PRIu64 " finished in %" PRIu64 " usec "
+          "length=%" PRIu32 " zero=%d",
+          w->id, cmd->seq, gettime() - cmd->started, cmd->length, cmd->zero);
+
+    free_command(cmd);
 }
 
 static void process_segment(struct worker *w, int64_t offset)
@@ -205,8 +334,8 @@ static void process_segment(struct worker *w, int64_t offset)
     size_t count = 0;
     size_t length = (offset + opt->segment_size <= job->size)
         ? opt->segment_size : job->size - offset;
-    struct extent *last;
-    struct extent *cur;
+    struct extent *current;
+    int index = 0;
 
     DEBUG("worker %d get extents offset=%" PRIi64 " length=%zu",
           w->id, offset, length);
@@ -215,30 +344,44 @@ static void process_segment(struct worker *w, int64_t offset)
 
     DEBUG("worker %d got %lu extents", w->id, count);
 
-    last = &extents[0];
-    DEBUG("worker %d extent 0 length=%u zero=%d",
-          w->id, last->length, last->zero);
+    /* Get the first extent. */
+    current = &extents[index];
+    DEBUG("worker %d extent %d length=%u zero=%d",
+          w->id, index, current->length, current->zero);
+    index++;
 
-    for (int i = 1; i < count; i++) {
-        cur = &extents[i];
-        DEBUG("worker %d extent %d length=%u zero=%d",
-              w->id, i, cur->length, cur->zero);
+    while (w->queue.len || current->length > 0) {
 
-        if (cur->zero == last->zero) {
-            DEBUG("worker %d merge length=%u zero=%d",
-                  w->id, cur->length, cur->zero);
-            last->length += cur->length;
-            continue;
+        /* Consume extents until queue is full or extents consumed. */
+        while (current->length > 0) {
+            uint32_t len;
+
+            if (current->zero)
+                len = current->length;
+            else
+                len = current->length < opt->read_size ?
+                    current->length : opt->read_size;
+
+            if (!can_push(&w->queue, current->zero, len))
+                break;
+
+            start_command(w, current->zero, offset, len);
+
+            offset += len;
+            current->length -= len;
+
+            if (current->length == 0 && index < count) {
+                current = &extents[index];
+                DEBUG("worker %d extent %d length=%u zero=%d",
+                      w->id, index, current->length, current->zero);
+                index++;
+            }
         }
 
-        process_extent(w, offset, last);
-        offset += last->length;
-        last = cur;
-    }
+        src_aio_run(w->s, 1000);
 
-    if (last->length > 0) {
-        process_extent(w, offset, last);
-        offset += last->length;
+        while (queue_ready(&w->queue))
+            finish_command(w);
     }
 
     free(extents);
@@ -259,10 +402,6 @@ static void *worker_thread(void *arg)
     if (w->h == NULL)
         FAIL_ERRNO("blkhash_new");
 
-    w->buf = malloc(opt->read_size);
-    if (w->buf == NULL)
-        FAIL_ERRNO("malloc");
-
     while ((i = next_segment(job)) != -1) {
         int64_t offset = i * opt->segment_size;
         unsigned char *seg_md = segment_md(job, i);
@@ -275,7 +414,6 @@ static void *worker_thread(void *arg)
         blkhash_reset(w->h);
     }
 
-    free(w->buf);
     blkhash_free(w->h);
     src_close(w->s);
 
@@ -304,6 +442,8 @@ void parallel_checksum(const char *filename, struct options *opt,
         struct worker *w = &workers[i];
         w->id = i;
         w->job = &job;
+        queue_init(&w->queue, opt->queue_size);
+
         DEBUG("starting worker %d", i);
         err = pthread_create(&w->thread, NULL, worker_thread, w);
         if (err)

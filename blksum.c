@@ -12,44 +12,58 @@
 #include "blksum.h"
 #include "util.h"
 
+#define MAX_QUEUE_SIZE (8 * 1024 * 1024)
+
 bool debug = false;
 bool io_only = false;
 
 static struct options opt = {
 
     /*
-     * Bigger size is optimal for reading, espcially when reading for
-     * remote storage. Should be aligned to block size for best
-     * performance.
-     * TODO: Requires more testing with different storage.
+     * Maximum read size in bytes. The curent value gives best
+     * performance with i7-10850H when reading from fast NVMe. More
+     * testing is needed with shared storage and different CPUs.
      */
-    .read_size = 2 * 1024 * 1024,
+    .read_size = 256 * 1024,
 
     /*
-     * Smaller size is optimal for hashing and detecting holes. This
-     * give best perforamnce when testing on zero image on local nvme
-     * drive.
-     * TODO: Requires more testing with different storage.
+     * Maximum number of bytes to queue for inflight async reads. With
+     * the default read_size (256k) this will queue up to 4 inflight
+     * requests with 256k length, or up to 64 inflight requests with 4k
+     * length.
+     */
+    .queue_size = 1024 * 1024,
+
+    /*
+     * Smaller size is optimal for hashing and detecting holes.
      */
     .block_size = 64 * 1024,
 
     /* Size of image segment. */
     .segment_size = 128 * 1024 * 1024,
 
-    /* Number of worker threads to use. */
+    /* Number of worker threads to use. This is the most important
+     * configuration for best performance. */
     .workers = 4,
 
     /* Avoid host page cache. */
     .nocache = false,
 };
 
+enum {
+    QUEUE_SIZE=CHAR_MAX + 1,
+    READ_SIZE,
+};
+
 /* Start with ':' to enable detection of missing argument. */
 static const char *short_options = ":w:n";
 
 static struct option long_options[] = {
-   {"workers", required_argument, 0,  'w'},
-   {"nocache", no_argument,       0,  'n'},
-   {0,         0,                 0,  0 }
+   {"workers",      required_argument,  0,  'w'},
+   {"nocache",      no_argument,        0,  'n'},
+   {"queue-size",   required_argument,  0,  QUEUE_SIZE},
+   {"read-size",    required_argument,  0,  READ_SIZE},
+   {0,              0,                  0,  0}
 };
 
 static void parse_options(int argc, char *argv[])
@@ -86,6 +100,22 @@ static void parse_options(int argc, char *argv[])
         case 'n':
             opt.nocache = true;
             break;
+        case QUEUE_SIZE: {
+            char *end;
+            opt.queue_size = strtol(optarg, &end, 10);
+            if (*end != '\0' || end == optarg)
+                FAIL("Invalid value for option %s: '%s'", optname, optarg);
+
+            break;
+        }
+        case READ_SIZE: {
+            char *end;
+            opt.read_size = strtol(optarg, &end, 10);
+            if (*end != '\0' || end == optarg)
+                FAIL("Invalid value for option %s: '%s'", optname, optarg);
+
+            break;
+        }
         case ':':
             FAIL("Option %s requires an argument", optname);
         case '?':
@@ -94,10 +124,33 @@ static void parse_options(int argc, char *argv[])
         }
     }
 
+    /*
+     * Validate arguments - must be done after all arguments are set,
+     * since they depend on each other.
+     */
+
+    if (opt.read_size % opt.block_size)
+        FAIL("Invalid read-size is not a multiply of block size (%ld)",
+             opt.block_size);
+
+    if (opt.read_size < opt.block_size)
+        FAIL("read-size %ld is larger than block size %ld",
+             opt.read_size, opt.block_size);
+
+    if (opt.read_size > opt.queue_size)
+        FAIL("read-size %ld is larger than queue-size %ld",
+             opt.read_size, opt.queue_size);
+
+    if (opt.queue_size > MAX_QUEUE_SIZE)
+        FAIL("queue-size %ld is larger than maximum queue size %d",
+             opt.queue_size, MAX_QUEUE_SIZE);
+
     /* Parse arguments */
 
     if (optind == argc)
-        FAIL("Usage: blksum [-w WORKERS] [-n] digestname [filename]");
+        FAIL("Usage: blksum [-w N|--workers=N] [-n|--nocache]\n"
+             "              [--queue-size=N] [--read-size=N]\n"
+             "              digestname [filename]");
 
     opt.digest_name = argv[optind++];
 

@@ -42,6 +42,22 @@ static ssize_t file_ops_pread(struct src *s, void *buf, size_t len, int64_t offs
     return pos;
 }
 
+/* Fake async implementaion to keep callers happy. */
+static int file_ops_aio_pread(struct src *s, void *buf, size_t len,
+                              int64_t offset, completion_callback cb,
+                              void *user_data)
+{
+    file_ops_pread(s, buf, len, offset);
+    cb(user_data, NULL);
+    return 0;
+}
+
+/* Fake async implementaion to keep callers happy. */
+static int file_ops_aio_run(struct src *s, int timeout)
+{
+    return 1;
+}
+
 static void file_ops_close(struct src *s)
 {
     struct file_src *fs = (struct file_src *)s;
@@ -54,6 +70,8 @@ static void file_ops_close(struct src *s)
 
 static struct src_ops file_ops = {
     .pread = file_ops_pread,
+    .aio_pread = file_ops_aio_pread,
+    .aio_run = file_ops_aio_run,
     .close = file_ops_close,
 };
 
