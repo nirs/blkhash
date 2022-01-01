@@ -16,12 +16,14 @@
 #define DEBUG(fmt, ...)                                             \
     do {                                                            \
         if (debug)                                                  \
-            fprintf (stderr, PROG ": " fmt "\n", ## __VA_ARGS__);   \
+            fprintf(stderr, PROG ": " fmt "\n", ## __VA_ARGS__);    \
     } while (0)
+
+#define ERROR(fmt, ...) fprintf(stderr, PROG ": " fmt "\n", ## __VA_ARGS__)
 
 #define FAIL(fmt, ...)                                              \
     do {                                                            \
-        fprintf (stderr, PROG ": " fmt "\n", ## __VA_ARGS__);       \
+        fprintf(stderr, PROG ": " fmt "\n", ## __VA_ARGS__);       \
         exit(1);                                                    \
     } while (0)
 
@@ -40,6 +42,18 @@ struct options {
     const char *filename;
 };
 
+struct server_options {
+    const char *filename;
+    const char *format;
+    bool nocache;
+};
+
+struct nbd_server {
+    char *tmpdir;
+    char *sock;
+    pid_t pid;
+};
+
 struct src {
     struct src_ops *ops;
 
@@ -49,12 +63,6 @@ struct src {
      * the user.
      */
     const char *uri;
-
-    /*
-     * Set to "raw" or "qcow2" if image format was probed when opening this
-     * source. Otherwise set to NULL.
-     */
-    const char *format;
 
     int64_t size;
     bool can_extents;
@@ -94,25 +102,17 @@ struct src_ops {
     void (*close)(struct src *s);
 };
 
+bool is_nbd_uri(const char *s);
 const char *probe_format(const char *path);
+
+struct nbd_server *start_nbd_server(struct server_options *opt);
+char *nbd_server_uri(struct nbd_server *s);
+void stop_nbd_server(struct nbd_server *s);
+
 struct src *open_file(const char *path);
 struct src *open_pipe(int fd);
 struct src *open_nbd(const char *uri);
-struct src *open_nbd_server(const char *path, const char *format, bool nocache);
-
-/*
- * Open source for filename and return a connected source.
- *
- * If built with NBD support and server is true, start a nbd server and
- * return a nbd source. The nbd server is terminated when closing the
- * source.
- *
- * If format is NULL, and filename is not a NBD URL, probe filename
- * format. If format was probed, it will reported by the open source.
- *
- * When starting NBD server, use opt to configure the server.
- */
-struct src *open_src(const char *filename, bool nbd_server, const char *format, const struct options *opt);
+struct src *open_src(const char *filename);
 
 ssize_t src_pread(struct src *s, void *buf, size_t len, int64_t offset);
 ssize_t src_read(struct src *s, void *buf, size_t len);
