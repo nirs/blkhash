@@ -66,6 +66,22 @@ static struct option long_options[] = {
    {0,              0,                  0,  0}
 };
 
+static void usage(int code)
+{
+    fputs(
+        "\n"
+        "Compute message digest for disk images\n"
+        "\n"
+        "    blksum [-w N|--workers=N] [-n|--nocache] [--queue-size=N] [--read-size=N]\n"
+        "           digestname [filename]\n"
+        "\n"
+        "Please read the blksum(1) manual page for more info.\n"
+        "\n",
+        stderr);
+
+    exit(code);
+}
+
 static void parse_options(int argc, char *argv[])
 {
     const char *optname;
@@ -148,9 +164,7 @@ static void parse_options(int argc, char *argv[])
     /* Parse arguments */
 
     if (optind == argc)
-        FAIL("Usage: blksum [-w N|--workers=N] [-n|--nocache]\n"
-             "              [--queue-size=N] [--read-size=N]\n"
-             "              digestname [filename]");
+        usage(1);
 
     opt.digest_name = argv[optind++];
 
