@@ -56,9 +56,10 @@ enum {
 };
 
 /* Start with ':' to enable detection of missing argument. */
-static const char *short_options = ":w:n";
+static const char *short_options = ":hw:n";
 
 static struct option long_options[] = {
+   {"help",         no_argument,        0,  'h'},
    {"workers",      required_argument,  0,  'w'},
    {"nocache",      no_argument,        0,  'n'},
    {"queue-size",   required_argument,  0,  QUEUE_SIZE},
@@ -73,6 +74,7 @@ static void usage(int code)
         "Compute message digest for disk images\n"
         "\n"
         "    blksum [-w N|--workers=N] [-n|--nocache] [--queue-size=N] [--read-size=N]\n"
+        "           [-h|--help]\n"
         "           digestname [filename]\n"
         "\n"
         "Please read the blksum(1) manual page for more info.\n"
@@ -100,6 +102,9 @@ static void parse_options(int argc, char *argv[])
             break;
 
         switch (c) {
+        case 'h':
+            usage(0);
+            break;
         case 'w': {
             char *end;
             opt.workers = strtol(optarg, &end, 10);

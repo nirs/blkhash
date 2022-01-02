@@ -14,6 +14,7 @@ SYNOPSYS
 --------
 
 *blksum* [-w N|--workers=N] [-n|--nocache] [--queue-size=N] [--read-size=N]
+         [-h|--help]
          'DIGESTNAME' ['FILENAME']
 
 DESCRIPTION
@@ -55,6 +56,9 @@ OPTIONS
 *--read-size*='N'::
   Maximum read size in bytes. The default value (262144) gives best
   performance when reading from fast NVMe.
+
+*-h, --help*::
+  Show online help and exit.
 
 USING QEMU-NBD
 --------------
