@@ -13,8 +13,8 @@ blksum - compute message digest for disk images
 SYNOPSYS
 --------
 
-*blksum* [-w N|--workers=N] [-n|--nocache] [--queue-size=N] [--read-size=N]
-         [-h|--help]
+*blksum* [-w N|--workers=N] [-p|--progress] [-n|--nocache]
+         [--queue-size=N] [--read-size=N] [-h|--help]
          'DIGESTNAME' ['FILENAME']
 
 DESCRIPTION
@@ -41,6 +41,9 @@ OPTIONS
   Set the number of workers. The default (4) gives good performance but on
   large machines you may want to use more workers. The valid value is 1 up to
   the number of online cpus.
+
+*-p, --progress*::
+  Show progress bar when computing a checksum.
 
 *-n, --nocache*::
   Avoid host page cache (Linux only). This is may be slower, but it prevents

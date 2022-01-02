@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <pthread.h>
 
 #define PROG "blksum"
 
@@ -41,6 +42,7 @@ struct options {
     size_t workers;
     bool nocache;
     const char *filename;
+    bool progress;
 };
 
 struct server_options {
@@ -72,6 +74,12 @@ struct src {
 struct extent {
     uint32_t length;
     bool zero;
+};
+
+struct progress {
+    pthread_mutex_t mutex;
+    size_t done;
+    size_t count;
 };
 
 /*
@@ -148,5 +156,10 @@ void src_close(struct src *s);
 void simple_checksum(struct src *s, struct options *opt, unsigned char *out);
 void parallel_checksum(const char *filename, struct options *opt,
                        unsigned char *out);
+
+struct progress *progress_open(size_t count);
+void progress_update(struct progress *p, size_t n);
+bool progress_draw(struct progress *p);
+void progress_close(struct progress *p);
 
 #endif /* BLKSUM_H */
