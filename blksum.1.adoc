@@ -13,7 +13,8 @@ blksum - compute message digest for disk images
 SYNOPSYS
 --------
 
-*blksum* [-w WORKERS] [-n] 'DIGESTNAME' ['FILENAME']
+*blksum* [-w N|--workers=N] [-n|--nocache] [--queue-size=N] [--read-size=N]
+         'DIGESTNAME' ['FILENAME']
 
 DESCRIPTION
 -----------
@@ -35,7 +36,7 @@ be used only for 'raw' images.
 OPTIONS
 -------
 
-*-w, --workers*='WORKERS'::
+*-w, --workers*='N'::
   Set the number of workers. The default (4) gives good performance but on
   large machines you may want to use more workers. The valid value is 1 up to
   the number of online cpus.
@@ -45,6 +46,15 @@ OPTIONS
   polluting host page cache with data that is unlikely to be used. May be
   required when computing a checksum for block device connected to multiple
   hosts, if the block device was modified on another host.
+
+*--queue-size*='N'::
+  Maximum number of bytes to queue for inflight async reads. With the
+  default read size (256k) this will queue up to 4 inflight requests
+  with 256k length, or up to 64 inflight requests with 4k length.
+
+*--read-size*='N'::
+  Maximum read size in bytes. The default value (262144) gives best
+  performance when reading from fast NVMe.
 
 USING QEMU-NBD
 --------------
