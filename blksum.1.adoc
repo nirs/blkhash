@@ -49,11 +49,11 @@ OPTIONS
 USING QEMU-NBD
 --------------
 
-For best performance when exporting images via 'qemu-nbd(8)' set the '--shared'
-option to value larger than the number of workers. For example if using 4
-workers, use:
+For best performance when exporting images via 'qemu-nbd(8)' set the
+'--shared' option to value equal or larger than the number of workers.
+For example if using 4 workers, use:
 
-    qemu-nbd --shared 5 -t -r -k /tmp/nbd.sock -f qcow2 disk.qcow2
+    qemu-nbd --shared 4 -t -r -k /tmp/nbd.sock -f qcow2 disk.qcow2
 
 EXAMPLES
 --------
