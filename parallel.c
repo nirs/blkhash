@@ -431,7 +431,7 @@ static void *worker_thread(void *arg)
     struct worker *w = (struct worker *)arg;
     struct job *job = w->job;
     struct options *opt = job->opt;
-    ssize_t i;
+    ssize_t segment;
 
     DEBUG("worker %d started", w->id);
 
@@ -441,12 +441,12 @@ static void *worker_thread(void *arg)
     if (w->h == NULL)
         FAIL_ERRNO("blkhash_new");
 
-    while ((i = next_segment(job)) != -1) {
-        int64_t offset = i * opt->segment_size;
-        unsigned char *seg_md = segment_md(job, i);
+    while ((segment = next_segment(job)) != -1) {
+        int64_t offset = segment * opt->segment_size;
+        unsigned char *seg_md = segment_md(job, segment);
 
-        DEBUG("worker %d processing segemnt %zd offset %" PRIi64,
-              w->id, i, offset);
+        DEBUG("worker %d processing segment %zd offset %" PRIi64,
+              w->id, segment, offset);
 
         process_segment(w, offset);
         blkhash_final(w->h, seg_md, NULL);
