@@ -13,7 +13,7 @@ blksum - compute message digest for disk images
 SYNOPSYS
 --------
 
-*blksum* [-w WORKERS] [-n] 'DIGEST' ['SOURCE']
+*blksum* [-w WORKERS] [-n] 'DIGESTNAME' ['FILENAME']
 
 DESCRIPTION
 -----------
@@ -22,15 +22,15 @@ blksum print a checksum for disk image guest visible content. You can
 compare the checksum for disk images in 'raw' or 'qcow2' format. 'qcow2'
 format is supported only if 'blksum' was built with NBD support.
 
-'DIGEST' is any message digest name supported by openssl. To list
+'DIGESTNAME' is any message digest name supported by openssl. To list
 availabe names run:
 
     openssl dgst -list
 
-'SOURCE' can be a file or NBD URL.
+'FILENAME' can be a file or a NBD URL.
 
-If 'SOURCE' is not specified, read data from stadard input. This can be
-used only for 'raw' images.
+If 'FILENAME' is not specified, read data from stadard input. This can
+be used only for 'raw' images.
 
 OPTIONS
 -------
