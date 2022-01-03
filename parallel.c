@@ -26,6 +26,12 @@ struct job {
     struct nbd_server *nbd_server;
 };
 
+struct extent_array {
+    struct extent *array;
+    size_t count;
+    size_t index;
+};
+
 struct command {
     STAILQ_ENTRY(command) entry;
     uint64_t seq;
@@ -49,6 +55,7 @@ struct worker {
     struct job *job;
     struct src *s;
     struct blkhash *h;
+    struct extent_array extents;
     struct command_queue queue;
 
     /* Ensure that we process commands in order. */
@@ -94,9 +101,9 @@ static inline bool queue_ready(struct command_queue *q)
     return q->len > 0 && STAILQ_FIRST(&q->head)->ready;
 }
 
-static inline int can_push(struct command_queue *q, bool zero, uint32_t len)
+static inline int can_push(struct command_queue *q, struct extent *extent)
 {
-    return q->size - q->len >= cost(zero, len);
+    return q->size - q->len >= cost(extent->zero, extent->length);
 }
 
 static void init_job(struct job *job, const char *filename,
@@ -238,8 +245,8 @@ static void compute_root_hash(struct job *job, unsigned char *out)
     EVP_MD_CTX_free(md_ctx);
 }
 
-static struct command *create_command(bool zero, int64_t offset,
-                                      uint32_t length, int wid, uint64_t seq)
+static struct command *create_command(int64_t offset, struct extent *extent,
+                                      int wid, uint64_t seq)
 {
     struct command *c;
 
@@ -247,8 +254,8 @@ static struct command *create_command(bool zero, int64_t offset,
     if (c == NULL)
         FAIL_ERRNO("calloc");
 
-    if (!zero) {
-        c->buf = malloc(length);
+    if (!extent->zero) {
+        c->buf = malloc(extent->length);
         if (c->buf == NULL)
             FAIL_ERRNO("malloc");
     }
@@ -258,10 +265,10 @@ static struct command *create_command(bool zero, int64_t offset,
     if (debug)
         c->started = gettime();
 
-    c->length = length;
+    c->length = extent->length;
     c->wid = wid;
-    c->ready = zero;
-    c->zero = zero;
+    c->ready = extent->zero;
+    c->zero = extent->zero;
 
     return c;
 }
@@ -285,21 +292,20 @@ static void free_command(struct command *c)
     }
 }
 
-static void start_command(struct worker *w, bool zero, int64_t offset,
-                          uint32_t length)
+static void start_command(struct worker *w, int64_t offset, struct extent *extent)
 {
     struct command *cmd;
 
     DEBUG("worker %d command %" PRIu64 " started offset=%" PRIi64
           " length=%" PRIu32 " zero=%d",
-          w->id, w->cmd_queued, offset, length, zero);
+          w->id, w->cmd_queued, offset, extent->length, extent->zero);
 
-    cmd = create_command(zero, offset, length, w->id, w->cmd_queued);
+    cmd = create_command(offset, extent, w->id, w->cmd_queued);
     queue_push(&w->queue, cmd);
     w->cmd_queued++;
 
-    if (!zero)
-        src_aio_pread(w->s, cmd->buf, length, offset, read_completed, cmd);
+    if (!cmd->zero)
+        src_aio_pread(w->s, cmd->buf, extent->length, offset, read_completed, cmd);
 }
 
 static void finish_command(struct worker *w)
@@ -326,56 +332,89 @@ static void finish_command(struct worker *w)
     free_command(cmd);
 }
 
+static void clear_extents(struct worker *w)
+{
+    if (w->extents.array) {
+        free(w->extents.array);
+        w->extents.array = NULL;
+        w->extents.count = 0;
+        w->extents.index = 0;
+    }
+}
+
+static void fetch_extents(struct worker *w, int64_t offset, uint32_t length)
+{
+    clear_extents(w);
+
+    DEBUG("worker %d get extents offset=%" PRIi64 " length=%" PRIu32,
+          w->id, offset, length);
+
+    src_extents(w->s, offset, length, &w->extents.array, &w->extents.count);
+
+    DEBUG("worker %d got %lu extents", w->id, w->extents.count);
+}
+
+static inline bool need_extents(struct worker *w)
+{
+    return w->extents.index == w->extents.count;
+}
+
+static void next_extent(struct worker *w, struct extent *extent)
+{
+    struct options *opt = w->job->opt;
+    struct extent *current;
+
+    assert(w->extents.index < w->extents.count);
+    current = &w->extents.array[w->extents.index];
+
+    /* Consume entire zero extent, or up to read size from data extent. */
+
+    extent->zero = current->zero;
+    if (extent->zero)
+        extent->length = current->length;
+    else
+        extent->length = current->length < opt->read_size ?
+            current->length : opt->read_size;
+
+    current->length -= extent->length;
+
+    DEBUG("worker %d extent %ld zero=%d take=%u left=%u",
+          w->id, w->extents.index, extent->zero, extent->length,
+          current->length);
+
+    /* Advance to next extent if current is consumed. */
+
+    if (current->length == 0)
+        w->extents.index++;
+}
+
 static void process_segment(struct worker *w, int64_t offset)
 {
     struct job *job = w->job;
     struct options *opt = job->opt;
-    struct extent *extents = NULL;
-    size_t count = 0;
-    size_t length = (offset + opt->segment_size <= job->size)
-        ? opt->segment_size : job->size - offset;
-    struct extent *current;
-    int index = 0;
+    int64_t end;
+    struct extent extent = {0};
 
-    DEBUG("worker %d get extents offset=%" PRIi64 " length=%zu",
-          w->id, offset, length);
+    end = offset + opt->segment_size;
+    if (end > job->size)
+        end = job->size;
 
-    src_extents(w->s, offset, length, &extents, &count);
+    while (w->queue.len || offset < end) {
 
-    DEBUG("worker %d got %lu extents", w->id, count);
+        while (offset < end) {
 
-    /* Get the first extent. */
-    current = &extents[index];
-    DEBUG("worker %d extent %d length=%u zero=%d",
-          w->id, index, current->length, current->zero);
-    index++;
+            if (extent.length == 0) {
+                if (need_extents(w))
+                    fetch_extents(w, offset, end - offset);
+                next_extent(w, &extent);
+            }
 
-    while (w->queue.len || current->length > 0) {
-
-        /* Consume extents until queue is full or extents consumed. */
-        while (current->length > 0) {
-            uint32_t len;
-
-            if (current->zero)
-                len = current->length;
-            else
-                len = current->length < opt->read_size ?
-                    current->length : opt->read_size;
-
-            if (!can_push(&w->queue, current->zero, len))
+            if (!can_push(&w->queue, &extent))
                 break;
 
-            start_command(w, current->zero, offset, len);
-
-            offset += len;
-            current->length -= len;
-
-            if (current->length == 0 && index < count) {
-                current = &extents[index];
-                DEBUG("worker %d extent %d length=%u zero=%d",
-                      w->id, index, current->length, current->zero);
-                index++;
-            }
+            start_command(w, offset, &extent);
+            offset += extent.length;
+            extent.length = 0;
         }
 
         src_aio_run(w->s, 1000);
@@ -384,7 +423,7 @@ static void process_segment(struct worker *w, int64_t offset)
             finish_command(w);
     }
 
-    free(extents);
+    clear_extents(w);
 }
 
 static void *worker_thread(void *arg)
