@@ -46,8 +46,13 @@ static struct options opt = {
      * configuration for best performance. */
     .workers = 4,
 
-    /* Avoid host page cache. */
-    .nocache = false,
+    /*
+     * Use host page cache. This is may be faster, but is not correct
+     * when using a block device connected to multiple hosts. Typically
+     * it gives less consistent results. If not set, blksum uses direct
+     * I/O when possible.
+     */
+    .cache = false,
 
     /* Show progress. */
     .progress = false,
@@ -59,13 +64,13 @@ enum {
 };
 
 /* Start with ':' to enable detection of missing argument. */
-static const char *short_options = ":hw:np";
+static const char *short_options = ":hw:cp";
 
 static struct option long_options[] = {
    {"help",         no_argument,        0,  'h'},
    {"workers",      required_argument,  0,  'w'},
    {"progress",     no_argument,        0,  'p'},
-   {"nocache",      no_argument,        0,  'n'},
+   {"cache",        no_argument,        0,  'c'},
    {"queue-size",   required_argument,  0,  QUEUE_SIZE},
    {"read-size",    required_argument,  0,  READ_SIZE},
    {0,              0,                  0,  0}
@@ -77,7 +82,7 @@ static void usage(int code)
         "\n"
         "Compute message digest for disk images\n"
         "\n"
-        "    blksum [-w N|--workers=N] [-p|--progress] [-n|--nocache]\n"
+        "    blksum [-w N|--workers=N] [-p|--progress] [-c|--cache]\n"
         "           [--queue-size=N] [--read-size=N] [-h|--help]\n"
         "           digestname [filename]\n"
         "\n"
@@ -125,8 +130,8 @@ static void parse_options(int argc, char *argv[])
         case 'p':
             opt.progress = true;
             break;
-        case 'n':
-            opt.nocache = true;
+        case 'c':
+            opt.cache = true;
             break;
         case QUEUE_SIZE: {
             char *end;

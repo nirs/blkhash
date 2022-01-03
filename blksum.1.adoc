@@ -13,7 +13,7 @@ blksum - compute message digest for disk images
 SYNOPSYS
 --------
 
-*blksum* [-w N|--workers=N] [-p|--progress] [-n|--nocache]
+*blksum* [-w N|--workers=N] [-p|--progress] [-c|--cache]
          [--queue-size=N] [--read-size=N] [-h|--help]
          'DIGESTNAME' ['FILENAME']
 
@@ -45,11 +45,11 @@ OPTIONS
 *-p, --progress*::
   Show progress bar when computing a checksum.
 
-*-n, --nocache*::
-  Avoid host page cache (Linux only). This is may be slower, but it prevents
-  polluting host page cache with data that is unlikely to be used. May be
-  required when computing a checksum for block device connected to multiple
-  hosts, if the block device was modified on another host.
+*-c, --cache*::
+  Use host page cache. This is may be faster, but is not correct when
+  using a block device connected to multiple hosts. Typically it gives
+  less consistent results. If not set, blksum uses direct I/O when
+  possible.
 
 *--queue-size*='N'::
   Maximum number of bytes to queue for inflight async reads. With the

@@ -40,7 +40,7 @@ struct options {
     size_t block_size;
     size_t segment_size;
     size_t workers;
-    bool nocache;
+    bool cache;
     const char *filename;
     bool progress;
 };
@@ -48,7 +48,7 @@ struct options {
 struct server_options {
     const char *filename;
     const char *format;
-    bool nocache;
+    bool cache;
 };
 
 struct nbd_server {

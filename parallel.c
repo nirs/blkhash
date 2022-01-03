@@ -129,10 +129,15 @@ static void init_job(struct job *job, const char *filename,
         const char *format = probe_format(filename);
 
 #ifdef HAVE_NBD
+        if (!opt->cache) {
+            opt->cache = !supports_direct_io(filename);
+            DEBUG("Using host page cache: %s", opt->cache ? "yes" : "no");
+        }
+
         struct server_options options = {
             .filename=filename,
             .format=format,
-            .nocache=opt->nocache,
+            .cache=opt->cache,
         };
 
         job->nbd_server = start_nbd_server(&options);
