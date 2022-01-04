@@ -13,7 +13,9 @@ blksum - compute message digest for disk images
 SYNOPSYS
 --------
 
-*blksum* [-w WORKERS] [-n] 'DIGEST' ['SOURCE']
+*blksum* [-w N|--workers=N] [-p|--progress] [-c|--cache]
+         [--queue-size=N] [--read-size=N] [-h|--help]
+         'DIGESTNAME' ['FILENAME']
 
 DESCRIPTION
 -----------
@@ -22,38 +24,53 @@ blksum print a checksum for disk image guest visible content. You can
 compare the checksum for disk images in 'raw' or 'qcow2' format. 'qcow2'
 format is supported only if 'blksum' was built with NBD support.
 
-'DIGEST' is any message digest name supported by openssl. To list
+'DIGESTNAME' is any message digest name supported by openssl. To list
 availabe names run:
 
     openssl dgst -list
 
-'SOURCE' can be a file or NBD URL.
+'FILENAME' can be a file or a NBD URL.
 
-If 'SOURCE' is not specified, read data from stadard input. This can be
-used only for 'raw' images.
+If 'FILENAME' is not specified, read data from stadard input. This can
+be used only for 'raw' images.
 
 OPTIONS
 -------
 
-*-w, --workers*='WORKERS'::
+*-w, --workers*='N'::
   Set the number of workers. The default (4) gives good performance but on
   large machines you may want to use more workers. The valid value is 1 up to
   the number of online cpus.
 
-*-n, --nocache*::
-  Avoid host page cache (Linux only). This is may be slower, but it prevents
-  polluting host page cache with data that is unlikely to be used. May be
-  required when computing a checksum for block device connected to multiple
-  hosts, if the block device was modified on another host.
+*-p, --progress*::
+  Show progress bar when computing a checksum.
+
+*-c, --cache*::
+  Use host page cache. This is may be faster, but is not correct when
+  using a block device connected to multiple hosts. Typically it gives
+  less consistent results. If not set, blksum uses direct I/O when
+  possible.
+
+*--queue-size*='N'::
+  Maximum number of bytes to queue for inflight async reads. With the
+  default read size (256k) this will queue up to 4 inflight requests
+  with 256k length, or up to 64 inflight requests with 4k length.
+
+*--read-size*='N'::
+  Maximum read size in bytes. The default value (262144) gives best
+  performance when reading from fast NVMe.
+
+*-h, --help*::
+  Show online help and exit.
 
 USING QEMU-NBD
 --------------
 
-For best performance when exporting images via 'qemu-nbd(8)' set the '--shared'
-option to value larger than the number of workers. For example if using 4
-workers, use:
+For best performance when exporting images via 'qemu-nbd(8)' set the
+'--shared' option to value equal or larger than the number of workers.
+For example if using 4 workers, use:
 
-    qemu-nbd --shared 5 -t -r -k /tmp/nbd.sock -f qcow2 disk.qcow2
+    qemu-nbd --shared 4 -t -r -k /tmp/nbd.sock -f qcow2 disk.qcow2
 
 EXAMPLES
 --------

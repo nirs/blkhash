@@ -6,6 +6,7 @@
 #include <openssl/evp.h>
 #include <assert.h>
 #include <sys/queue.h>
+#include <unistd.h>
 
 #include "blkhash.h"
 #include "blksum.h"
@@ -24,6 +25,9 @@ struct job {
 
     /* Set if job started a nbd server to serve filename. */
     struct nbd_server *nbd_server;
+
+    /* Set if progress is enabled. */
+    struct progress *progress;
 };
 
 struct extent_array {
@@ -125,10 +129,15 @@ static void init_job(struct job *job, const char *filename,
         const char *format = probe_format(filename);
 
 #ifdef HAVE_NBD
+        if (!opt->cache) {
+            opt->cache = !supports_direct_io(filename);
+            DEBUG("Using host page cache: %s", opt->cache ? "yes" : "no");
+        }
+
         struct server_options options = {
             .filename=filename,
             .format=format,
-            .nocache=opt->nocache,
+            .cache=opt->cache,
         };
 
         job->nbd_server = start_nbd_server(&options);
@@ -165,6 +174,9 @@ static void init_job(struct job *job, const char *filename,
     job->digests_buffer = malloc(job->segment_count * job->md_size);
     if (job->digests_buffer == NULL)
         FAIL_ERRNO("malloc");
+
+    if (opt->progress)
+        job->progress = progress_open(job->segment_count);
 }
 
 static void destroy_job(struct job *job)
@@ -188,6 +200,11 @@ static void destroy_job(struct job *job)
         job->nbd_server = NULL;
     }
 #endif
+
+    if (job->progress) {
+        progress_close(job->progress);
+        job->progress = NULL;
+    }
 }
 
 static inline unsigned char *segment_md(struct job *job, size_t n)
@@ -431,7 +448,7 @@ static void *worker_thread(void *arg)
     struct worker *w = (struct worker *)arg;
     struct job *job = w->job;
     struct options *opt = job->opt;
-    ssize_t i;
+    ssize_t segment;
 
     DEBUG("worker %d started", w->id);
 
@@ -441,16 +458,19 @@ static void *worker_thread(void *arg)
     if (w->h == NULL)
         FAIL_ERRNO("blkhash_new");
 
-    while ((i = next_segment(job)) != -1) {
-        int64_t offset = i * opt->segment_size;
-        unsigned char *seg_md = segment_md(job, i);
+    while ((segment = next_segment(job)) != -1) {
+        int64_t offset = segment * opt->segment_size;
+        unsigned char *seg_md = segment_md(job, segment);
 
-        DEBUG("worker %d processing segemnt %zd offset %" PRIi64,
-              w->id, i, offset);
+        DEBUG("worker %d processing segment %zd offset %" PRIi64,
+              w->id, segment, offset);
 
         process_segment(w, offset);
         blkhash_final(w->h, seg_md, NULL);
         blkhash_reset(w->h);
+
+        if (job->progress)
+            progress_update(job->progress, 1);
     }
 
     blkhash_free(w->h);
@@ -487,6 +507,11 @@ void parallel_checksum(const char *filename, struct options *opt,
         err = pthread_create(&w->thread, NULL, worker_thread, w);
         if (err)
             FAIL("pthread_create: %s", strerror(err));
+    }
+
+    if (job.progress) {
+        while (progress_draw(job.progress))
+            usleep(100000);
     }
 
     for (int i = 0; i < worker_count; i++) {

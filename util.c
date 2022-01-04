@@ -1,9 +1,13 @@
 // SPDX-FileCopyrightText: Red Hat Inc
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+#define _GNU_SOURCE     /* For O_DIRECT */
+
 #include <stdio.h>
 #include <time.h>
 #include <sys/time.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "util.h"
 
@@ -28,4 +32,12 @@ uint64_t gettime(void)
     gettimeofday(&tv, NULL);
     return (uint64_t)tv.tv_sec * MICROSECONDS + tv.tv_usec;
 #endif
+}
+
+bool supports_direct_io(const char *filename)
+{
+    int fd = open(filename, O_RDONLY | O_DIRECT);
+    if (fd != -1)
+        close(fd);
+    return fd != -1;
 }

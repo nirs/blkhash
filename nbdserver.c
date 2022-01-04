@@ -198,8 +198,8 @@ fail:
 
 static void exec_qemu_nbd(int fd, char **env, struct server_options *opt)
 {
-    const char *cache = opt->nocache ? "none": "writeback";
-    const char *aio = opt->nocache ? "native" : "threads";
+    const char *cache = opt->cache ? "writeback" : "none";
+    const char *aio = opt->cache ? "threads" : "native";
     char *const argv[] = {
         "qemu-nbd",
         "--read-only",

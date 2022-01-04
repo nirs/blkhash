@@ -73,8 +73,8 @@ def blksum_nbd(md, nbd_url):
 
 def blksum_file(md, image, cache=True):
     cmd = [BLKSUM, md]
-    if not cache:
-        cmd.append("-n")
+    if cache:
+        cmd.append("--cache")
     cmd.append(image)
     out = subprocess.check_output(cmd)
     return out.decode().strip().split("  ")

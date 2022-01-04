@@ -35,6 +35,7 @@ blksum = executable(
     'parallel.c',
     'pipe.c',
     'probe.c',
+    'progress.c',
     'simple.c',
     'src.c',
     'util.c',

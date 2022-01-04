@@ -46,8 +46,16 @@ static struct options opt = {
      * configuration for best performance. */
     .workers = 4,
 
-    /* Avoid host page cache. */
-    .nocache = false,
+    /*
+     * Use host page cache. This is may be faster, but is not correct
+     * when using a block device connected to multiple hosts. Typically
+     * it gives less consistent results. If not set, blksum uses direct
+     * I/O when possible.
+     */
+    .cache = false,
+
+    /* Show progress. */
+    .progress = false,
 };
 
 enum {
@@ -56,15 +64,34 @@ enum {
 };
 
 /* Start with ':' to enable detection of missing argument. */
-static const char *short_options = ":w:n";
+static const char *short_options = ":hw:cp";
 
 static struct option long_options[] = {
+   {"help",         no_argument,        0,  'h'},
    {"workers",      required_argument,  0,  'w'},
-   {"nocache",      no_argument,        0,  'n'},
+   {"progress",     no_argument,        0,  'p'},
+   {"cache",        no_argument,        0,  'c'},
    {"queue-size",   required_argument,  0,  QUEUE_SIZE},
    {"read-size",    required_argument,  0,  READ_SIZE},
    {0,              0,                  0,  0}
 };
+
+static void usage(int code)
+{
+    fputs(
+        "\n"
+        "Compute message digest for disk images\n"
+        "\n"
+        "    blksum [-w N|--workers=N] [-p|--progress] [-c|--cache]\n"
+        "           [--queue-size=N] [--read-size=N] [-h|--help]\n"
+        "           digestname [filename]\n"
+        "\n"
+        "Please read the blksum(1) manual page for more info.\n"
+        "\n",
+        stderr);
+
+    exit(code);
+}
 
 static void parse_options(int argc, char *argv[])
 {
@@ -84,6 +111,9 @@ static void parse_options(int argc, char *argv[])
             break;
 
         switch (c) {
+        case 'h':
+            usage(0);
+            break;
         case 'w': {
             char *end;
             opt.workers = strtol(optarg, &end, 10);
@@ -97,8 +127,11 @@ static void parse_options(int argc, char *argv[])
 
             break;
         }
-        case 'n':
-            opt.nocache = true;
+        case 'p':
+            opt.progress = true;
+            break;
+        case 'c':
+            opt.cache = true;
             break;
         case QUEUE_SIZE: {
             char *end;
@@ -148,9 +181,7 @@ static void parse_options(int argc, char *argv[])
     /* Parse arguments */
 
     if (optind == argc)
-        FAIL("Usage: blksum [-w N|--workers=N] [-n|--nocache]\n"
-             "              [--queue-size=N] [--read-size=N]\n"
-             "              digestname [filename]");
+        usage(1);
 
     opt.digest_name = argv[optind++];
 

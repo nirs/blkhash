@@ -7,6 +7,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 Block based hash optimized for disk images.
 
+![blksum demo](https://i.imgur.com/BYAo5Ei.gif)
+
 Disk images are usually sparse - contain unallocated areas that read as
 zeroes.  Computing a checksum of sparse image with standard tools is
 slow as computing a checksum of fully allocated image.
