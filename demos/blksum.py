@@ -1,14 +1,48 @@
 """
-Requires https://github.com/nirs/demo
+blksum demo.
+
+Installing requirements:
+
+    python3 -m venv venv
+    source venv/bin/activate
+    pip install --upgrade pip nohands
+
+Creating the images:
+
+    virt-builder fedora-32 \
+        --output fedora-32.qcow2 \
+        --format=qcow2 \
+        --hostname=fedora32 \
+        --ssh-inject=root \
+        --root-password=password:root \
+        --selinux-relabel \
+        --install=qemu-guest-agent
+
+    qemu-img convert -f qcow2 -O raw fedora-32.qcow2 fedora-32.raw
+
+    virt-builder fedora-34 \
+        --output fedora-34.qcow2 \
+        --format=qcow2 \
+        --size=50G \
+        --hostname=fedora34 \
+        --ssh-inject=root \
+        --root-password=password:root \
+        --selinux-relabel \
+        --install=qemu-guest-agent
+
+    Start a VM using the fedora 34 image, and create 24 GiB of data. One
+    way is to download linux kernel source and build a kernel. Duplicate
+    the built kernel tree until you reach the wanted utilization.
+
+    qemu-img create -f raw empty-8t.raw 8t
 
 Run using:
 
-    export PYTHONPATH=$HOME/src/demo
     python3 blksum.py
 
 """
 
-from demo import *
+from nohands import *
 
 run("clear")
 msg("### Compute disk image checksum with blksum ###", color=YELLOW)
