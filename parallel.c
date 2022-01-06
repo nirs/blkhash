@@ -12,6 +12,9 @@
 #include "blksum.h"
 #include "util.h"
 
+/* Maximum number of commands per worker. */
+#define MAX_COMMANDS 16
+
 struct job {
     char *uri;
     uint64_t size;
@@ -51,6 +54,7 @@ struct command_queue {
     STAILQ_HEAD(, command) head;
     int len;
     int size;
+    int count;
 };
 
 struct worker {
@@ -77,10 +81,14 @@ static inline void queue_init(struct command_queue *q, int size)
     STAILQ_INIT(&q->head);
     q->len = 0;
     q->size = size;
+    q->count = 0;
 }
 
 static inline void queue_push(struct command_queue *q, struct command *cmd)
 {
+    assert(q->count < MAX_COMMANDS);
+    q->count++;
+
     q->len += cost(cmd->zero, cmd->length);
     assert(q->len <= q->size);
 
@@ -93,6 +101,9 @@ static inline struct command *queue_pop(struct command_queue *q)
 
     cmd = STAILQ_FIRST(&q->head);
     STAILQ_REMOVE_HEAD(&q->head, entry);
+
+    assert(q->count > 0);
+    q->count--;
 
     q->len -= cost(cmd->zero, cmd->length);
     assert(q->len >= 0);
@@ -107,7 +118,8 @@ static inline bool queue_ready(struct command_queue *q)
 
 static inline int can_push(struct command_queue *q, struct extent *extent)
 {
-    return q->size - q->len >= cost(extent->zero, extent->length);
+    return q->count < MAX_COMMANDS &&
+	   q->size - q->len >= cost(extent->zero, extent->length);
 }
 
 static void optimize(const char *filename, struct options *opt,
