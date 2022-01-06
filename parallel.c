@@ -52,9 +52,9 @@ struct command {
 
 struct command_queue {
     STAILQ_HEAD(, command) head;
-    int len;
-    int size;
-    int count;
+    int len;    /* Number of items in queue. */
+    int bytes;  /* Total length of non-zero commands. */
+    int size;   /* Maximum length of non-zero commands. */
 };
 
 struct worker {
@@ -73,24 +73,24 @@ struct worker {
 
 static inline uint32_t cost(bool zero, uint32_t len)
 {
-    return zero ? 4096 : len;
+    return zero ? 0 : len;
 }
 
 static inline void queue_init(struct command_queue *q, int size)
 {
     STAILQ_INIT(&q->head);
     q->len = 0;
+    q->bytes = 0;
     q->size = size;
-    q->count = 0;
 }
 
 static inline void queue_push(struct command_queue *q, struct command *cmd)
 {
-    assert(q->count < MAX_COMMANDS);
-    q->count++;
+    assert(q->len < MAX_COMMANDS);
+    q->len++;
 
-    q->len += cost(cmd->zero, cmd->length);
-    assert(q->len <= q->size);
+    q->bytes += cost(cmd->zero, cmd->length);
+    assert(q->bytes <= q->size);
 
     STAILQ_INSERT_TAIL(&q->head, cmd, entry);
 }
@@ -102,11 +102,11 @@ static inline struct command *queue_pop(struct command_queue *q)
     cmd = STAILQ_FIRST(&q->head);
     STAILQ_REMOVE_HEAD(&q->head, entry);
 
-    assert(q->count > 0);
-    q->count--;
+    assert(q->len > 0);
+    q->len--;
 
-    q->len -= cost(cmd->zero, cmd->length);
-    assert(q->len >= 0);
+    q->bytes -= cost(cmd->zero, cmd->length);
+    assert(q->bytes >= 0);
 
     return cmd;
 }
@@ -118,8 +118,8 @@ static inline bool queue_ready(struct command_queue *q)
 
 static inline int can_push(struct command_queue *q, struct extent *extent)
 {
-    return q->count < MAX_COMMANDS &&
-	   q->size - q->len >= cost(extent->zero, extent->length);
+    return q->len < MAX_COMMANDS &&
+	   q->size - q->bytes >= cost(extent->zero, extent->length);
 }
 
 static void optimize(const char *filename, struct options *opt,
