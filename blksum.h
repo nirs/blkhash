@@ -57,6 +57,10 @@ struct nbd_server {
     pid_t pid;
 };
 
+struct file_info {
+    const char *format;
+};
+
 struct src {
     struct src_ops *ops;
 
@@ -133,7 +137,7 @@ struct src_ops {
 };
 
 bool is_nbd_uri(const char *s);
-const char *probe_format(const char *path);
+int probe_file(const char *path, struct file_info *fi);
 
 struct nbd_server *start_nbd_server(struct server_options *opt);
 char *nbd_server_uri(struct nbd_server *s);

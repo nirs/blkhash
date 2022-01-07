@@ -122,11 +122,12 @@ static void init_job(struct job *job, const char *filename,
         if (job->uri == NULL)
             FAIL_ERRNO("strdup");
     } else {
+        struct file_info fi = {0};
         /*
          * If we have NBD, start nbd server and use nbd uri. Otherwise use file
          * directly if it is a raw format.
          */
-        const char *format = probe_format(filename);
+        probe_file(filename, &fi);
 
 #ifdef HAVE_NBD
         if (!opt->cache) {
@@ -136,15 +137,15 @@ static void init_job(struct job *job, const char *filename,
 
         struct server_options options = {
             .filename=filename,
-            .format=format,
+            .format=fi.format,
             .cache=opt->cache,
         };
 
         job->nbd_server = start_nbd_server(&options);
         job->uri = nbd_server_uri(job->nbd_server);
 #else
-        if (strcmp(format, "raw") != 0)
-            FAIL("%s format requires NBD", format);
+        if (strcmp(fi.format, "raw") != 0)
+            FAIL("%s format requires NBD", fi.format);
 
         job->uri = strdup(filename);
         if (job->uri == NULL)
