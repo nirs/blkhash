@@ -59,6 +59,7 @@ struct nbd_server {
 
 struct file_info {
     const char *format;
+    const char *fs_name;
 };
 
 struct src {
