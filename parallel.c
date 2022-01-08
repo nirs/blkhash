@@ -189,6 +189,7 @@ static void init_job(struct job *job, const char *filename,
             .filename=filename,
             .format=fi.format,
             .cache=opt->cache,
+            .workers=opt->workers,
         };
 
         job->nbd_server = start_nbd_server(&options);

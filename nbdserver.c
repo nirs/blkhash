@@ -200,13 +200,17 @@ static void exec_qemu_nbd(int fd, char **env, struct server_options *opt)
 {
     const char *cache = opt->cache ? "writeback" : "none";
     const char *aio = opt->cache ? "threads" : "native";
+    char shared[21];
+
+    snprintf(shared, sizeof(shared), "%ld", opt->workers);
+
     char *const argv[] = {
         "qemu-nbd",
         "--read-only",
         "--persistent",
         "--cache", (char *)cache,
         "--aio", (char *)aio,
-        "--shared", "16",
+        "--shared", shared,
         "--format", (char *)opt->format,
         (char *)opt->filename,
         NULL

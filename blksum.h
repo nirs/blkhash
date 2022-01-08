@@ -49,6 +49,7 @@ struct server_options {
     const char *filename;
     const char *format;
     bool cache;
+    size_t workers;
 };
 
 struct nbd_server {
