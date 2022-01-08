@@ -28,11 +28,11 @@ static struct options opt = {
 
     /*
      * Maximum number of bytes to queue for inflight async reads. With
-     * the default read_size (256k) this will queue up to 4 inflight
+     * the default read_size (256k) this will queue up to 8 inflight
      * requests with 256k length, or up to 16 inflight requests with 4k
      * length.
      */
-    .queue_size = 1024 * 1024,
+    .queue_size = 2 * 1024 * 1024,
 
     /*
      * Smaller size is optimal for hashing and detecting holes.

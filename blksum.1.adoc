@@ -53,7 +53,7 @@ OPTIONS
 
 *--queue-size*='N'::
   Maximum number of bytes to queue for inflight async reads. With the
-  default read size (256k) this will queue up to 4 inflight requests
+  default read size (256k) this will queue up to 8 inflight requests
   with 256k length, or up to 16 inflight requests with 4k length.
 
 *--read-size*='N'::
