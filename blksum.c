@@ -13,6 +13,7 @@
 #include "util.h"
 
 #define MAX_QUEUE_SIZE (8 * 1024 * 1024)
+#define MAX_WORKERS 16
 
 bool debug = false;
 bool io_only = false;
@@ -121,9 +122,11 @@ static void parse_options(int argc, char *argv[])
                 FAIL("Invalid value for option %s: '%s'", optname, optarg);
 
             int online_cpus = sysconf(_SC_NPROCESSORS_ONLN);
-            if (opt.workers < 1 || opt.workers > online_cpus)
+            int max_workers = online_cpus < MAX_WORKERS
+                ? online_cpus : MAX_WORKERS;
+            if (opt.workers < 1 || opt.workers > max_workers)
                 FAIL("Invalid number of workers: %ld (1-%d)",
-                     opt.workers, online_cpus);
+                     opt.workers, max_workers);
 
             break;
         }
