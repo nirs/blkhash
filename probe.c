@@ -10,6 +10,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#if defined __linux__
+#include <sys/vfs.h>  /* For fstatfs */
+#endif
+
 #include "blksum.h"
 
 #define PROBE_SIZE 512
@@ -31,20 +35,13 @@ struct __attribute__((packed)) qcow2_header {
     uint8_t padding[96];
 };
 
-static size_t read_probe(const char *path, void *buf)
+static size_t read_probe(int fd, void *buf)
 {
-    int fd;
     ssize_t n;
-
-    fd = open(path, O_RDONLY);
-    if (fd == -1)
-        FAIL_ERRNO("open");
 
     do {
         n = read(fd, buf, PROBE_SIZE);
     } while (n == -1 && errno == EINTR);
-
-    close(fd);
 
     if (n == -1)
         FAIL_ERRNO("read");
@@ -61,20 +58,72 @@ static bool is_qcow2(const void *buf, size_t len)
            ntohl(h->version) >= 2;
 }
 
-const char *probe_format(const char *path)
+static void probe_format(int fd, struct file_info *fi)
 {
     char buf[PROBE_SIZE];
     size_t len;
-    const char *format;
 
-    len = read_probe(path, &buf);
+    len = read_probe(fd, &buf);
 
     if (is_qcow2(buf, len))
-        format = "qcow2";
+        fi->format = "qcow2";
     else
-        format = "raw";
+        fi->format = "raw";
 
-    DEBUG("Probed image format: %s", format);
+    DEBUG("Probed image format: %s", fi->format);
+}
 
-    return format;
+static const char *fs_name(struct statfs *s)
+{
+    /* Values documented in statfs(2). */
+    switch (s->f_type) {
+        case 0x73727279:
+            return "btrfs";
+        case 0xef53:
+            return "ext4";
+        case 0x65735546:
+            return "fuse";
+        case 0x6969:
+            return "nfs";
+        case 0x01021994:
+            return "tmpfs";
+        case 0x58465342:
+            return "xfs";
+        default:
+            DEBUG("Detected f_type=0x%0lx", s->f_type);
+            return "other";
+    }
+}
+
+static void probe_fs_name(int fd, struct file_info *fi)
+{
+#if defined __linux__
+    struct statfs buf;
+
+    /* Detecting file system type is optimization, don't fail. */
+    if (fstatfs(fd, &buf) == -1) {
+        DEBUG("Cannot probe file system type: %s", strerror(errno));
+        return;
+    }
+
+    fi->fs_name = fs_name(&buf);
+
+    DEBUG("Probed file system name: %s", fi->fs_name);
+#endif
+}
+
+int probe_file(const char *path, struct file_info *fi)
+{
+    int fd;
+
+    fd = open(path, O_RDONLY);
+    if (fd == -1)
+        FAIL_ERRNO("open");
+
+    probe_format(fd, fi);
+    probe_fs_name(fd, fi);
+
+    close(fd);
+
+    return 0;
 }

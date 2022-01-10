@@ -110,6 +110,47 @@ static inline int can_push(struct command_queue *q, struct extent *extent)
     return q->size - q->len >= cost(extent->zero, extent->length);
 }
 
+static void optimize(const char *filename, struct options *opt,
+                     struct file_info *fi)
+{
+    if (fi->fs_name && strcmp(fi->fs_name, "nfs") == 0) {
+        /*
+         * Direct I/O can be up to 11X times slower on NFS, and using host
+         * page cache should always be correct on NFS.
+         */
+        if (!opt->cache) {
+            opt->cache = true;
+            DEBUG("Optimize for 'nfs': cache=yes");
+        }
+
+        /*
+         * For raw format large queue and read sizes can be 2.5x times
+         * faster. For qcow2, the default values give best performance.
+         * TODO: Change only if user did not specify other value.
+         */
+        if (strcmp(fi->format, "raw") == 0) {
+            opt->read_size = 2 * 1024 * 1024;
+            opt->queue_size = 4 * 1024 * 1024;
+            DEBUG("Optimize for 'raw' image on 'nfs': "
+                  "queue_size=%ld read_size=%ld",
+                  opt->queue_size, opt->read_size);
+        }
+    } else {
+        /*
+         * For other storage, direct I/O is required for correctness on
+         * some cases (e.g. LUN connected to multiple hosts), and typically
+         * faster and more consitent. However it is not supported on all
+         * filesystems so we must check if file can be used with direct
+         * I/O.
+         */
+        if (!opt->cache && !supports_direct_io(filename)) {
+            opt->cache = true;
+            DEBUG("Optimize for '%s' image on '%s': cache=yes",
+                  fi->format, fi->fs_name);
+        }
+    }
+}
+
 static void init_job(struct job *job, const char *filename,
                      struct options *opt)
 {
@@ -122,29 +163,27 @@ static void init_job(struct job *job, const char *filename,
         if (job->uri == NULL)
             FAIL_ERRNO("strdup");
     } else {
+        struct file_info fi = {0};
         /*
          * If we have NBD, start nbd server and use nbd uri. Otherwise use file
          * directly if it is a raw format.
          */
-        const char *format = probe_format(filename);
+        probe_file(filename, &fi);
 
 #ifdef HAVE_NBD
-        if (!opt->cache) {
-            opt->cache = !supports_direct_io(filename);
-            DEBUG("Using host page cache: %s", opt->cache ? "yes" : "no");
-        }
+        optimize(filename, opt, &fi);
 
         struct server_options options = {
             .filename=filename,
-            .format=format,
+            .format=fi.format,
             .cache=opt->cache,
         };
 
         job->nbd_server = start_nbd_server(&options);
         job->uri = nbd_server_uri(job->nbd_server);
 #else
-        if (strcmp(format, "raw") != 0)
-            FAIL("%s format requires NBD", format);
+        if (strcmp(fi.format, "raw") != 0)
+            FAIL("%s format requires NBD", fi.format);
 
         job->uri = strdup(filename);
         if (job->uri == NULL)
