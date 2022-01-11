@@ -9,9 +9,8 @@ import time
 from contextlib import contextmanager
 
 import pytest
+import blksum
 
-BLOCK_SIZE = 64 * 1024
-SEGMENT_SIZE = 128 * 1024 * 1024
 DIGEST_NAMES = ["sha1", "blake2b512"]
 BLKSUM = os.environ.get("BLKSUM", "build/blksum")
 HAVE_NBD = bool(os.environ.get("HAVE_NBD"))
@@ -41,7 +40,7 @@ def test_blksum(tmpdir, fmt, md):
     image_qcow2 = str(tmpdir.join("image.qcow2"))
     convert_image(image_raw, image_qcow2, "qcow2")
 
-    checksum = simple_blksum(md, image_raw)
+    checksum = blksum.checksum(md, image_raw)
     print(checksum)
 
     # Test file.
@@ -91,55 +90,6 @@ def blksum_pipe(md, image):
     return r.stdout.decode().strip().split("  ")
 
 
-def simple_blksum(md, image):
-    """
-    Compute root hash for segments:
-
-        H( H(segment 1) + H(segment 2) ... H(segment N)) )
-
-    H(segment N) is:
-
-        H( H(block 1) + H(block 2) ... H(block M)) )
-    """
-    size = os.path.getsize(image)
-    root = hashlib.new(md)
-
-    with open(image, "rb") as f:
-        for offset in range(0, size, SEGMENT_SIZE):
-            # The last segment may be shorter.
-            length = min(SEGMENT_SIZE, size - offset)
-
-            # Compute segment digest.
-            segment = hashlib.new(md)
-
-            while length:
-                # Compute block digest.
-
-                # The last block of the last segment may be shorter.
-                block_size = min(BLOCK_SIZE, length)
-                block = hashlib.new(md)
-
-                # Read and hash entire block.
-                read = 0
-                while read < block_size:
-                    data = f.read(block_size - read)
-                    if not data:
-                        raise RuntimeError(
-                            f"Unexpected end of file at offset {f.tell()}, "
-                            f"expected {size} bytes")
-
-                    block.update(data)
-                    read += len(data)
-
-                # Add block hash to segment.
-                segment.update(block.digest())
-                length -= block_size
-
-            root.update(segment.digest())
-
-    return root.hexdigest()
-
-
 @contextmanager
 def open_nbd(image, format):
     sock = image + ".sock"
@@ -171,7 +121,7 @@ def convert_image(src, dst, format):
         ["qemu-img", "convert", "-f", "raw", "-O", format, src, dst])
 
 
-def create_image(path, fmt, block_size=BLOCK_SIZE // 2):
+def create_image(path, fmt, block_size=blksum.BLOCK_SIZE // 2):
     """
     Create image specified by foramt string.
 
