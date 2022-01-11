@@ -25,13 +25,13 @@ compare the checksum for disk images in 'raw' or 'qcow2' format. 'qcow2'
 format is supported only if 'blksum' was built with NBD support.
 
 'DIGESTNAME' is any message digest name supported by openssl. To list
-availabe names run:
+available names run:
 
     openssl dgst -list
 
 'FILENAME' can be a file or a NBD URL.
 
-If 'FILENAME' is not specified, read data from stadard input. This can
+If 'FILENAME' is not specified, read data from standard input. This can
 be used only for 'raw' images.
 
 OPTIONS
