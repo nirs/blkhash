@@ -138,14 +138,21 @@ static void optimize(const char *filename, struct options *opt,
         /*
          * For raw format large queue and read sizes can be 2.5x times
          * faster. For qcow2, the default values give best performance.
-         * TODO: Change only if user did not specify other value.
          */
         if (strcmp(fi->format, "raw") == 0) {
-            opt->read_size = 2 * 1024 * 1024;
-            opt->queue_size = 4 * 1024 * 1024;
-            DEBUG("Optimize for 'raw' image on 'nfs': "
-                  "queue_size=%ld read_size=%ld",
-                  opt->queue_size, opt->read_size);
+            if ((opt->flags & USER_READ_SIZE) == 0) {
+                opt->read_size = 2 * 1024 * 1024;
+                DEBUG("Optimize for 'raw' image on 'nfs': read_size=%ld",
+                      opt->read_size);
+            }
+
+            if ((opt->flags & USER_QUEUE_SIZE) == 0) {
+                opt->queue_size = 4 * 1024 * 1024;
+                if (opt->queue_size < opt->read_size)
+                    opt->queue_size = opt->read_size;
+                DEBUG("Optimize for 'raw' image on 'nfs': queue_size=%ld",
+                      opt->queue_size);
+            }
         }
     } else {
         /*

@@ -128,6 +128,7 @@ static void parse_options(int argc, char *argv[])
                 FAIL("Invalid number of workers: %ld (1-%d)",
                      opt.workers, max_workers);
 
+            opt.flags |= USER_WORKERS;
             break;
         }
         case 'p':
@@ -135,6 +136,7 @@ static void parse_options(int argc, char *argv[])
             break;
         case 'c':
             opt.cache = true;
+            opt.flags |= USER_CACHE;
             break;
         case QUEUE_SIZE: {
             char *end;
@@ -142,6 +144,7 @@ static void parse_options(int argc, char *argv[])
             if (*end != '\0' || end == optarg)
                 FAIL("Invalid value for option %s: '%s'", optname, optarg);
 
+            opt.flags |= USER_QUEUE_SIZE;
             break;
         }
         case READ_SIZE: {
@@ -150,6 +153,7 @@ static void parse_options(int argc, char *argv[])
             if (*end != '\0' || end == optarg)
                 FAIL("Invalid value for option %s: '%s'", optname, optarg);
 
+            opt.flags |= USER_READ_SIZE;
             break;
         }
         case ':':
