@@ -106,6 +106,7 @@ def simple_blksum(md, image):
 
     with open(image, "rb") as f:
         for offset in range(0, size, SEGMENT_SIZE):
+            # The last segment may be shorter.
             length = min(SEGMENT_SIZE, size - offset)
 
             # Compute segment digest.
@@ -113,11 +114,26 @@ def simple_blksum(md, image):
 
             while length:
                 # Compute block digest.
-                n = min(BLOCK_SIZE, length)
-                block = f.read(n)
-                block_digest = hashlib.new(md, block).digest()
-                segment.update(block_digest)
-                length -= n
+
+                # The last block of the last segment may be shorter.
+                block_size = min(BLOCK_SIZE, length)
+                block = hashlib.new(md)
+
+                # Read and hash entire block.
+                read = 0
+                while read < block_size:
+                    data = f.read(block_size - read)
+                    if not data:
+                        raise RuntimeError(
+                            f"Unexpected end of file at offset {f.tell()}, "
+                            f"expected {size} bytes")
+
+                    block.update(data)
+                    read += len(data)
+
+                # Add block hash to segment.
+                segment.update(block.digest())
+                length -= block_size
 
             root.update(segment.digest())
 
