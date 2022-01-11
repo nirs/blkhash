@@ -13,6 +13,7 @@
 #include "util.h"
 
 #define MAX_QUEUE_SIZE (8 * 1024 * 1024)
+#define MAX_WORKERS 16
 
 bool debug = false;
 bool io_only = false;
@@ -28,11 +29,11 @@ static struct options opt = {
 
     /*
      * Maximum number of bytes to queue for inflight async reads. With
-     * the default read_size (256k) this will queue up to 4 inflight
-     * requests with 256k length, or up to 64 inflight requests with 4k
+     * the default read_size (256k) this will queue up to 8 inflight
+     * requests with 256k length, or up to 16 inflight requests with 4k
      * length.
      */
-    .queue_size = 1024 * 1024,
+    .queue_size = 2 * 1024 * 1024,
 
     /*
      * Smaller size is optimal for hashing and detecting holes.
@@ -121,10 +122,13 @@ static void parse_options(int argc, char *argv[])
                 FAIL("Invalid value for option %s: '%s'", optname, optarg);
 
             int online_cpus = sysconf(_SC_NPROCESSORS_ONLN);
-            if (opt.workers < 1 || opt.workers > online_cpus)
+            int max_workers = online_cpus < MAX_WORKERS
+                ? online_cpus : MAX_WORKERS;
+            if (opt.workers < 1 || opt.workers > max_workers)
                 FAIL("Invalid number of workers: %ld (1-%d)",
-                     opt.workers, online_cpus);
+                     opt.workers, max_workers);
 
+            opt.flags |= USER_WORKERS;
             break;
         }
         case 'p':
@@ -132,6 +136,7 @@ static void parse_options(int argc, char *argv[])
             break;
         case 'c':
             opt.cache = true;
+            opt.flags |= USER_CACHE;
             break;
         case QUEUE_SIZE: {
             char *end;
@@ -139,6 +144,7 @@ static void parse_options(int argc, char *argv[])
             if (*end != '\0' || end == optarg)
                 FAIL("Invalid value for option %s: '%s'", optname, optarg);
 
+            opt.flags |= USER_QUEUE_SIZE;
             break;
         }
         case READ_SIZE: {
@@ -147,6 +153,7 @@ static void parse_options(int argc, char *argv[])
             if (*end != '\0' || end == optarg)
                 FAIL("Invalid value for option %s: '%s'", optname, optarg);
 
+            opt.flags |= USER_READ_SIZE;
             break;
         }
         case ':':

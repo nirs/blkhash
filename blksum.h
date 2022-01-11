@@ -33,6 +33,12 @@
 extern bool debug;
 extern bool io_only;
 
+/* Options flags. */
+#define USER_QUEUE_SIZE  (1 << 0)
+#define USER_READ_SIZE   (1 << 1)
+#define USER_CACHE       (1 << 2)
+#define USER_WORKERS     (1 << 3)
+
 struct options {
     const char *digest_name;
     size_t read_size;
@@ -43,12 +49,14 @@ struct options {
     bool cache;
     const char *filename;
     bool progress;
+    uint32_t flags;
 };
 
 struct server_options {
     const char *filename;
     const char *format;
     bool cache;
+    size_t workers;
 };
 
 struct nbd_server {

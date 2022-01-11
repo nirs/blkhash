@@ -12,6 +12,9 @@
 #include "blksum.h"
 #include "util.h"
 
+/* Maximum number of commands per worker. */
+#define MAX_COMMANDS 16
+
 struct job {
     char *uri;
     uint64_t size;
@@ -49,8 +52,9 @@ struct command {
 
 struct command_queue {
     STAILQ_HEAD(, command) head;
-    int len;
-    int size;
+    int len;    /* Number of items in queue. */
+    int bytes;  /* Total length of non-zero commands. */
+    int size;   /* Maximum length of non-zero commands. */
 };
 
 struct worker {
@@ -69,20 +73,24 @@ struct worker {
 
 static inline uint32_t cost(bool zero, uint32_t len)
 {
-    return zero ? 4096 : len;
+    return zero ? 0 : len;
 }
 
 static inline void queue_init(struct command_queue *q, int size)
 {
     STAILQ_INIT(&q->head);
     q->len = 0;
+    q->bytes = 0;
     q->size = size;
 }
 
 static inline void queue_push(struct command_queue *q, struct command *cmd)
 {
-    q->len += cost(cmd->zero, cmd->length);
-    assert(q->len <= q->size);
+    assert(q->len < MAX_COMMANDS);
+    q->len++;
+
+    q->bytes += cost(cmd->zero, cmd->length);
+    assert(q->bytes <= q->size);
 
     STAILQ_INSERT_TAIL(&q->head, cmd, entry);
 }
@@ -94,8 +102,11 @@ static inline struct command *queue_pop(struct command_queue *q)
     cmd = STAILQ_FIRST(&q->head);
     STAILQ_REMOVE_HEAD(&q->head, entry);
 
-    q->len -= cost(cmd->zero, cmd->length);
-    assert(q->len >= 0);
+    assert(q->len > 0);
+    q->len--;
+
+    q->bytes -= cost(cmd->zero, cmd->length);
+    assert(q->bytes >= 0);
 
     return cmd;
 }
@@ -107,7 +118,8 @@ static inline bool queue_ready(struct command_queue *q)
 
 static inline int can_push(struct command_queue *q, struct extent *extent)
 {
-    return q->size - q->len >= cost(extent->zero, extent->length);
+    return q->len < MAX_COMMANDS &&
+	   q->size - q->bytes >= cost(extent->zero, extent->length);
 }
 
 static void optimize(const char *filename, struct options *opt,
@@ -126,14 +138,21 @@ static void optimize(const char *filename, struct options *opt,
         /*
          * For raw format large queue and read sizes can be 2.5x times
          * faster. For qcow2, the default values give best performance.
-         * TODO: Change only if user did not specify other value.
          */
         if (strcmp(fi->format, "raw") == 0) {
-            opt->read_size = 2 * 1024 * 1024;
-            opt->queue_size = 4 * 1024 * 1024;
-            DEBUG("Optimize for 'raw' image on 'nfs': "
-                  "queue_size=%ld read_size=%ld",
-                  opt->queue_size, opt->read_size);
+            if ((opt->flags & USER_READ_SIZE) == 0) {
+                opt->read_size = 2 * 1024 * 1024;
+                DEBUG("Optimize for 'raw' image on 'nfs': read_size=%ld",
+                      opt->read_size);
+            }
+
+            if ((opt->flags & USER_QUEUE_SIZE) == 0) {
+                opt->queue_size = 4 * 1024 * 1024;
+                if (opt->queue_size < opt->read_size)
+                    opt->queue_size = opt->read_size;
+                DEBUG("Optimize for 'raw' image on 'nfs': queue_size=%ld",
+                      opt->queue_size);
+            }
         }
     } else {
         /*
@@ -177,6 +196,7 @@ static void init_job(struct job *job, const char *filename,
             .filename=filename,
             .format=fi.format,
             .cache=opt->cache,
+            .workers=opt->workers,
         };
 
         job->nbd_server = start_nbd_server(&options);
