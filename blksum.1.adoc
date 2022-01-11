@@ -38,27 +38,29 @@ OPTIONS
 -------
 
 *-w, --workers*='N'::
-  Set the number of workers. The default (4) gives good performance but on
-  large machines you may want to use more workers. The valid value is 1 up to
-  the number of online cpus.
+  Set the number of workers. The default (4) gives good performance for
+  fast digest like sha1. For slower digest like sha256 larger number of
+  workers improves performance. The valid value is 1 up to the number of
+  online cpus but not more than 16.
 
 *-p, --progress*::
   Show progress bar when computing a checksum.
 
 *-c, --cache*::
-  Use host page cache. This is may be faster, but is not correct when
-  using a block device connected to multiple hosts. Typically it gives
-  less consistent results. If not set, blksum uses direct I/O when
-  possible.
+  Use host page cache. This may be faster, but is not correct when using
+  a block device connected to multiple hosts. Typically it gives less
+  consistent results. Always enabled when using NFS, otherwise enabled
+  only if the file system does not support direct I/O.
 
 *--queue-size*='N'::
-  Maximum number of bytes to queue for inflight async reads. With the
-  default read size (256k) this will queue up to 8 inflight requests
-  with 256k length, or up to 16 inflight requests with 4k length.
+  Maximum number of bytes to queue for in-flight reads. The default
+  value (2 MiB) gives best performance in most cases. If not set, the
+  value will be optimized for the image format and file system type.
 
 *--read-size*='N'::
-  Maximum read size in bytes. The default value (262144) gives best
-  performance when reading from fast NVMe.
+  Maximum read size in bytes. The default value (256 KiB) gives best
+  performance in most cases. If not set, the value will be optimized for
+  the image format and file system type.
 
 *-h, --help*::
   Show online help and exit.
