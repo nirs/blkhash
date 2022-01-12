@@ -17,21 +17,51 @@ HAVE_NBD = bool(os.environ.get("HAVE_NBD"))
 
 
 @pytest.mark.parametrize("fmt", [
-    pytest.param("AA", id="block-data"),
-    pytest.param("00", id="block-zero"),
-    pytest.param("--", id="block-sparse"),
-    pytest.param("A", id="partial-block-data"),
-    pytest.param("0", id="partial-block-zero"),
-    pytest.param("-", id="partial-block-sparse"),
-    pytest.param("-- -- --", id="sparse"),
-    pytest.param("-- -- -", id="sparse-unaligned"),
-    pytest.param("00 00 00", id="zero"),
-    pytest.param("00 00 0", id="zero-unaligned"),
-    pytest.param("AB CD EF", id="full"),
-    pytest.param("AB CD E", id="full-unaligned"),
-    pytest.param("A- -0 E- -0", id="mix"),
-    pytest.param("A- -0 E- -", id="mix-unaligned"),
-    pytest.param("AA AA AA AA BB -- CC CC CC CC CC -- DD", id="read-size"),
+    pytest.param(
+        "64k:A",
+        id="block-data"),
+    pytest.param(
+        "64K:0",
+        id="block-zero"),
+    pytest.param(
+        "64k:-",
+        id="block-sparse"),
+    pytest.param(
+        "32k:A",
+        id="partial-block-data"),
+    pytest.param(
+        "32k:0",
+        id="partial-block-zero"),
+    pytest.param(
+        "32k:-",
+        id="partial-block-sparse"),
+    pytest.param(
+        "192k:-",
+        id="sparse"),
+    pytest.param(
+        "160k:-",
+        id="sparse-unaligned"),
+    pytest.param(
+        "192k:0",
+        id="zero"),
+    pytest.param(
+        "160k:0",
+        id="zero-unaligned"),
+    pytest.param(
+        "32k:A 32k:B 32k:C 32k:D 32k:E 32k:F",
+        id="full"),
+    pytest.param(
+        "32k:A 32k:B 32k:C 32k:D 32k:E",
+        id="full-unaligned"),
+    pytest.param(
+        "32k:A 64k:- 32k:0 32k:E 64k:- 32k:0",
+        id="mix"),
+    pytest.param(
+        "32k:A 64k:- 32k:0 32k:E 64k:-",
+        id="mix-unaligned"),
+    pytest.param(
+        "256k:A 64k:B 64k:- 320k:C 64k:- 64k:D",
+        id="read-size"),
 ])
 @pytest.mark.parametrize("md", DIGEST_NAMES)
 def test_blksum(tmpdir, fmt, md):
@@ -121,28 +151,70 @@ def convert_image(src, dst, format):
         ["qemu-img", "convert", "-f", "raw", "-O", format, src, dst])
 
 
-def create_image(path, fmt, block_size=blksum.BLOCK_SIZE // 2):
+def create_image(path, fmt):
     """
-    Create image specified by foramt string.
+    Create image specified by format string.
 
     Special characters:
-        "-" creates a hole.
-        "0" create zero block
-        " " ignored for more readable format
+        " " extent separator
+        ":" size:byte separator
+        "-" hole byte
+        "0" zero byte
 
-    Any other character creates a block with that chracter.
+    Any other character creates an extent with that chracter.
+
+    Example:
+
+        "4096:A  64k:B  129m:-  512:C  512:0"
+
+        Create an image with 5 extents:
+
+        extent  size        content    type
+        -----------------------------------
+        #1      4096        "A"        data
+        #2      64 KiB      "B"        data
+        #3      129 MiB     "\0"       hole
+        #4      512         "C"        data
+        #5      512         "\0"       data
+
     """
-    fmt = fmt.replace(" ", "")
+    write_size = 1024**2
 
     with open(path, "wb") as f:
-        f.truncate(len(fmt) * block_size)
+        extents = [x.split(":", 1) for x in fmt.split(None)]
+        for hsize, c in extents:
+            size = humansize(hsize)
 
-        for i, c in enumerate(fmt):
             if c == "-":
-                continue
+                # Create a hole.
+                f.truncate(f.tell() + size)
+                f.seek(0, os.SEEK_END)
 
-            if c == "0":
-                c = "\0"
+            else:
+                # Write data.
+                if c == "0":
+                    c = "\0"
 
-            f.seek(i * block_size)
-            f.write(c.encode("ascii") * block_size)
+                b = c.encode("ascii")
+
+                while size > write_size:
+                    f.write(b * write_size)
+                    size -= write_size
+
+                f.write(b * size)
+
+
+def humansize(s):
+    if s.isdigit():
+        return int(s)
+    value, unit = s[:-1], s[-1]
+    value = int(value)
+    unit = unit.lower()
+    if unit == "k":
+        return value * 1024
+    elif unit == "m":
+        return value * 1024**2
+    elif unit == "g":
+        return value * 1024**3
+    else:
+        raise ValueError("Unsupported unit: %r" % unit)
