@@ -62,6 +62,18 @@ HAVE_NBD = bool(os.environ.get("HAVE_NBD"))
     pytest.param(
         "256k:A 64k:B 64k:- 320k:C 64k:- 64k:D",
         id="read-size"),
+    pytest.param(
+        "1m:A 127m:-",
+        id="1-segment"),
+    pytest.param(
+        "1m:A 127m:-  1m:B 127m:-  1m:C 63m:-",
+        id="2.5-segments"),
+    pytest.param(
+        "1m:A 127m:-  1m:B 127m:-  1m:C 127m:-  1m:D 127m:-",
+        id="4-segments"),
+    pytest.param(
+        "1m:A 127m:-  1m:B 127m:-  1m:C 127m:-  1m:D 127m:-  1m:E 127m:-",
+        id="5-segments"),
 ])
 @pytest.mark.parametrize("md", DIGEST_NAMES)
 def test_blksum(tmpdir, fmt, md):
