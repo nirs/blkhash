@@ -46,6 +46,7 @@ struct options {
     size_t block_size;
     size_t segment_size;
     size_t workers;
+    const char *aio;
     bool cache;
     const char *filename;
     bool progress;
@@ -55,6 +56,7 @@ struct options {
 struct server_options {
     const char *filename;
     const char *format;
+    const char *aio;
     bool cache;
     size_t workers;
 };

@@ -49,8 +49,8 @@ OPTIONS
 *-c, --cache*::
   Use host page cache. This may be faster, but is not correct when using
   a block device connected to multiple hosts. Typically it gives less
-  consistent results. Always enabled when using NFS, otherwise enabled
-  only if the file system does not support direct I/O.
+  consistent results. If not set, enabled if the file system does not
+  support direct I/O.
 
 *--queue-size*='N'::
   Maximum number of bytes to queue for in-flight reads. The default
