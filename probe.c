@@ -14,6 +14,11 @@
 #include <sys/vfs.h>  /* For fstatfs */
 #endif
 
+#include <sys/param.h>  /* For __FreeBSD__ */
+#if __FreeBSD__
+#include <sys/mount.h>
+#endif
+
 #include "blksum.h"
 
 #define PROBE_SIZE 512
@@ -75,6 +80,7 @@ static void probe_format(int fd, struct file_info *fi)
 
 static const char *fs_name(struct statfs *s)
 {
+#if defined __linux__
     /* Values documented in statfs(2). */
     switch (s->f_type) {
         case 0x73727279:
@@ -89,15 +95,14 @@ static const char *fs_name(struct statfs *s)
             return "tmpfs";
         case 0x58465342:
             return "xfs";
-        default:
-            DEBUG("Detected f_type=0x%0lx", s->f_type);
-            return "other";
     }
+    DEBUG("Detected f_type=0x%0lx", s->f_type);
+#endif
+    return "other";
 }
 
 static void probe_fs_name(int fd, struct file_info *fi)
 {
-#if defined __linux__
     struct statfs buf;
 
     /* Detecting file system type is optimization, don't fail. */
@@ -109,7 +114,6 @@ static void probe_fs_name(int fd, struct file_info *fi)
     fi->fs_name = fs_name(&buf);
 
     DEBUG("Probed file system name: %s", fi->fs_name);
-#endif
 }
 
 int probe_file(const char *path, struct file_info *fi)
