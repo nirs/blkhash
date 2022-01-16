@@ -55,6 +55,17 @@ static struct options opt = {
      */
     .cache = false,
 
+    /*
+     * The asynchronous I/O mode: "threads" (the default), "native" (Linux
+     * only), and "io_uring" (Linux 5.1+). Use "native" on Linux since it gives
+     * good performance with lower CPU usage in qemu-nbd.
+     */
+#if defined __linux__
+    .aio = "native",
+#else
+    .aio = "threads",
+#endif
+
     /* Show progress. */
     .progress = false,
 };

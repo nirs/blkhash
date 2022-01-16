@@ -127,12 +127,14 @@ static void optimize(const char *filename, struct options *opt,
 {
     if (fi->fs_name && strcmp(fi->fs_name, "nfs") == 0) {
         /*
-         * Direct I/O can be up to 11X times slower on NFS, and using host
-         * page cache should always be correct on NFS.
+         * cache=false aio=native can be up to 1180% slower. cache=false
+         * aio=threads can be 36% slower, but may be wanted to avoid
+         * pulluting the page cache with data that is not going to be
+         * used.
          */
-        if (!opt->cache) {
-            opt->cache = true;
-            DEBUG("Optimize for 'nfs': cache=yes");
+        if (strcmp(opt->aio, "native") == 0) {
+            opt->aio = "threads";
+            DEBUG("Optimize for 'nfs': aio=threads");
         }
 
         /*
@@ -167,6 +169,13 @@ static void optimize(const char *filename, struct options *opt,
             DEBUG("Optimize for '%s' image on '%s': cache=yes",
                   fi->format, fi->fs_name);
         }
+
+        /* Cache is not compatible with aio=native. */
+        if (opt->cache && strcmp(opt->aio, "native") == 0) {
+            opt->aio = "threads";
+            DEBUG("Optimize for '%s' image on '%s': aio=threads",
+                  fi->format, fi->fs_name);
+        }
     }
 }
 
@@ -195,6 +204,7 @@ static void init_job(struct job *job, const char *filename,
         struct server_options options = {
             .filename=filename,
             .format=fi.format,
+            .aio=opt->aio,
             .cache=opt->cache,
             .workers=opt->workers,
         };

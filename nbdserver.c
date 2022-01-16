@@ -199,7 +199,6 @@ fail:
 static void exec_qemu_nbd(int fd, char **env, struct server_options *opt)
 {
     const char *cache = opt->cache ? "writeback" : "none";
-    const char *aio = opt->cache ? "threads" : "native";
     char shared[21];
 
     snprintf(shared, sizeof(shared), "%ld", opt->workers);
@@ -209,7 +208,7 @@ static void exec_qemu_nbd(int fd, char **env, struct server_options *opt)
         "--read-only",
         "--persistent",
         "--cache", (char *)cache,
-        "--aio", (char *)aio,
+        "--aio", (char *)opt->aio,
         "--shared", shared,
         "--format", (char *)opt->format,
         (char *)opt->filename,
