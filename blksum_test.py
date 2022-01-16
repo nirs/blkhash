@@ -6,6 +6,7 @@ import os
 import subprocess
 import time
 
+from collections import namedtuple
 from contextlib import contextmanager
 
 import pytest
@@ -15,8 +16,12 @@ DIGEST_NAMES = ["sha1", "blake2b512"]
 BLKSUM = os.environ.get("BLKSUM", "build/blksum")
 HAVE_NBD = bool(os.environ.get("HAVE_NBD"))
 
+Image = namedtuple("Image", "filename,md,checksum")
 
-@pytest.mark.parametrize("fmt", [
+requires_nbd = pytest.mark.skipif(not HAVE_NBD, reason="NBD required")
+
+
+@pytest.fixture(scope="session", params=[
     pytest.param(
         "64k:A",
         id="block-data"),
@@ -75,36 +80,58 @@ HAVE_NBD = bool(os.environ.get("HAVE_NBD"))
         "1m:A 127m:-  1m:B 127m:-  1m:C 127m:-  1m:D 127m:-  1m:E 127m:-",
         id="5-segments"),
 ])
-@pytest.mark.parametrize("md", DIGEST_NAMES)
-def test_blksum(tmpdir, fmt, md):
-    image_raw = str(tmpdir.join("image.raw"))
-    create_image(image_raw, fmt)
-    image_qcow2 = str(tmpdir.join("image.qcow2"))
-    convert_image(image_raw, image_qcow2, "qcow2")
+def image(tmpdir_factory, request):
+    filename = str(tmpdir_factory.mktemp("image").join("raw"))
+    print(f"Creating raw image {filename}")
+    create_image(filename, request.param)
+    return filename
 
-    checksum = blksum.checksum(md, image_raw)
-    print(checksum)
 
-    # Test file.
-    res = [checksum, image_raw]
-    assert blksum_file(md, image_raw, cache=True) == res
-    assert blksum_file(md, image_raw, cache=False) == res
+@pytest.fixture(scope="session", params=DIGEST_NAMES)
+def raw(image, request):
+    print(f"Computing {request.param} checksum for {image}")
+    checksum = blksum.checksum(request.param, image)
+    return Image(image, request.param, checksum)
 
-    if HAVE_NBD:
-        # We can test also qcow2 format.
-        res = [checksum, image_qcow2]
-        assert blksum_file(md, image_qcow2, cache=True) == res
-        assert blksum_file(md, image_qcow2, cache=False) == res
 
-    # Test pipe- blksum cannot process qcow2 via pipe.
-    assert blksum_pipe(md, image_raw) == [checksum, "-"]
+@pytest.fixture(scope="session")
+def qcow2(raw):
+    filename = raw.filename.replace("raw", "qcow2")
+    print(f"Creating qcow2 image {filename}")
+    convert_image(raw.filename, filename, "qcow2")
+    return Image(filename, raw.md, raw.checksum)
 
-    if HAVE_NBD:
-        # Test using external qemu-nbd process.
-        with open_nbd(image_raw, "raw") as nbd_url:
-            assert blksum_nbd(md, nbd_url) == [checksum, nbd_url]
-        with open_nbd(image_qcow2, "qcow2") as nbd_url:
-            assert blksum_nbd(md, nbd_url) == [checksum, nbd_url]
+
+@pytest.mark.parametrize("cache", [True, False])
+def test_raw_file(raw, cache):
+    res = blksum_file(raw.md, raw.filename, cache=cache)
+    assert res == [raw.checksum, raw.filename]
+
+
+@pytest.mark.parametrize("cache", [True, False])
+@requires_nbd
+def test_qcow2_file(qcow2, cache):
+    res = blksum_file(qcow2.md, qcow2.filename, cache=cache)
+    assert res == [qcow2.checksum, qcow2.filename]
+
+
+def test_raw_pipe(raw, cache):
+    res = blksum_pipe(raw.md, raw.filename)
+    assert res == [raw.checksum, "-"]
+
+
+@requires_nbd
+def test_raw_nbd(tmpdir, raw, cache):
+    with open_nbd(tmpdir, raw.filename, "raw") as nbd_url:
+        res = blksum_nbd(raw.md, nbd_url)
+    assert res == [raw.checksum, nbd_url]
+
+
+@requires_nbd
+def test_qcow2_nbd(tmpdir, qcow2, cache):
+    with open_nbd(tmpdir, qcow2.filename, "qcow2") as nbd_url:
+        res = blksum_nbd(qcow2.md, nbd_url)
+    assert res == [qcow2.checksum, nbd_url]
 
 
 def blksum_nbd(md, nbd_url):
@@ -133,15 +160,15 @@ def blksum_pipe(md, image):
 
 
 @contextmanager
-def open_nbd(image, format):
-    sock = image + ".sock"
-    pidfile = image + ".pid"
+def open_nbd(tmpdir, image, format):
+    sockfile = str(tmpdir.join("sock"))
+    pidfile = str(tmpdir.join("pid"))
     p = subprocess.Popen([
         "qemu-nbd",
         "--read-only",
         "--persistent",
         "--shared=4",
-        "--socket={}".format(sock),
+        "--socket={}".format(sockfile),
         "--pid-file={}".format(pidfile),
         "--format={}".format(format),
         image,
@@ -152,7 +179,7 @@ def open_nbd(image, format):
             if p.poll() is not None:
                 raise RuntimeError("Error running qemu-nbd")
 
-        yield "nbd+unix:///?socket=" + sock
+        yield "nbd+unix:///?socket=" + sockfile
     finally:
         p.kill()
         p.wait()
