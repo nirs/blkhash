@@ -105,6 +105,7 @@ static int nbd_ops_extents(struct src *s, int64_t offset, int64_t length,
          * checksum without extents, slower.
          */
         DEBUG("%s", nbd_get_error());
+        free(r.extents);
         ns->src.can_extents = false;
         return -1;
     }
