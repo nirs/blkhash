@@ -58,6 +58,11 @@ static int extent_callback (void *user_data, const char *metacontext,
         return 0;
     }
 
+    if (*error) {
+        DEBUG("extent callback failed error=%d", *error);
+        return 0;
+    }
+
     r->extents = malloc(count * sizeof(*r->extents));
     if (r->extents == NULL)
         FAIL_ERRNO("malloc");
