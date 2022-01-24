@@ -40,6 +40,10 @@ static ssize_t nbd_ops_pread(struct src *s, void *buf, size_t len, int64_t offse
     return len;
 }
 
+/*
+ * Extent callback should return -1 if it failed, and set *errror. Other
+ * return values are ignored, unlike completion callback.
+ */
 static int extent_callback (void *user_data, const char *metacontext,
                             uint64_t offset, uint32_t *entries,
                             size_t nr_entries, int *error)
@@ -51,7 +55,7 @@ static int extent_callback (void *user_data, const char *metacontext,
 
     if (strcmp(metacontext, LIBNBD_CONTEXT_BASE_ALLOCATION) != 0) {
         DEBUG("unexpected meta context: %s", metacontext);
-        return 1;
+        return 0;
     }
 
     r->extents = malloc(count * sizeof(*r->extents));
@@ -82,7 +86,7 @@ static int extent_callback (void *user_data, const char *metacontext,
 
     r->count = i;
 
-    return 1;
+    return 0;
 }
 
 static int nbd_ops_extents(struct src *s, int64_t offset, int64_t length,
