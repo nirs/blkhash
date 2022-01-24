@@ -375,6 +375,8 @@ static int read_completed(void *user_data, int *error)
           cmd->wid, cmd->seq, gettime() - cmd->started);
 
     cmd->ready = true;
+
+    /* Required for linbd to "retire" the command. */
     return 1;
 }
 
