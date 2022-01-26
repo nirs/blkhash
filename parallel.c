@@ -364,12 +364,11 @@ static int read_completed(void *user_data, int *error)
     struct command *cmd = user_data;
 
     /*
-     * TODO: Find if we can use nbd_get_error() to get the last error
-     * for this thread from libnbd. Requires adding src_last_error()
-     * interface.
+     * This is not documented, but *error is errno value translated from
+     * the NBD server error.
      */
     if (*error)
-        FAIL("Read failed error=%d", *error);
+        FAIL("Read failed: %s", strerror(*error));
 
     DEBUG("worker %d command %" PRIu64 " ready in %" PRIu64 " usec",
           cmd->wid, cmd->seq, gettime() - cmd->started);
