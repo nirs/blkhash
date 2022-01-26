@@ -363,10 +363,20 @@ static int read_completed(void *user_data, int *error)
 {
     struct command *cmd = user_data;
 
+    /*
+     * TODO: Find if we can use nbd_get_error() to get the last error
+     * for this thread from libnbd. Requires adding src_last_error()
+     * interface.
+     */
+    if (*error)
+        FAIL("Read failed error=%d", *error);
+
     DEBUG("worker %d command %" PRIu64 " ready in %" PRIu64 " usec",
           cmd->wid, cmd->seq, gettime() - cmd->started);
 
     cmd->ready = true;
+
+    /* Required for linbd to "retire" the command. */
     return 1;
 }
 
