@@ -22,12 +22,9 @@
 
 #define ERROR(fmt, ...) fprintf(stderr, PROG ": " fmt "\n", ## __VA_ARGS__)
 
-#define FAIL(fmt, ...)                                              \
-    do {                                                            \
-        fprintf(stderr, PROG ": " fmt "\n", ## __VA_ARGS__);       \
-        exit(1);                                                    \
-    } while (0)
+void fail(const char *fmt, ...);
 
+#define FAIL(fmt, ...) fail(PROG ": " fmt "\n", ## __VA_ARGS__);
 #define FAIL_ERRNO(msg) FAIL("%s: %s", msg, strerror(errno))
 
 extern bool debug;
