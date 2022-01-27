@@ -30,6 +30,7 @@ blksum = executable(
   [
     'blksum.c',
     'file.c',
+    'log.c',
     'nbd.c',
     'nbdserver.c',
     'parallel.c',
