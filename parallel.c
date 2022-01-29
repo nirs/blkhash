@@ -67,8 +67,8 @@ struct worker {
     struct command_queue queue;
 
     /* Ensure that we process commands in order. */
-    uint64_t cmd_queued;
-    uint64_t cmd_processed;
+    uint64_t commands_started;
+    uint64_t commands_finished;
 };
 
 static inline uint32_t cost(bool zero, uint32_t len)
@@ -393,11 +393,11 @@ static void start_command(struct worker *w, int64_t offset, struct extent *exten
 
     DEBUG("worker %d command %" PRIu64 " started offset=%" PRIi64
           " length=%" PRIu32 " zero=%d",
-          w->id, w->cmd_queued, offset, extent->length, extent->zero);
+          w->id, w->commands_started, offset, extent->length, extent->zero);
 
-    cmd = create_command(offset, extent, w->id, w->cmd_queued);
+    cmd = create_command(offset, extent, w->id, w->commands_started);
     queue_push(&w->queue, cmd);
-    w->cmd_queued++;
+    w->commands_started++;
 
     if (!cmd->zero)
         src_aio_pread(w->s, cmd->buf, extent->length, offset, read_completed, cmd);
@@ -410,8 +410,8 @@ static void finish_command(struct worker *w)
     assert(cmd->ready);
 
     /* Esnure we process commands in order. */
-    assert(cmd->seq == w->cmd_processed);
-    w->cmd_processed++;
+    assert(cmd->seq == w->commands_finished);
+    w->commands_finished++;
 
     if (!io_only) {
         if (cmd->zero)
