@@ -129,7 +129,7 @@ static void optimize(const char *filename, struct options *opt,
         /*
          * cache=false aio=native can be up to 1180% slower. cache=false
          * aio=threads can be 36% slower, but may be wanted to avoid
-         * pulluting the page cache with data that is not going to be
+         * polluting the page cache with data that is not going to be
          * used.
          */
         if (strcmp(opt->aio, "native") == 0) {
@@ -160,8 +160,8 @@ static void optimize(const char *filename, struct options *opt,
         /*
          * For other storage, direct I/O is required for correctness on
          * some cases (e.g. LUN connected to multiple hosts), and typically
-         * faster and more consitent. However it is not supported on all
-         * filesystems so we must check if file can be used with direct
+         * faster and more consistent. However it is not supported on all
+         * file systems so we must check if file can be used with direct
          * I/O.
          */
         if (!opt->cache && !supports_direct_io(filename)) {
@@ -226,7 +226,7 @@ static void init_job(struct job *job, const char *filename,
     job->size = src->size;
     src_close(src);
 
-    /* Initalize job. */
+    /* Initialize job. */
     job->opt = opt;
     job->md = EVP_get_digestbyname(opt->digest_name);
     if (job->md == NULL)
@@ -409,7 +409,7 @@ static void finish_command(struct worker *w)
 
     assert(cmd->ready);
 
-    /* Esnure we process commands in order. */
+    /* Ensure we process commands in order. */
     assert(cmd->seq == w->commands_finished);
     w->commands_finished++;
 
