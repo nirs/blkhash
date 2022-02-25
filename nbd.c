@@ -208,6 +208,12 @@ struct src *open_nbd(const char *uri)
     if (h == NULL)
         FAIL_NBD();
 
+#if LIBNBD_HAVE_NBD_SET_PREAD_INITIALIZE
+    /* Disable uneeded memset() before pread. */
+    if (nbd_set_pread_initialize(h, false))
+        FAIL_NBD();
+#endif
+
     if (nbd_add_meta_context(h, LIBNBD_CONTEXT_BASE_ALLOCATION))
         FAIL_NBD();
 
