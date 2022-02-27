@@ -9,233 +9,292 @@ Block based hash optimized for disk images.
 
 ![blksum demo](https://i.imgur.com/BYAo5Ei.gif)
 
-Disk images are usually sparse - contain unallocated areas that read as
-zeroes.  Computing a checksum of sparse image with standard tools is
-slow as computing a checksum of fully allocated image.
+Disk images are typically sparse, containing unallocated areas read as
+zeroes by the guest. The `blkhash` hash algorithm is optimized for
+computing checksums of sparse disk images.
 
-blkhash is optimized for sparse disk images and disk images with with
-zeroed areas. Instead of computing a digest for the entire image, it
-computes a digest of every block, and created a image digest from the
-block digests. When detecting a block containing only zeroes, it uses a
-precomputed zero block digest.
+This project provides the `blkahsh` C library, and the `blksum` command.
 
-## Computing a block hash
+## The blksum command
 
-First we split the image to segments of 128 MiB. If the image is not
-aligned to 128 MiB, the last segment will be smaller. Using segments
-makes it easy to use multiple threads to compute checksum in parallel.
+The `blksum` command computes message digest for disk images, similar to
+standard tools like `sha1sum`. For example to compute a sha1 block based
+checksum of a raw image:
 
-To compute checksum for segment, we split the segment to blocks of equal
-size. If the image is not aligned to block size, the last block of the
-last segment will be shorter.
+    $ blksum sha1 fedora-35.raw
+    f4ee0c53d0c7346c9ef7abcddfff386c59dd53fd  fedora-35.raw
 
-For every block, we detect if the block contains only null bytes, and
-reuse a precomputed zero block digest instead of computing the value.
-Detecting zero block is about order of magnitude faster than computing a
-checksum using fast algorithm such as sha1.
+We could compute a checksum for this image using `sha1sum`:
 
-When accessing an image via qemu-nbd, we can detect zero areas without
-reading any data, minimizing I/O and cpu usage.
+    $ sha1sum fedora-35.raw
+    dfe8453ccd31857078ad8a3a1d2e08d87ef6db43  fedora-35.raw
 
-The hash is computed using:
+Note that the checksums are different! `blksum` computes a block based
+sha1 checksum, not a sha1 checksum of the entire image.
 
-    H( H(segment 1) + H(segment 2) ... H(segment N) )
+See [blksum(1)](blksum.1.adoc) for the manual.
 
-Where H(segment N) is:
+### Supported image formats
 
-    H( H(block 1) + H(block 2) ... H(block M) )
+The advantage of the block based checksum is clear when you want to
+compute the checksum of the same image in different image format. Let's
+convert this image to qcow2 format:
 
-H can be any message digest algorithm provided by openssl.
+    $ qemu-img convert -f raw -O qcow2 fedora-35.raw fedora-35.qcow2
 
-## blksum
+This creates and identical image:
 
-The blksum tool computes a checksum using the provided message digest
-name.
+    $ qemu-img compare fedora-35.raw fedora-35.qcow2
+    Images are identical.
 
-Computing a checksum for an image:
+But the file contents are different:
 
-    $ blksum sha1 disk.img
-    9eeb7c21316d1e1569139ad36452b00eeaabb624  disk.img
+    $ ls -lhs fedora-35.*
+    1.2G -rw-r--r--. 1 nsoffer nsoffer 1.2G Feb 27 12:48 fedora-35.qcow2
+    1.2G -rw-r--r--. 1 nsoffer nsoffer 6.0G Jan 21 00:28 fedora-35.raw
 
-Computing a checksum from stdin:
+Standard tools like `sha1sum` do not understand image formats, so they
+compute a different checksum for the qcow2 image:
 
-    $ blksum sha1 <disk.img
-    9eeb7c21316d1e1569139ad36452b00eeaabb624  -
+    $ sha1sum fedora-35.qcow2
+    1c2877aa89abf633e18bc02f22a2c32eb8942282  fedora-35.qcow2
 
-To compute a checksum of qcow2 image export the image using qemu-nbd and
-specify a NBD URL instead of path to the image:
+Because `blksum` understands image formats, it compute the same checksum:
 
-    $ qemu-nbd --read-only --persistent --shared=4 --format=qcow2 fedora-32.qcow2
+    $ blksum sha1 fedora-35.qcow2
+    f4ee0c53d0c7346c9ef7abcddfff386c59dd53fd  fedora-35.qcow2
 
-    $ blksum sha1 nbd://localhost
-    1edf578c3c17322557208f85ddad67d8f0e129a8  nbd://localhost
+Currently only `raw` and `qcow2` formats are supported. Any other format
+is considered a raw image.
 
-Note that --shared=4 is required to allow blksum to open 4 connections
-to qemu-nbd.
+### Supported digest algorithms
 
-If the image is on the same host, using unix socket avoids managing
-ports:
+The `blksum` command supports any message digest algorithm provided by
+`openssl`. For example we can use `blake2b512`:
 
-    $ qemu-nbd --read-only --persistent --shared=4 --format=qcow2 \
-        --socket=/tmp/nbd.sock fedora-32.qcow2
+    $ blksum blake2b512 fedora-35.qcow2
+    fd2b46c3d5684fff9e1347299ef48d1a5c48cf3ec8ccf409112d6cd20e53874b7b2ab0c3a85d22e1cb63682796ecfa7687224131cf5d64c3e1e715c8e2848c34  fedora-35.qcow2
+
+To find the available digest names you can use:
+
+    $ openssl dgst -list
+    Supported digests:
+    -blake2b512                -blake2s256                -md4
+    -md5                       -md5-sha1                  -ripemd
+    -ripemd160                 -rmd160                    -sha1
+    -sha224                    -sha256                    -sha3-224
+    -sha3-256                  -sha3-384                  -sha3-512
+    -sha384                    -sha512                    -sha512-224
+    -sha512-256                -shake128                  -shake256
+    -sm3                       -ssl3-md5                  -ssl3-sha1
+    -whirlpool
+
+### Supported sources
+
+The `blksum` command can compute a checksum for a file, block device, NBD
+URI, or pipe.
+
+For example, lets create a logical volume with the contents of the qcow2
+image:
+
+    $ sudo lvs -o vg_name,lv_name,size,attr data/test
+      VG   LV   LSize Attr
+      data test 6.00g -wi-a-----
+
+    $ sudo qemu-img convert -f qcow2 -O qcow2 fedora-35.qcow2 /dev/data/test
+
+The `blksum` command will compute the same checksum for the logical volume:
+
+    $ sudo blksum sha1 /dev/data/test
+    f4ee0c53d0c7346c9ef7abcddfff386c59dd53fd  /dev/data/test
+
+The `blksum` command can also use a NBD URI, accessing an image exported
+by NBD server such as `qemu-nbd`.
+
+For example we can export an image using `qemu-nbd` using a unix socket:
+
+    $ qemu-nbd --read-only --persistent --shared 8 --socket /tmp/nbd.sock \
+        --format qcow2 fedora-35.qcow2 &
 
     $ blksum sha1 nbd+unix:///?socket=/tmp/nbd.sock
-    1edf578c3c17322557208f85ddad67d8f0e129a8  nbd+unix:///?socket=/tmp/nbd.sock
+    f4ee0c53d0c7346c9ef7abcddfff386c59dd53fd  nbd+unix:///?socket=/tmp/nbd.sock
 
-Using NBD URL is faster in most cases, since blksum can detect image
-extents without reading the entire image. However for fully allocated
-image accessing the image directly is faster.
+We can also access an image on a remote host using NBD TCP URI:
 
-## Benchmarks
+    $ qemu-nbd --read-only --persistent --shared 8 --format qcow2 fedora-35.qcow2 &
 
-Here are some examples comparing blksum to sha1sum.
-The images are access both directly and via qemu-nbd.
+    $ blksum sha1 nbd://localhost
+    f4ee0c53d0c7346c9ef7abcddfff386c59dd53fd  nbd://localhost
 
-Fedora 32 raw and qcow2 images created with virt-builder:
+The `blksum` command does not support yet secure NBD connections, so its
+use for accessing images on remote hosts is limited.
 
-    $ ls -lhs fedora-32.*
-    1.6G -rw-r--r--. 1 nsoffer nsoffer 1.6G Jan 28 01:01 fedora-32.qcow2
-    1.6G -rw-r--r--. 1 nsoffer nsoffer 6.0G Jan 30 23:37 fedora-32.raw
+Finally, we can also compute a checksum for data written to a pipe:
 
-    $ hyperfine -w3 "blksum sha1 fedora-32.qcow2" \
-                    "blksum sha1 fedora-32.raw" \
-                    "blksum sha1 <fedora-32.raw" \
-                    "sha1sum fedora-32.raw"
-    Benchmark 1: blksum sha1 fedora-32.qcow2
-      Time (mean ± σ):     974.7 ms ±  66.1 ms    [User: 2.254 s, System: 1.467 s]
-      Range (min … max):   860.2 ms … 1083.5 ms    10 runs
+    $ cat fedora-35.raw | blksum sha1
+    f4ee0c53d0c7346c9ef7abcddfff386c59dd53fd  -
 
-    Benchmark 2: blksum sha1 fedora-32.raw
-      Time (mean ± σ):      1.078 s ±  0.042 s    [User: 2.407 s, System: 1.677 s]
-      Range (min … max):    0.985 s …  1.118 s    10 runs
+Using a pipe we can only use `raw` format, and computing the checksum is
+much less efficient.
 
-    Benchmark 3: blksum sha1 <fedora-32.raw
-      Time (mean ± σ):      2.439 s ±  0.028 s    [User: 1.658 s, System: 0.771 s]
-      Range (min … max):    2.399 s …  2.495 s    10 runs
+### blksum performance
 
-    Benchmark 4: sha1sum fedora-32.raw
-      Time (mean ± σ):      6.825 s ±  0.128 s    [User: 5.833 s, System: 0.974 s]
-      Range (min … max):    6.696 s …  6.986 s    10 runs
+The `blksum` command optimizes checksum computation using sparseness
+detection, zero detection, and multi-threading.
 
-    Summary
-      'blksum sha1 fedora-32.qcow2' ran
-        1.11 ± 0.09 times faster than 'blksum sha1 fedora-32.raw'
-        2.50 ± 0.17 times faster than 'blksum sha1 <fedora-32.raw'
-        7.00 ± 0.49 times faster than 'sha1sum fedora-32.raw'
+For typical sparse images, `blksum` can be 10 times faster compared with
+standard tools:
 
-Fully allocated image full of zeroes, created with dd:
+```
+$ hyperfine -w1 "blksum sha1 fedora-35.raw" "sha1sum fedora-35.raw"
+Benchmark 1: blksum sha1 fedora-35.raw
+  Time (mean ± σ):     515.5 ms ±  15.1 ms    [User: 1082.1 ms, System: 628.0 ms]
+  Range (min … max):   496.7 ms … 543.0 ms    10 runs
 
-    $ dd if=/dev/zero bs=8M count=768 of=zero-6g.raw
+Benchmark 2: sha1sum fedora-35.raw
+  Time (mean ± σ):      5.591 s ±  0.113 s    [User: 4.907 s, System: 0.669 s]
+  Range (min … max):    5.465 s …  5.797 s    10 runs
 
-    $ ls -lhs zero-6g.raw
-    6.1G -rw-rw-r--. 1 nsoffer nsoffer 6.0G Feb 12 21:57 zero-6g.raw
+Summary
+  'blksum sha1 fedora-35.raw' ran
+   10.85 ± 0.39 times faster than 'sha1sum fedora-35.raw'
+```
 
-    $ hyperfine -w3 "blksum sha1 zero-6g.qcow2" \
-                    "blksum sha1 zero-6g.raw" \
-                    "blksum sha1 <zero-6g.raw" \
-                    "sha1sum zero-6g.raw"
-    Benchmark 1: blksum sha1 zero-6g.qcow2
-      Time (mean ± σ):      2.629 s ±  0.039 s    [User: 1.050 s, System: 7.252 s]
-      Range (min … max):    2.566 s …  2.669 s    10 runs
+For images with more data, the difference is smaller. In this example,
+the fedora-35-data.raw contains additional 3 GiB of random data, and
+is 65% full.
 
-    Benchmark 2: blksum sha1 zero-6g.raw
-      Time (mean ± σ):      2.742 s ±  0.028 s    [User: 1.094 s, System: 7.646 s]
-      Range (min … max):    2.703 s …  2.796 s    10 runs
+```
+$ hyperfine -w1 "blksum sha1 fedora-35-data.raw" "sha1sum fedora-35-data.raw"
+Benchmark 1: blksum sha1 fedora-35-data.raw
+  Time (mean ± σ):      1.550 s ±  0.021 s    [User: 3.924 s, System: 2.083 s]
+  Range (min … max):    1.513 s …  1.575 s    10 runs
 
-    Benchmark 3: blksum sha1 <zero-6g.raw
-      Time (mean ± σ):     906.6 ms ±  18.5 ms    [User: 155.2 ms, System: 747.0 ms]
-      Range (min … max):   888.5 ms … 940.3 ms    10 runs
+Benchmark 2: sha1sum fedora-35-data.raw
+  Time (mean ± σ):      5.777 s ±  0.199 s    [User: 5.064 s, System: 0.696 s]
+  Range (min … max):    5.443 s …  6.122 s    10 runs
 
-    Benchmark 4: sha1sum zero-6g.raw
-      Time (mean ± σ):      6.916 s ±  0.126 s    [User: 5.868 s, System: 1.029 s]
-      Range (min … max):    6.763 s …  7.086 s    10 runs
+Summary
+  'blksum sha1 fedora-35-data.raw' ran
+    3.73 ± 0.14 times faster than 'sha1sum fedora-35-data.raw'
+```
 
-    Summary
-      'blksum sha1 <zero-6g.raw' ran
-        2.90 ± 0.07 times faster than 'blksum sha1 zero-6g.qcow2'
-        3.02 ± 0.07 times faster than 'blksum sha1 zero-6g.raw'
-        7.63 ± 0.21 times faster than 'sha1sum zero-6g.raw'
+The best case is a completely empty image. Here is an example computing
+a checksum for a 6 GiB empty image:
 
-Empty image using raw and qcow2 format:
+```
+$ hyperfine -w1 "blksum sha1 empty-6g.raw" "sha1sum empty-6g.raw"
+Benchmark 1: blksum sha1 empty-6g.raw
+  Time (mean ± σ):      32.6 ms ±   4.7 ms    [User: 6.6 ms, System: 4.7 ms]
+  Range (min … max):    24.1 ms …  47.4 ms    76 runs
 
-    $ hyperfine -w3 "blksum sha1 empty.qcow2" \
-                    "blksum sha1 empty.raw" \
-                    "blksum sha1 <empty.raw" \
-                    "sha1sum empty.raw"
-    Benchmark 1: blksum sha1 empty.qcow2
-      Time (mean ± σ):       9.5 ms ±   0.7 ms    [User: 9.5 ms, System: 6.2 ms]
-      Range (min … max):     8.3 ms …  12.3 ms    261 runs
+Benchmark 2: sha1sum empty-6g.raw
+  Time (mean ± σ):      5.572 s ±  0.096 s    [User: 4.883 s, System: 0.675 s]
+  Range (min … max):    5.471 s …  5.735 s    10 runs
 
-    Benchmark 2: blksum sha1 empty.raw
-      Time (mean ± σ):       9.2 ms ±   0.8 ms    [User: 9.4 ms, System: 6.0 ms]
-      Range (min … max):     8.2 ms …  13.7 ms    268 runs
+Summary
+  'blksum sha1 empty-6g.raw' ran
+  170.81 ± 24.56 times faster than 'sha1sum empty-6g.raw'
+```
 
-    Benchmark 3: blksum sha1 <empty.raw
-      Time (mean ± σ):     877.5 ms ±   9.9 ms    [User: 158.2 ms, System: 714.3 ms]
-      Range (min … max):   867.2 ms … 902.1 ms    10 runs
+When reading from a pipe we cannot use multi-threading or sparseness
+detection, but zero detection is effective:
 
-    Benchmark 4: sha1sum empty.raw
-      Time (mean ± σ):      6.641 s ±  0.048 s    [User: 5.608 s, System: 1.009 s]
-      Range (min … max):    6.536 s …  6.690 s    10 runs
+```
+$ hyperfine -w1 "blksum sha1 <fedora-35.raw" "sha1sum fedora-35.raw"
+Benchmark 1: blksum sha1 <fedora-35.raw
+  Time (mean ± σ):      1.604 s ±  0.047 s    [User: 1.016 s, System: 0.576 s]
+  Range (min … max):    1.551 s …  1.707 s    10 runs
 
-    Summary
-      'blksum sha1 empty.raw' ran
-        1.03 ± 0.11 times faster than 'blksum sha1 empty.qcow2'
-       95.50 ± 8.08 times faster than 'blksum sha1 <empty.raw'
-      722.79 ± 60.87 times faster than 'sha1sum empty.raw'
+Benchmark 2: sha1sum fedora-35.raw
+  Time (mean ± σ):      5.667 s ±  0.103 s    [User: 4.960 s, System: 0.692 s]
+  Range (min … max):    5.518 s …  5.774 s    10 runs
 
-## Command line options
+Summary
+  'blksum sha1 <fedora-35.raw' ran
+    3.53 ± 0.12 times faster than 'sha1sum fedora-35.raw'
+```
 
-### -w, --workers
+The worst case is a completely full image, when nothing can be
+optimized, but using multi-threading helps:
 
-Set the number of workers. The default (4) gives good performance on 8
-core laptop. On larger machines you may want to use more workers. The
-valid value is 1 to the number of online cpus.
+```
+$ hyperfine -w1 "blksum sha1 full-6g.raw" "sha1sum full-6g.raw"
+Benchmark 1: blksum sha1 full-6g.raw
+  Time (mean ± σ):      2.371 s ±  0.077 s    [User: 5.906 s, System: 3.243 s]
+  Range (min … max):    2.280 s …  2.480 s    10 runs
 
-Here is example showing how number of core affects performance on 8 core
-laptop.
+Benchmark 2: sha1sum full-6g.raw
+  Time (mean ± σ):      5.753 s ±  0.139 s    [User: 5.002 s, System: 0.731 s]
+  Range (min … max):    5.522 s …  6.044 s    10 runs
 
-    $ hyperfine -w1 -r3 -L workers 1,2,4,6,8 "blksum sha1 -w {workers} fedora-32.qcow2"
-    Benchmark 1: blksum sha1 -w 1 fedora-32.qcow2
-      Time (mean ± σ):      2.363 s ±  0.089 s    [User: 1.631 s, System: 1.003 s]
-      Range (min … max):    2.261 s …  2.416 s    3 runs
+Summary
+  'blksum sha1 full-6g.raw' ran
+    2.43 ± 0.10 times faster than 'sha1sum full-6g.raw'
+```
 
-    Benchmark 2: blksum sha1 -w 2 fedora-32.qcow2
-      Time (mean ± σ):      1.362 s ±  0.005 s    [User: 1.785 s, System: 1.138 s]
-      Range (min … max):    1.357 s …  1.367 s    3 runs
+## The blkhash library
 
-    Benchmark 3: blksum sha1 -w 4 fedora-32.qcow2
-      Time (mean ± σ):     949.7 ms ±  30.1 ms    [User: 2.212 s, System: 1.412 s]
-      Range (min … max):   916.7 ms … 975.8 ms    3 runs
+The `blkhash` C library implements the block based hash algorithm and zero
+detection.
 
-    Benchmark 4: blksum sha1 -w 6 fedora-32.qcow2
-      Time (mean ± σ):     857.3 ms ±  73.6 ms    [User: 2.751 s, System: 1.601 s]
-      Range (min … max):   798.3 ms … 939.8 ms    3 runs
+The library provides the expected interface for creating, updating,
+finalizing and destroying a hash. The `blkhash_update()` function
+implements zero detection, speeding up data processing. When you know
+that some areas of the image are read as zeroes, you can skip reading
+them and use `blkhash_zero()` to add zero range to the hash.
 
-    Benchmark 5: blksum sha1 -w 8 fedora-32.qcow2
-      Time (mean ± σ):     825.1 ms ±  67.5 ms    [User: 2.883 s, System: 1.645 s]
-      Range (min … max):   748.2 ms … 874.3 ms    3 runs
+See the [example program](example.c) for example of using the library.
 
-    Summary
-      'blksum sha1 -w 8 fedora-32.qcow2' ran
-        1.04 ± 0.12 times faster than 'blksum sha1 -w 6 fedora-32.qcow2'
-        1.15 ± 0.10 times faster than 'blksum sha1 -w 4 fedora-32.qcow2'
-        1.65 ± 0.14 times faster than 'blksum sha1 -w 2 fedora-32.qcow2'
-        2.86 ± 0.26 times faster than 'blksum sha1 -w 1 fedora-32.qcow2'
+See [blkhash(3)](blkhash.3.adoc) for complete documentation.
+
+## Installing
+
+The project is not packaged yet, so the only way to use this project now
+is to build and install from source.
 
 ## Portability
 
-blkhash it developed on Linux, but it should be portable to other platforms
-where openssl is avaialble.
+The `blkhash` library and `blksum` command are devolped on Linux, but
+should be portable to any platform where openssl is available, but some
+optimizations are implemented only for linux.
 
-NBD suppoort requires libnbd. If libdnb is not availble, blksum is built
-without NBD support.
+The `blksum` command requires
+[libnbd](https://libguestfs.org/libnbd.3.html) for NBD support, and
+[qemu-nbd](https://www.qemu.org/docs/master/tools/qemu-nbd.html) for
+`qcow2` format support. If `libdnb` is not available, `blksum` is built
+without NBD support and can be used only with `raw` images.
 
-Tested on:
-- Fedora 32
-- FreeBSD 13 (without libnbd)
+### Testing status
 
-## Setting up development environment
+| Arch      | OS                | CI    | libnbd |
+|-----------|-------------------|-------|--------|
+| x86_64    | Fedora 35         | yes   | yes    |
+| x86_64    | CentOS Stream 8   | yes   | yes    |
+| x86_64    | CentOS Stream 9   | yes   | yes    |
+| x86_64    | RHEL 8.6          | no    | yes    |
+| x86_64    | FreeBSD 13        | no    | no     |
+| Apple M1  | macOS 11 Big Sur  | no    | no     |
+
+## Contributing
+
+Contribution is welcome!
+
+Please check issues with the
+[help needed label](https://gitlab.com/nirs/blkhash/-/issues?sort=priority&state=opened&label_name[]=help+needed)
+for issues that need your help.
+
+Please [create a new issue](https://gitlab.com/nirs/blkhash/-/issues/new)
+for new features you want to work on.
+
+For discussing development, please use the
+[oVirt devel mailing list](https://lists.ovirt.org/archives/list/devel%40ovirt.org/)
+or the `#ovirt` room in `irc.oftc.net`.
+
+See the next sections on how to set up a development environment, run
+the tests and debug.
+
+### Setting up development environment
 
 Fedora:
 
@@ -260,6 +319,12 @@ FreeBSD:
         python3 \
         qemu-utils
 
+macOS 11 Big Sur:
+
+    # Requires macport from https://www.macports.org/install.php
+    port install pkgconfig openssl asciidoc meson
+    port select --set python3 python39
+
 Get the source:
 
     git clone https://gitlab.com/nirs/blkhash.git
@@ -269,7 +334,7 @@ Configure and update submodules:
     git submodule init
     git submodule update
 
-To run the tests, you need to setup a python environment:
+To run the tests, you need to setup a python3 environment:
 
     python3 -m venv ~/venv/blkhash
     source ~/venv/blkhash/bin/activate
@@ -280,7 +345,7 @@ On FreeBSD using the default shell (sh), use "." instead of "source":
 
     . ~/venv/blkhash/bin/activate
 
-## Configuring
+### Configuring
 
 Create a build directory with default options:
 
@@ -298,7 +363,7 @@ To see all available options and possible values:
 
     meson configure build
 
-## Building
+### Building
 
 To build run:
 
@@ -315,19 +380,23 @@ build directory:
     cd build
     meson compile
 
-## Installing
+### Installing
 
 To install at configured --prefix:
 
-    sudo meson install -C build
+    meson install -C build
 
-## Debugging
+### Debugging
 
 To view debug logs run with:
 
     BLKSUM_DEBUG=1 blksum sha1 disk.img
 
-## Running the tests
+To skip checksum calculation for testing I/O performance:
+
+    BLKSUM_IO_ONLY=1 blksum sha1 disk.img
+
+### Running the tests
 
 To run the tests, you need to enter the virtual environment:
 
@@ -351,27 +420,39 @@ To see verbose test output use:
 
     meson test -C build -v
 
-To run specific blksum tests, use pytest directly:
+To run specific `blksum` tests, use pytest directly:
 
     meson -C build compile
     pytest -k sha1-sparse
 
-If blksum is built with NBD support, enable the NBD tests:
+If `blksum` is built with NBD support, enable the NBD tests:
 
     HAVE_NBD=1 pytest -k sha1-sparse
 
 pytest uses the "build" directory by default. If you want to use another
-directory name, or installed blksum executable, specify the path to the
+directory name, or installed `blksum` executable, specify the path to the
 executable in the environment:
 
     meson setup release --buildtype=release
     meson compile -C release
     BLKSUM=release/blksum pytest
 
-To run only blkhash tests:
+To run only `blkhash` tests:
 
    meson compile -C build
    build/blkhash_test
+
+
+## Related projects
+
+- The `blkhash` algorithm is based on
+  [ovirt-imageio](https://github.com/oVirt/ovirt-imageio)
+  [blkhash module](https://github.com/oVirt/ovirt-imageio/blob/master/ovirt_imageio/_internal/blkhash.py).
+
+- The `blksum` command NBD support is powered by the
+  [libnbd](https://gitlab.com/nbdkit/libnbd/) library, and the
+  implementaion is inspired by the
+  [nbdcopy](https://gitlab.com/nbdkit/libnbd/-/tree/master/copy) command.
 
 ## License
 
