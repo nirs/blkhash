@@ -48,20 +48,9 @@ void progress_update(struct progress *p, size_t n)
         FAIL("pthread_mutex_unlock: %s", strerror(err));
 }
 
-static inline void draw_bar(char *buf, int done, int size)
-{
-    assert(done <= size);
-
-    memset(buf, '=', done);
-    memset(buf + done, '-', size - done);
-    buf[size] = 0;
-}
-
-bool progress_draw(struct progress *p)
+static inline int get_value(struct progress *p)
 {
     size_t done;
-    int value;   /* 0-100 */
-    char bar[WIDTH + 1];
     int err;
 
     err = pthread_mutex_lock(&p->mutex);
@@ -77,7 +66,22 @@ bool progress_draw(struct progress *p)
     if (done > p->count)
         done = p->count;
 
-    value = done * 100 / p->count;
+    return done * 100 / p->count;
+}
+
+static inline void draw_bar(char *buf, int done, int size)
+{
+    assert(done <= size);
+
+    memset(buf, '=', done);
+    memset(buf + done, '-', size - done);
+    buf[size] = 0;
+}
+
+bool progress_draw(struct progress *p)
+{
+    char bar[WIDTH + 1];
+    int value = get_value(p);
 
     if (value > p->value) {
         p->value = value;
@@ -86,7 +90,7 @@ bool progress_draw(struct progress *p)
         fflush(stdout);
     }
 
-    return done < p->count;
+    return value < 100;
 }
 
 void progress_close(struct progress *p)
