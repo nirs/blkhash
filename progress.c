@@ -80,7 +80,7 @@ bool progress_draw(struct progress *p)
 
     draw_bar(bar, progress * WIDTH, WIDTH);
 
-    fprintf(stdout, "  %6.2f%%  [%s]    \r", progress * 100.0, bar);
+    fprintf(stdout, " %4.0f%% [%s]    \r", progress * 100.0, bar);
     fflush(stdout);
 
     return done < p->count;
