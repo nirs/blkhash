@@ -42,9 +42,6 @@ void progress_update(struct progress *p, size_t n)
 
     p->done += n;
 
-    if (p->done > p->count)
-        p->done = p->count;
-
     err = pthread_mutex_unlock(&p->mutex);
     if (err)
         FAIL("pthread_mutex_unlock: %s", strerror(err));
@@ -75,6 +72,9 @@ bool progress_draw(struct progress *p)
     err = pthread_mutex_unlock(&p->mutex);
     if (err)
         FAIL("pthread_mutex_unlock: %s", strerror(err));
+
+    if (done > p->count)
+        done = p->count;
 
     progress = (double)done / p->count;
 
