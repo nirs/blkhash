@@ -28,6 +28,7 @@ struct progress *progress_open(size_t count)
         FAIL("pthread_mutex_init: %s", strerror(err));
 
     p->count = count;
+    p->value = -1;
 
     return p;
 }
@@ -59,7 +60,7 @@ static inline void draw_bar(char *buf, int done, int size)
 bool progress_draw(struct progress *p)
 {
     size_t done;
-    double progress;
+    int value;   /* 0-100 */
     char bar[WIDTH + 1];
     int err;
 
@@ -76,12 +77,14 @@ bool progress_draw(struct progress *p)
     if (done > p->count)
         done = p->count;
 
-    progress = (double)done / p->count;
+    value = done * 100 / p->count;
 
-    draw_bar(bar, progress * WIDTH, WIDTH);
-
-    fprintf(stdout, " %4.0f%% [%s]    \r", progress * 100.0, bar);
-    fflush(stdout);
+    if (value > p->value) {
+        p->value = value;
+        draw_bar(bar, value * WIDTH / 100, WIDTH);
+        fprintf(stdout, " %3d%% [%s]    \r", value, bar);
+        fflush(stdout);
+    }
 
     return done < p->count;
 }
