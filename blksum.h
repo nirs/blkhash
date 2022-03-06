@@ -92,6 +92,7 @@ struct progress {
     pthread_mutex_t mutex;
     size_t done;
     size_t count;
+    int value;
 };
 
 /*
