@@ -73,8 +73,8 @@ static inline void draw_bar(char *buf, int done, int size)
 {
     assert(done <= size);
 
-    memset(buf, '=', done);
-    memset(buf + done, '-', size - done);
+    memset(buf, '|', done);
+    memset(buf + done, ' ', size - done);
     buf[size] = 0;
 }
 
