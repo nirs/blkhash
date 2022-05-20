@@ -134,6 +134,20 @@ def test_qcow2_nbd(tmpdir, qcow2, cache):
     assert res == [qcow2.checksum, nbd_url]
 
 
+def test_list_digests():
+    out = subprocess.check_output([BLKSUM, "--list-digests"])
+    blksum_digests = out.decode().strip().splitlines()
+
+    # Extracting the list of provided digests from openssl is hard, so lets
+    # check that we got some results.
+    assert blksum_digests
+
+    # And that every digest name can be used in python to create a new hash.
+    # This is important for compatibility with python hashlib module.
+    for name in blksum_digests:
+        hashlib.new(name)
+
+
 def blksum_nbd(md, nbd_url):
     out = subprocess.check_output([BLKSUM, md, nbd_url])
     return out.decode().strip().split("  ")

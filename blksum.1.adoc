@@ -14,7 +14,8 @@ SYNOPSYS
 --------
 
 *blksum* [-w N|--workers=N] [-p|--progress] [-c|--cache]
-         [--queue-size=N] [--read-size=N] [-h|--help]
+         [--queue-size=N] [--read-size=N] [-l|--list-digests]
+         [-h|--help]
          'DIGESTNAME' ['FILENAME']
 
 DESCRIPTION
@@ -24,10 +25,8 @@ blksum print a checksum for disk image guest visible content. You can
 compare the checksum for disk images in 'raw' or 'qcow2' format. 'qcow2'
 format is supported only if 'blksum' was built with NBD support.
 
-'DIGESTNAME' is any message digest name supported by openssl. To list
-available names run:
-
-    openssl dgst -list
+'DIGESTNAME' is any message digest name supported by openssl. Use
+'--list-digests' to list the available digest names.
 
 'FILENAME' can be a file or a NBD URL.
 
@@ -64,6 +63,10 @@ OPTIONS
 
 *-h, --help*::
   Show online help and exit.
+
+*-l, --list-digests*::
+  Print available digest names and exit.
+
 
 USING QEMU-NBD
 --------------

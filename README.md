@@ -75,19 +75,30 @@ The `blksum` command supports any message digest algorithm provided by
     $ blksum blake2b512 fedora-35.qcow2
     fd2b46c3d5684fff9e1347299ef48d1a5c48cf3ec8ccf409112d6cd20e53874b7b2ab0c3a85d22e1cb63682796ecfa7687224131cf5d64c3e1e715c8e2848c34  fedora-35.qcow2
 
-To find the available digest names you can use:
+To find the available digest names run:
 
-    $ openssl dgst -list
-    Supported digests:
-    -blake2b512                -blake2s256                -md4
-    -md5                       -md5-sha1                  -ripemd
-    -ripemd160                 -rmd160                    -sha1
-    -sha224                    -sha256                    -sha3-224
-    -sha3-256                  -sha3-384                  -sha3-512
-    -sha384                    -sha512                    -sha512-224
-    -sha512-256                -shake128                  -shake256
-    -sm3                       -ssl3-md5                  -ssl3-sha1
-    -whirlpool
+    $ blksum --list-digests
+    blake2b512
+    blake2s256
+    md4
+    md5
+    md5-sha1
+    ripemd160
+    sha1
+    sha224
+    sha256
+    sha3-224
+    sha3-256
+    sha3-384
+    sha3-512
+    sha384
+    sha512
+    sha512-224
+    sha512-256
+    shake128
+    shake256
+    sm3
+    whirlpool
 
 ### Supported sources
 

@@ -145,6 +145,8 @@ struct src_ops {
     void (*close)(struct src *s);
 };
 
+void list_digests(void);
+
 bool is_nbd_uri(const char *s);
 int probe_file(const char *path, struct file_info *fi);
 

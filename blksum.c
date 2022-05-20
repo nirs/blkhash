@@ -8,6 +8,7 @@
 #include <signal.h>
 
 #include <openssl/evp.h>
+
 #include "blkhash.h"
 #include "blksum.h"
 #include "util.h"
@@ -76,10 +77,11 @@ enum {
 };
 
 /* Start with ':' to enable detection of missing argument. */
-static const char *short_options = ":hw:cp";
+static const char *short_options = ":hlw:cp";
 
 static struct option long_options[] = {
    {"help",         no_argument,        0,  'h'},
+   {"list-digests", no_argument,        0,  'l'},
    {"workers",      required_argument,  0,  'w'},
    {"progress",     no_argument,        0,  'p'},
    {"cache",        no_argument,        0,  'c'},
@@ -95,7 +97,8 @@ static void usage(int code)
         "Compute message digest for disk images\n"
         "\n"
         "    blksum [-w N|--workers=N] [-p|--progress] [-c|--cache]\n"
-        "           [--queue-size=N] [--read-size=N] [-h|--help]\n"
+        "           [--queue-size=N] [--read-size=N] [-l|--list-digests]\n"
+        "           [-h|--help]\n"
         "           digestname [filename]\n"
         "\n"
         "Please read the blksum(1) manual page for more info.\n"
@@ -125,6 +128,9 @@ static void parse_options(int argc, char *argv[])
         switch (c) {
         case 'h':
             usage(0);
+            break;
+        case 'l':
+            list_digests();
             break;
         case 'w': {
             char *end;

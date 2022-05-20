@@ -29,6 +29,7 @@ blksum = executable(
   'blksum',
   [
     'blksum.c',
+    'list-digests.c',
     'file.c',
     'log.c',
     'nbd.c',
