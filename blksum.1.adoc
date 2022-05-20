@@ -13,10 +13,10 @@ blksum - compute message digest for disk images
 SYNOPSYS
 --------
 
-*blksum* [-w N|--workers=N] [-p|--progress] [-c|--cache]
-         [--queue-size=N] [--read-size=N] [-l|--list-digests]
-         [-h|--help]
-         'DIGESTNAME' ['FILENAME']
+*blksum* [-d DIGEST|--digest=DIGEST] [-w N|--workers=N]
+         [-p|--progress] [-c|--cache] [--queue-size=N]
+         [--read-size=N] [-l|--list-digests] [-h|--help]
+         ['FILENAME']
 
 DESCRIPTION
 -----------
@@ -25,7 +25,8 @@ blksum print a checksum for disk image guest visible content. You can
 compare the checksum for disk images in 'raw' or 'qcow2' format. 'qcow2'
 format is supported only if 'blksum' was built with NBD support.
 
-'DIGESTNAME' is any message digest name supported by openssl. Use
+The default digest is 'sha256'. Use '--digest' to select another digest
+name. You can use any message digest name supported by openssl. Use
 '--list-digests' to list the available digest names.
 
 'FILENAME' can be a file or a NBD URL.
@@ -35,6 +36,10 @@ be used only for 'raw' images.
 
 OPTIONS
 -------
+
+*-d, --digest*='DIGEST'::
+  Select message digest algorithm supported by openssl. If not specified
+  'sha256' is used.
 
 *-w, --workers*='N'::
   Set the number of workers. The default (4) gives good performance for
@@ -80,14 +85,14 @@ For example if using 4 workers, use:
 EXAMPLES
 --------
 
-`blksum sha1 disk.qcow2`::
-    Print a sha1 checksum for disk.qcow2.
+`blksum disk.qcow2`::
+    Print a sha256 checksum for disk.qcow2.
 
-`blksum blake2b512 nbd+unix:///?socket=/tmp/nbd.sock`::
+`blksum --digest blake2b512 nbd+unix:///?socket=/tmp/nbd.sock`::
     Print a blake2b checksum for and image exported via NBD server.
 
-`blksum sha1 <disk.img`::
-    Print a sha1 checksum for data read from standard input.
+`blksum <disk.img`::
+    Print a sha256 checksum for data read from standard input.
 
 AUTHORS
 -------

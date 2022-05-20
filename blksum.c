@@ -21,6 +21,9 @@ bool io_only = false;
 
 static struct options opt = {
 
+    /* The default diget name, override with --digest. */
+    .digest_name = "sha256",
+
     /*
      * Maximum read size in bytes. The curent value gives best
      * performance with i7-10850H when reading from fast NVMe. More
@@ -77,11 +80,12 @@ enum {
 };
 
 /* Start with ':' to enable detection of missing argument. */
-static const char *short_options = ":hlw:cp";
+static const char *short_options = ":hld:w:cp";
 
 static struct option long_options[] = {
    {"help",         no_argument,        0,  'h'},
    {"list-digests", no_argument,        0,  'l'},
+   {"digest",       required_argument,  0,  'd'},
    {"workers",      required_argument,  0,  'w'},
    {"progress",     no_argument,        0,  'p'},
    {"cache",        no_argument,        0,  'c'},
@@ -96,10 +100,10 @@ static void usage(int code)
         "\n"
         "Compute message digest for disk images\n"
         "\n"
-        "    blksum [-w N|--workers=N] [-p|--progress] [-c|--cache]\n"
-        "           [--queue-size=N] [--read-size=N] [-l|--list-digests]\n"
-        "           [-h|--help]\n"
-        "           digestname [filename]\n"
+        "    blksum [-d DIGEST|--digest=DIGEST] [-w N|--workers=N]\n"
+        "           [-p|--progress] [-c|--cache] [--queue-size=N]\n"
+        "           [--read-size=N] [-l|--list-digests] [-h|--help]\n"
+        "           [filename]\n"
         "\n"
         "Please read the blksum(1) manual page for more info.\n"
         "\n",
@@ -131,6 +135,9 @@ static void parse_options(int argc, char *argv[])
             break;
         case 'l':
             list_digests();
+            break;
+        case 'd':
+            opt.digest_name = optarg;
             break;
         case 'w': {
             char *end;
@@ -203,11 +210,6 @@ static void parse_options(int argc, char *argv[])
              opt.queue_size, MAX_QUEUE_SIZE);
 
     /* Parse arguments */
-
-    if (optind == argc)
-        usage(1);
-
-    opt.digest_name = argv[optind++];
 
     if (optind < argc)
         opt.filename = argv[optind++];

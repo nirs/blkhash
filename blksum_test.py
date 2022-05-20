@@ -104,33 +104,33 @@ def qcow2(raw):
 
 @pytest.mark.parametrize("cache", [True, False])
 def test_raw_file(raw, cache):
-    res = blksum_file(raw.md, raw.filename, cache=cache)
+    res = blksum_file(raw.filename, md=raw.md, cache=cache)
     assert res == [raw.checksum, raw.filename]
 
 
 @pytest.mark.parametrize("cache", [True, False])
 @requires_nbd
 def test_qcow2_file(qcow2, cache):
-    res = blksum_file(qcow2.md, qcow2.filename, cache=cache)
+    res = blksum_file(qcow2.filename, md=qcow2.md, cache=cache)
     assert res == [qcow2.checksum, qcow2.filename]
 
 
 def test_raw_pipe(raw, cache):
-    res = blksum_pipe(raw.md, raw.filename)
+    res = blksum_pipe(raw.filename, md=raw.md)
     assert res == [raw.checksum, "-"]
 
 
 @requires_nbd
 def test_raw_nbd(tmpdir, raw, cache):
     with open_nbd(tmpdir, raw.filename, "raw") as nbd_url:
-        res = blksum_nbd(raw.md, nbd_url)
+        res = blksum_nbd(nbd_url, md=raw.md)
     assert res == [raw.checksum, nbd_url]
 
 
 @requires_nbd
 def test_qcow2_nbd(tmpdir, qcow2, cache):
     with open_nbd(tmpdir, qcow2.filename, "qcow2") as nbd_url:
-        res = blksum_nbd(qcow2.md, nbd_url)
+        res = blksum_nbd(nbd_url, md=qcow2.md)
     assert res == [qcow2.checksum, nbd_url]
 
 
@@ -148,13 +148,25 @@ def test_list_digests():
         hashlib.new(name)
 
 
-def blksum_nbd(md, nbd_url):
-    out = subprocess.check_output([BLKSUM, md, nbd_url])
+def test_default_digest(tmpdir):
+    path = tmpdir.join("empty.raw")
+    create_image(path, "1m:-")
+    assert blksum_file(path) == blksum_file(path, md="sha256")
+
+
+def blksum_nbd(nbd_url, md=None):
+    cmd = [BLKSUM]
+    if md:
+        cmd.extend(["--digest", md])
+    cmd.append(nbd_url)
+    out = subprocess.check_output(cmd)
     return out.decode().strip().split("  ")
 
 
-def blksum_file(md, image, cache=True):
-    cmd = [BLKSUM, md]
+def blksum_file(image, md=None, cache=True):
+    cmd = [BLKSUM]
+    if md:
+        cmd.extend(["--digest", md])
     if cache:
         cmd.append("--cache")
     cmd.append(image)
@@ -162,10 +174,13 @@ def blksum_file(md, image, cache=True):
     return out.decode().strip().split("  ")
 
 
-def blksum_pipe(md, image):
+def blksum_pipe(image, md=None):
+    cmd = [BLKSUM]
+    if md:
+        cmd.extend(["--digest", md])
     with open(image) as f:
         r = subprocess.run(
-            [BLKSUM, md],
+            cmd,
             stdin=f,
             stdout=subprocess.PIPE,
             check=True,
