@@ -12,16 +12,16 @@ Installing requirements:
 
 Creating the images:
 
-    virt-builder fedora-32 \
-        --output fedora-32.qcow2 \
+    virt-builder fedora-35 \
+        --output fedora-35.qcow2 \
         --format=qcow2 \
-        --hostname=fedora32 \
+        --hostname=fedora35 \
         --ssh-inject=root \
         --root-password=password:root \
         --selinux-relabel \
         --install=qemu-guest-agent
 
-    qemu-img convert -f qcow2 -O raw fedora-32.qcow2 fedora-32.raw
+    qemu-img convert -f qcow2 -O raw fedora-35.qcow2 fedora-35.raw
 
     virt-builder fedora-34 \
         --output fedora-34.qcow2 \
@@ -51,25 +51,25 @@ run("clear")
 msg("### Compute disk image checksum with blksum ###", color=YELLOW)
 msg()
 msg("These images are indentical:")
-run("ls", "-lhs", "fedora-32.raw", "fedora-32.qcow2")
-run("qemu-img", "compare", "-p", "fedora-32.raw", "fedora-32.qcow2")
+run("ls", "-lhs", "fedora-35.raw", "fedora-35.qcow2")
+run("qemu-img", "compare", "-p", "fedora-35.raw", "fedora-35.qcow2")
 msg()
-msg("But sha1sum computes different checksums:")
-run("sha1sum", "fedora-32.raw", "fedora-32.qcow2")
+msg("But sha256sum computes different checksums:")
+run("sha256sum", "fedora-35.raw", "fedora-35.qcow2")
 msg()
 msg("blksum understands image formats!", color=YELLOW)
 msg()
-run("blksum", "sha1", "-p", "fedora-32.raw")
-run("blksum", "sha1", "-p", "fedora-32.qcow2")
+run("blksum", "-p", "fedora-35.raw")
+run("blksum", "-p", "fedora-35.qcow2")
 msg()
 msg("blksum is fast!", color=YELLOW)
 msg()
 msg("50 GiB image with 24 GiB of data:")
 run("ls", "-lhs", "fedora-34.qcow2")
-run("blksum", "sha1", "-p", "fedora-34.qcow2")
+run("blksum", "-p", "fedora-34.qcow2")
 msg()
 msg("Empty 8 TiB image:")
 run("ls", "-lhs", "empty-8t.raw")
-run("blksum", "sha256", "-p", "empty-8t.raw")
+run("blksum", "-p", "empty-8t.raw")
 msg()
-msg("Created with https://github.com/nirs/demo", color=GREY)
+msg("Created with https://pypi.org/project/nohands/", color=GREY)
