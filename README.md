@@ -7,7 +7,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 Block based hash optimized for disk images.
 
-![blksum demo](https://i.imgur.com/BYAo5Ei.gif)
+![blksum demo](https://i.imgur.com/nK9H8Q8.gif)
 
 Disk images are typically sparse, containing unallocated areas read as
 zeroes by the guest. The `blkhash` hash algorithm is optimized for
