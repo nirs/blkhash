@@ -7,7 +7,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 Block based hash optimized for disk images.
 
-![blksum demo](https://i.imgur.com/nK9H8Q8.gif)
+![blksum demo](https://i.imgur.com/FXifrxt.gif)
 
 Disk images are typically sparse, containing unallocated areas read as
 zeroes by the guest. The `blkhash` hash algorithm is optimized for
@@ -21,16 +21,16 @@ The `blksum` command computes message digest for disk images, similar to
 standard tools like `sha1sum`. For example to compute a sha1 block based
 checksum of a raw image:
 
-    $ blksum sha1 fedora-35.raw
-    f4ee0c53d0c7346c9ef7abcddfff386c59dd53fd  fedora-35.raw
+    $ blksum fedora-35.raw
+    6f84badc7d20700d01487724f7d8f2dd602abc866d42fec301817242daef28bf  fedora-35.raw
 
-We could compute a checksum for this image using `sha1sum`:
+We could compute a checksum for this image using `sha256sum`:
 
-    $ sha1sum fedora-35.raw
-    dfe8453ccd31857078ad8a3a1d2e08d87ef6db43  fedora-35.raw
+    $ sha256sum fedora-35.raw
+    88da042d3c4ad61091c25414513e74d2eaa7183f6c555476a9be55372ab284c6  fedora-35.raw
 
 Note that the checksums are different! `blksum` computes a block based
-sha1 checksum, not a sha1 checksum of the entire image.
+sha256 checksum, not a sha256 checksum of the entire image.
 
 See [blksum(1)](blksum.1.adoc) for the manual.
 
@@ -56,13 +56,13 @@ But the file contents are different:
 Standard tools like `sha1sum` do not understand image formats, so they
 compute a different checksum for the qcow2 image:
 
-    $ sha1sum fedora-35.qcow2
-    1c2877aa89abf633e18bc02f22a2c32eb8942282  fedora-35.qcow2
+    $ sha256sum fedora-35.qcow2
+    ae33f66851f5306bad5667ba7aabfea2d65cc2a13989e4fb0f73f4627861dbf2  fedora-35.qcow2
 
 Because `blksum` understands image formats, it compute the same checksum:
 
-    $ blksum sha1 fedora-35.qcow2
-    f4ee0c53d0c7346c9ef7abcddfff386c59dd53fd  fedora-35.qcow2
+    $ blksum fedora-35.qcow2
+    6f84badc7d20700d01487724f7d8f2dd602abc866d42fec301817242daef28bf  fedora-35.qcow2
 
 Currently only `raw` and `qcow2` formats are supported. Any other format
 is considered a raw image.
@@ -72,7 +72,7 @@ is considered a raw image.
 The `blksum` command supports any message digest algorithm provided by
 `openssl`. For example we can use `blake2b512`:
 
-    $ blksum blake2b512 fedora-35.qcow2
+    $ blksum --digest blake2b512 fedora-35.qcow2
     fd2b46c3d5684fff9e1347299ef48d1a5c48cf3ec8ccf409112d6cd20e53874b7b2ab0c3a85d22e1cb63682796ecfa7687224131cf5d64c3e1e715c8e2848c34  fedora-35.qcow2
 
 To find the available digest names run:
@@ -116,8 +116,8 @@ image:
 
 The `blksum` command will compute the same checksum for the logical volume:
 
-    $ sudo blksum sha1 /dev/data/test
-    f4ee0c53d0c7346c9ef7abcddfff386c59dd53fd  /dev/data/test
+    $ sudo blksum /dev/data/test
+    6f84badc7d20700d01487724f7d8f2dd602abc866d42fec301817242daef28bf  /dev/data/test
 
 The `blksum` command can also use a NBD URI, accessing an image exported
 by NBD server such as `qemu-nbd`.
@@ -127,23 +127,23 @@ For example we can export an image using `qemu-nbd` using a unix socket:
     $ qemu-nbd --read-only --persistent --shared 8 --socket /tmp/nbd.sock \
         --format qcow2 fedora-35.qcow2 &
 
-    $ blksum sha1 nbd+unix:///?socket=/tmp/nbd.sock
-    f4ee0c53d0c7346c9ef7abcddfff386c59dd53fd  nbd+unix:///?socket=/tmp/nbd.sock
+    $ blksum nbd+unix:///?socket=/tmp/nbd.sock
+    6f84badc7d20700d01487724f7d8f2dd602abc866d42fec301817242daef28bf  nbd+unix:///?socket=/tmp/nbd.sock
 
 We can also access an image on a remote host using NBD TCP URI:
 
     $ qemu-nbd --read-only --persistent --shared 8 --format qcow2 fedora-35.qcow2 &
 
-    $ blksum sha1 nbd://localhost
-    f4ee0c53d0c7346c9ef7abcddfff386c59dd53fd  nbd://localhost
+    $ blksum nbd://localhost
+    6f84badc7d20700d01487724f7d8f2dd602abc866d42fec301817242daef28bf  nbd://localhost
 
 The `blksum` command does not support yet secure NBD connections, so its
 use for accessing images on remote hosts is limited.
 
 Finally, we can also compute a checksum for data written to a pipe:
 
-    $ cat fedora-35.raw | blksum sha1
-    f4ee0c53d0c7346c9ef7abcddfff386c59dd53fd  -
+    $ cat fedora-35.raw | blksum
+    6f84badc7d20700d01487724f7d8f2dd602abc866d42fec301817242daef28bf  -
 
 Using a pipe we can only use `raw` format, and computing the checksum is
 much less efficient.
@@ -157,8 +157,8 @@ For typical sparse images, `blksum` can be 10 times faster compared with
 standard tools:
 
 ```
-$ hyperfine -w1 "blksum sha1 fedora-35.raw" "sha1sum fedora-35.raw"
-Benchmark 1: blksum sha1 fedora-35.raw
+$ hyperfine -w1 "blksum --digest sha1 fedora-35.raw" "sha1sum fedora-35.raw"
+Benchmark 1: blksum --digest sha1 fedora-35.raw
   Time (mean ± σ):     515.5 ms ±  15.1 ms    [User: 1082.1 ms, System: 628.0 ms]
   Range (min … max):   496.7 ms … 543.0 ms    10 runs
 
@@ -167,7 +167,7 @@ Benchmark 2: sha1sum fedora-35.raw
   Range (min … max):    5.465 s …  5.797 s    10 runs
 
 Summary
-  'blksum sha1 fedora-35.raw' ran
+  'blksum --digest sha1 fedora-35.raw' ran
    10.85 ± 0.39 times faster than 'sha1sum fedora-35.raw'
 ```
 
@@ -176,8 +176,8 @@ the fedora-35-data.raw contains additional 3 GiB of random data, and
 is 65% full.
 
 ```
-$ hyperfine -w1 "blksum sha1 fedora-35-data.raw" "sha1sum fedora-35-data.raw"
-Benchmark 1: blksum sha1 fedora-35-data.raw
+$ hyperfine -w1 "blksum --digest sha1 fedora-35-data.raw" "sha1sum fedora-35-data.raw"
+Benchmark 1: blksum --digest sha1 fedora-35-data.raw
   Time (mean ± σ):      1.550 s ±  0.021 s    [User: 3.924 s, System: 2.083 s]
   Range (min … max):    1.513 s …  1.575 s    10 runs
 
@@ -186,7 +186,7 @@ Benchmark 2: sha1sum fedora-35-data.raw
   Range (min … max):    5.443 s …  6.122 s    10 runs
 
 Summary
-  'blksum sha1 fedora-35-data.raw' ran
+  'blksum --digest sha1 fedora-35-data.raw' ran
     3.73 ± 0.14 times faster than 'sha1sum fedora-35-data.raw'
 ```
 
@@ -194,8 +194,8 @@ The best case is a completely empty image. Here is an example computing
 a checksum for a 6 GiB empty image:
 
 ```
-$ hyperfine -w1 "blksum sha1 empty-6g.raw" "sha1sum empty-6g.raw"
-Benchmark 1: blksum sha1 empty-6g.raw
+$ hyperfine -w1 "blksum --digest sha1 empty-6g.raw" "sha1sum empty-6g.raw"
+Benchmark 1: blksum --digest sha1 empty-6g.raw
   Time (mean ± σ):      32.6 ms ±   4.7 ms    [User: 6.6 ms, System: 4.7 ms]
   Range (min … max):    24.1 ms …  47.4 ms    76 runs
 
@@ -204,7 +204,7 @@ Benchmark 2: sha1sum empty-6g.raw
   Range (min … max):    5.471 s …  5.735 s    10 runs
 
 Summary
-  'blksum sha1 empty-6g.raw' ran
+  'blksum --digest sha1 empty-6g.raw' ran
   170.81 ± 24.56 times faster than 'sha1sum empty-6g.raw'
 ```
 
@@ -212,8 +212,8 @@ When reading from a pipe we cannot use multi-threading or sparseness
 detection, but zero detection is effective:
 
 ```
-$ hyperfine -w1 "blksum sha1 <fedora-35.raw" "sha1sum fedora-35.raw"
-Benchmark 1: blksum sha1 <fedora-35.raw
+$ hyperfine -w1 "blksum --digest sha1 <fedora-35.raw" "sha1sum fedora-35.raw"
+Benchmark 1: blksum --digest sha1 <fedora-35.raw
   Time (mean ± σ):      1.604 s ±  0.047 s    [User: 1.016 s, System: 0.576 s]
   Range (min … max):    1.551 s …  1.707 s    10 runs
 
@@ -222,7 +222,7 @@ Benchmark 2: sha1sum fedora-35.raw
   Range (min … max):    5.518 s …  5.774 s    10 runs
 
 Summary
-  'blksum sha1 <fedora-35.raw' ran
+  'blksum --digest sha1 <fedora-35.raw' ran
     3.53 ± 0.12 times faster than 'sha1sum fedora-35.raw'
 ```
 
@@ -230,8 +230,8 @@ The worst case is a completely full image, when nothing can be
 optimized, but using multi-threading helps:
 
 ```
-$ hyperfine -w1 "blksum sha1 full-6g.raw" "sha1sum full-6g.raw"
-Benchmark 1: blksum sha1 full-6g.raw
+$ hyperfine -w1 "blksum --digest sha1 full-6g.raw" "sha1sum full-6g.raw"
+Benchmark 1: blksum --digest sha1 full-6g.raw
   Time (mean ± σ):      2.371 s ±  0.077 s    [User: 5.906 s, System: 3.243 s]
   Range (min … max):    2.280 s …  2.480 s    10 runs
 
@@ -240,7 +240,7 @@ Benchmark 2: sha1sum full-6g.raw
   Range (min … max):    5.522 s …  6.044 s    10 runs
 
 Summary
-  'blksum sha1 full-6g.raw' ran
+  'blksum --digest sha1 full-6g.raw' ran
     2.43 ± 0.10 times faster than 'sha1sum full-6g.raw'
 ```
 
@@ -401,11 +401,11 @@ To install at configured --prefix:
 
 To view debug logs run with:
 
-    BLKSUM_DEBUG=1 blksum sha1 disk.img
+    BLKSUM_DEBUG=1 blksum disk.img
 
 To skip checksum calculation for testing I/O performance:
 
-    BLKSUM_IO_ONLY=1 blksum sha1 disk.img
+    BLKSUM_IO_ONLY=1 blksum disk.img
 
 ### Running the tests
 
