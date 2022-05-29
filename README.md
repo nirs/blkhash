@@ -171,9 +171,9 @@ Summary
    10.85 ± 0.39 times faster than 'sha1sum fedora-35.raw'
 ```
 
-For images with more data, the difference is smaller. In this example,
-the fedora-35-data.raw contains additional 3 GiB of random data, and
-is 65% full.
+For images with more data, the difference is smaller. In the following
+example, the fedora-35-data.raw contains additional 3 GiB of random
+data, and is 65% full.
 
 ```
 $ hyperfine -w1 "blksum --digest sha1 fedora-35-data.raw" "sha1sum fedora-35-data.raw"
@@ -190,8 +190,8 @@ Summary
     3.73 ± 0.14 times faster than 'sha1sum fedora-35-data.raw'
 ```
 
-The best case is a completely empty image. Here is an example computing
-a checksum for a 6 GiB empty image:
+The best case is a completely empty image. The following example
+computes a checksum for a 6 GiB empty image:
 
 ```
 $ hyperfine -w1 "blksum --digest sha1 empty-6g.raw" "sha1sum empty-6g.raw"
@@ -262,18 +262,18 @@ See [blkhash(3)](blkhash.3.adoc) for complete documentation.
 ## Installing
 
 The project is not packaged yet, so the only way to use this project now
-is to build and install from source.
+is to build and install from source (see below how).
 
 ## Portability
 
-The `blkhash` library and `blksum` command are devolped on Linux, but
-should be portable to any platform where openssl is available, but some
-optimizations are implemented only for linux.
+The `blkhash` library and `blksum` command are developed on Linux, but
+should be portable to any platform where openssl is available. Some
+optimizations are implemented only for Linux.
 
 The `blksum` command requires
 [libnbd](https://libguestfs.org/libnbd.3.html) for NBD support, and
 [qemu-nbd](https://www.qemu.org/docs/master/tools/qemu-nbd.html) for
-`qcow2` format support. If `libdnb` is not available, `blksum` is built
+`qcow2` format support. If `libnbd` is not available, `blksum` is built
 without NBD support and can be used only with `raw` images.
 
 ### Testing status
@@ -370,7 +370,8 @@ To configure build directory for release installing in /usr:
 
     meson configure build --buildtype=release --prefix=/usr
 
-To see all available options and possible values:
+To see all available options and possible values (after running meson
+setup):
 
     meson configure build
 
