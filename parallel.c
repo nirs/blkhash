@@ -454,10 +454,14 @@ static inline bool need_extents(struct worker *w)
     return w->extents.index == w->extents.count;
 }
 
-static void next_extent(struct worker *w, struct extent *extent)
+static void next_extent(struct worker *w, int64_t offset, uint32_t length,
+        struct extent *extent)
 {
     struct options *opt = w->job->opt;
     struct extent *current;
+
+    if (need_extents(w))
+        fetch_extents(w, offset, length);
 
     assert(w->extents.index < w->extents.count);
     current = &w->extents.array[w->extents.index];
@@ -498,11 +502,8 @@ static void process_segment(struct worker *w, int64_t offset)
 
         while (offset < end) {
 
-            if (extent.length == 0) {
-                if (need_extents(w))
-                    fetch_extents(w, offset, end - offset);
-                next_extent(w, &extent);
-            }
+            if (extent.length == 0)
+                next_extent(w, offset, end - offset, &extent);
 
             if (!can_push(&w->queue, &extent))
                 break;
