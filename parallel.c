@@ -111,13 +111,22 @@ static inline struct command *queue_pop(struct command_queue *q)
     return cmd;
 }
 
-static inline bool queue_ready(struct command_queue *q)
+static inline bool has_commands(struct worker *w)
 {
+    return w->queue.len > 0;
+}
+
+static inline bool has_ready_command(struct worker *w)
+{
+    struct command_queue *q = &w->queue;
+
     return q->len > 0 && STAILQ_FIRST(&q->head)->ready;
 }
 
-static inline int can_push(struct command_queue *q, struct extent *extent)
+static inline int can_process(struct worker *w, struct extent *extent)
 {
+    struct command_queue *q = &w->queue;
+
     return q->len < MAX_COMMANDS &&
 	   q->size - q->bytes >= cost(extent->zero, extent->length);
 }
@@ -498,14 +507,14 @@ static void process_segment(struct worker *w, int64_t offset)
     if (end > job->size)
         end = job->size;
 
-    while (w->queue.len || offset < end) {
+    while (has_commands(w) || offset < end) {
 
         while (offset < end) {
 
             if (extent.length == 0)
                 next_extent(w, offset, end - offset, &extent);
 
-            if (!can_push(&w->queue, &extent))
+            if (!can_process(w, &extent))
                 break;
 
             start_command(w, offset, &extent);
@@ -515,7 +524,7 @@ static void process_segment(struct worker *w, int64_t offset)
 
         src_aio_run(w->s, 1000);
 
-        while (queue_ready(&w->queue))
+        while (has_ready_command(w))
             finish_command(w);
     }
 
