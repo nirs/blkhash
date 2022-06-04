@@ -340,11 +340,6 @@ Get the source:
 
     git clone https://gitlab.com/nirs/blkhash.git
 
-Configure and update submodules:
-
-    git submodule init
-    git submodule update
-
 To run the tests, you need to setup a python3 environment:
 
     python3 -m venv ~/venv/blkhash

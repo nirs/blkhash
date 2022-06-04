@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: Red Hat Inc
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+[wrap-git]
+url = https://github.com/ThrowTheSwitch/Unity.git
+revision = head
