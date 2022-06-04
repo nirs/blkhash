@@ -125,3 +125,8 @@ if pytest.found()
     workdir: meson.current_source_dir(),
   )
 endif
+
+reuse = find_program('reuse', required: false)
+if reuse.found()
+  test('reuse', reuse, args: ['lint'])
+endif

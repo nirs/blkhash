@@ -349,7 +349,7 @@ To run the tests, you need to setup a python3 environment:
 
     python3 -m venv ~/venv/blkhash
     source ~/venv/blkhash/bin/activate
-    pip install pytest
+    pip install pytest reuse
     deactivate
 
 On FreeBSD using the default shell (sh), use "." instead of "source":
