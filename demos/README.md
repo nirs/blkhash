@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: Red Hat Inc
+SPDX-License-Identifier: LGPL-2.1-or-later
+-->
+
 # The blksum demo
 
 This document describes the complicated manual process for producing the
