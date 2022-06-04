@@ -80,10 +80,8 @@ To find the available digest names run:
     $ blksum --list-digests
     blake2b512
     blake2s256
-    md4
     md5
     md5-sha1
-    ripemd160
     sha1
     sha224
     sha256
@@ -98,7 +96,6 @@ To find the available digest names run:
     shake128
     shake256
     sm3
-    whirlpool
 
 ### Supported sources
 
