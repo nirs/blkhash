@@ -22,4 +22,4 @@ RUN echo v1 \
 
 # Install pytest with pip.
 RUN python3 -m pip install --upgrade pip \
-    && python3 -m pip install --upgrade pytest
+    && python3 -m pip install --upgrade pytest reuse
