@@ -89,13 +89,7 @@ example = executable(
   ],
 )
 
-unity_dir = include_directories('unity/src')
-
-unity_lib = static_library(
-  'unity',
-  files('unity/src/unity.c'),
-  include_directories: unity_dir
-)
+unity_dep = dependency('unity', fallback : ['unity', 'unity_dep'])
 
 blkhash_test = executable(
   'blkhash_test',
@@ -103,8 +97,8 @@ blkhash_test = executable(
     'blkhash_test.c',
     'util.c',
   ],
-  include_directories : unity_dir,
-  link_with: [blkhash_lib, unity_lib]
+  link_with: blkhash_lib,
+  dependencies: unity_dep,
 )
 
 test('blkhash', blkhash_test)
