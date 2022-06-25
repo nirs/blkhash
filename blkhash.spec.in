@@ -21,7 +21,7 @@ BuildRequires: gcc
 BuildRequires: libnbd-devel
 BuildRequires: meson
 BuildRequires: openssl-devel
-BuildRequires: python3
+BuildRequires: qemu-img
 
 Requires: qemu-img
 
@@ -47,6 +47,9 @@ Requires: %{name}-libs = %{version}-%{release}
 %build
 %meson
 %meson_build
+
+%check
+%meson_test
 
 %install
 %meson_install
