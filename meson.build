@@ -125,6 +125,7 @@ if pytest.found()
   test(
     'blksum',
     pytest,
+    args: ['blksum_test.py'],
     depends: blksum,
     env: env,
     workdir: meson.current_source_dir(),
