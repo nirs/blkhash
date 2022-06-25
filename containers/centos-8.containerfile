@@ -18,6 +18,8 @@ RUN echo v1 \
         python3 \
         python3-pip \
         qemu-img \
+        rpm-build \
+        rpmlint \
     && dnf clean all
 
 # Install pytest with pip.
