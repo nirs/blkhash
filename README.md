@@ -314,7 +314,9 @@ Fedora:
         meson \
         openssl-devel \
         python3 \
-        qemu-img
+        qemu-img \
+        rpm-build \
+        rpmlint \
 
 FreeBSD:
 
@@ -389,6 +391,18 @@ build directory:
 To install at configured --prefix:
 
     meson install -C build
+
+### Building rpms
+
+Before building rpms you need to run meson setup.
+
+To build source rpm in build/rpm/SRPMS run:
+
+    ./build-srpm
+
+To build rpms in build/rpm/RPMS/{arch} run:
+
+    ./build-rpms
 
 ### Debugging
 
