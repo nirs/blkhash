@@ -115,7 +115,8 @@ blkhash_test = executable(
 test('blkhash', blkhash_test)
 test('example', example)
 
-pytest = find_program('pytest', required: false)
+# On Centos Stream 8 pytest is installed as pytest-3
+pytest = find_program('pytest', '/usr/bin/pytest-3', required: false)
 
 if pytest.found()
   env = environment()

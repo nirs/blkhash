@@ -13,12 +13,9 @@ RUN echo v2 \
         meson \
         openssl-devel \
         python3 \
-        python3-pip \
+        python3-pytest \
         qemu-img \
+        reuse \
         rpm-build \
         rpmlint \
     && dnf clean all
-
-# Install pytest with pip.
-RUN python3 -m pip install --upgrade pip \
-    && python3 -m pip install --upgrade pytest reuse
