@@ -120,7 +120,11 @@ if pytest.found()
   )
 endif
 
-reuse = find_program('reuse', required: false)
-if reuse.found()
-  test('reuse', reuse, args: ['lint'])
+# `resuse lint` works only in git repo.
+git = run_command('test', '-d', '.git', check: false).returncode() == 0
+if git
+  reuse = find_program('reuse', required: false)
+  if reuse.found()
+    test('reuse', reuse, args: ['lint'])
+  endif
 endif
