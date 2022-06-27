@@ -329,8 +329,8 @@ Only some variants have CI on gitlab. Most variants are tested only in
 Contribution is welcome!
 
 Please check issues with the
-[help needed label](https://gitlab.com/nirs/blkhash/-/issues?sort=priority&state=opened&label_name[]=help+needed)
-for issues that need your help.
+[good first_issue](https://gitlab.com/nirs/blkhash/-/issues?sort=priority&state=opened&label_name[]=good+first+issue)
+for issues that can be easier to start with.
 
 Please [create a new issue](https://gitlab.com/nirs/blkhash/-/issues/new)
 for new features you want to work on.
