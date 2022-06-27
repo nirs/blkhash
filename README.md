@@ -13,7 +13,7 @@ Disk images are typically sparse, containing unallocated areas read as
 zeroes by the guest. The `blkhash` hash algorithm is optimized for
 computing checksums of sparse disk images.
 
-This project provides the `blkahsh` C library, and the `blksum` command.
+This project provides the `blksum` command and the `blkahsh` C library.
 
 ## The blksum command
 
