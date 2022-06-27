@@ -15,6 +15,21 @@ computing checksums of sparse disk images.
 
 This project provides the `blksum` command and the `blkahsh` C library.
 
+## Installing
+
+You can install the `blkhash` package on Fedora, Centos Stream, and RHEL
+from the
+[blkhash copr repo](https://copr.fedorainfracloud.org/coprs/nsoffer/blkhash/):
+
+    dnf copr enable nsoffer/blkhash
+    dnf install blkash
+
+This installs the `blksum` command and the `libblkhash` library.
+
+If you want to use the `libblkhash` library please install the
+`blkhash-devel` package. Your application will depend on the
+`blkhash-libs` package.
+
 ## The blksum command
 
 The `blksum` command computes message digest for disk images, similar to
@@ -256,11 +271,6 @@ See the [example program](example.c) for example of using the library.
 
 See [blkhash(3)](blkhash.3.adoc) for complete documentation.
 
-## Installing
-
-The project is not packaged yet, so the only way to use this project now
-is to build and install from source (see below how).
-
 ## Portability
 
 The `blkhash` library and `blksum` command are developed on Linux, but
@@ -275,14 +285,44 @@ without NBD support and can be used only with `raw` images.
 
 ### Testing status
 
-| Arch      | OS                | CI    | libnbd |
-|-----------|-------------------|-------|--------|
-| x86_64    | Fedora 35         | yes   | yes    |
-| x86_64    | CentOS Stream 8   | yes   | yes    |
-| x86_64    | CentOS Stream 9   | yes   | yes    |
-| x86_64    | RHEL 8.6          | no    | yes    |
-| x86_64    | FreeBSD 13        | no    | no     |
-| Apple M1  | macOS 11 Big Sur  | no    | no     |
+Only some variants have CI on gitlab. Most variants are tested only in
+`copr` build system or have no automated testing.
+
+| OS                | Arch      | CI     | libnbd |
+|-------------------|-----------|--------|--------|
+| Fedora 35         | x86_64    | gitlab | yes    |
+| CentOS Stream 8   | x86_64    | gitlab | yes    |
+| CentOS Stream 9   | x86_64    | gitlab | yes    |
+| Fedora 35         | aarch64   | copr   | yes    |
+| Fedora 35         | ppc64le   | copr   | yes    |
+| Fedora 35         | s390x     | copr   | yes    |
+| Fedora 35         | x86_64    | copr   | yes    |
+| Fedora 36         | aarch64   | copr   | yes    |
+| Fedora 36         | ppc64le   | copr   | yes    |
+| Fedora 36         | s390x     | copr   | yes    |
+| Fedora 36         | x86_64    | copr   | yes    |
+| Fedora 37         | aarch64   | copr   | yes    |
+| Fedora 37         | ppc64le   | copr   | yes    |
+| Fedora 37         | s390x     | copr   | yes    |
+| Fedora 37         | x86_64    | copr   | yes    |
+| CentOS Stream 8   | aarch64   | copr   | yes    |
+| CentOS Stream 8   | ppc64le   | copr   | yes    |
+| CentOS Stream 8   | x86_64    | copr   | yes    |
+| CentOS Stream 9   | aarch64   | copr   | yes    |
+| CentOS Stream 9   | ppc64le   | copr   | yes    |
+| CentOS Stream 9   | s390x     | copr   | yes    |
+| CentOS Stream 9   | x86_64    | copr   | yes    |
+| EPEL 8            | aarch64   | copr   | yes    |
+| EPEL 8            | ppc64le   | copr   | yes    |
+| EPEL 8            | s390x     | copr   | yes    |
+| EPEL 8            | x86_64    | copr   | yes    |
+| EPEL 9            | aarch64   | copr   | yes    |
+| EPEL 9            | ppc64le   | copr   | yes    |
+| EPEL 9            | s390x     | copr   | yes    |
+| EPEL 9            | x86_64    | copr   | yes    |
+| RHEL 8.6          | x86_64    | no     | yes    |
+| FreeBSD 13        | x86_64    | no     | no     |
+| macOS 11 Big Sur  | Apple M1  | no     | no     |
 
 ## Contributing
 
