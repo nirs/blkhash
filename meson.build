@@ -128,6 +128,7 @@ if pytest.found()
     pytest,
     args: ['blksum_test.py'],
     depends: blksum,
+    timeout: 120,
     env: env,
     workdir: meson.current_source_dir(),
   )
