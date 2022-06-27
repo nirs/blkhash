@@ -1,0 +1,56 @@
+#!/usr/bin/python3
+# SPDX-FileCopyrightText: Red Hat Inc
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+import datetime
+import glob
+import json
+import os
+import subprocess
+
+
+def run(*args):
+    return subprocess.check_call(args)
+
+
+def run_output(*args):
+    return subprocess.check_output(args).decode().strip()
+
+
+with open("build/meson-info/intro-projectinfo.json") as f:
+    version = json.load(f)["version"]
+
+# Get a human readable name of this commit:
+# - build from tag: v2.4.5
+# - build without a tag: v2.4.5-3-gc238eff
+commit_name = run_output("git", "describe",  "--tags", "--match", "v[0-9]*")
+
+if "-" in commit_name:
+    # Build without a tag - make this build newer than previous build
+    # with a UTC timestamp, and add commit hash to make it easy to
+    # locate the commit.
+    utc_timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
+    commit_hash = run_output("git", "rev-parse", "--short", "HEAD")
+    release = f"0.{utc_timestamp}.git{commit_hash}"
+else:
+    # Build from tag - make this build newer than previous builds
+    # without a tag.
+    release = "1"
+
+rpm_dir = os.path.abspath("build/rpm")
+sources_dir = os.path.join(rpm_dir, "SOURCES")
+
+run("rm", "-rf", "build/meson-dist")
+run("meson", "dist", "--no-tests", "--include-subprojects", "-C", "build")
+run("rm", "-rf", rpm_dir)
+os.makedirs(sources_dir)
+run("mv", f"build/meson-dist/blkhash-{version}.tar.xz", sources_dir)
+
+with open("blkhash.spec.in") as f:
+    spec = f.read()
+spec = spec.replace("@VERSION@", version)
+spec = spec.replace("@RELEASE@", release)
+with open("build/blkhash.spec", "w") as f:
+    f.write(spec)
+
+run("rpmbuild", "-bs", f"--define=_topdir {rpm_dir}", "build/blkhash.spec")

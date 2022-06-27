@@ -314,7 +314,11 @@ Fedora:
         meson \
         openssl-devel \
         python3 \
-        qemu-img
+        python3-pytest \
+        qemu-img \
+        reuse \
+        rpm-build \
+        rpmlint \
 
 FreeBSD:
 
@@ -337,7 +341,8 @@ Get the source:
 
     git clone https://gitlab.com/nirs/blkhash.git
 
-To run the tests, you need to setup a python3 environment:
+If `python3-pytest` or `reuse` are not avaialble on your distro, you can
+installed them using pip in a virtual environment:
 
     python3 -m venv ~/venv/blkhash
     source ~/venv/blkhash/bin/activate
@@ -349,6 +354,15 @@ On FreeBSD using the default shell (sh), use "." instead of "source":
     . ~/venv/blkhash/bin/activate
 
 ### Configuring
+
+If you installed some python3 packages using a virtual enviroment enter
+it before setting up meson:
+
+    source ~/venv/blkhash/bin/activate
+
+When you are done, you can exit from the virtual environment:
+
+    deactivate
 
 Create a build directory with default options:
 
@@ -390,6 +404,18 @@ To install at configured --prefix:
 
     meson install -C build
 
+### Building rpms
+
+Before building rpms you need to run meson setup.
+
+To build source rpm in build/rpm/SRPMS run:
+
+    ./build-srpm
+
+To build rpms in build/rpm/RPMS/{arch} run:
+
+    ./build-rpms
+
 ### Debugging
 
 To view debug logs run with:
@@ -401,14 +427,6 @@ To skip checksum calculation for testing I/O performance:
     BLKSUM_IO_ONLY=1 blksum disk.img
 
 ### Running the tests
-
-To run the tests, you need to enter the virtual environment:
-
-    source ~/venv/blkhash/bin/activate
-
-When you are done, you can exit from the virtual environment:
-
-    deactivate
 
 To run all tests:
 

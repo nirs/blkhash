@@ -1,7 +1,18 @@
 # SPDX-FileCopyrightText: Red Hat Inc
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-project('blkhash', 'c', version: '0.1')
+project(
+  'blkhash', 'c',
+  version: '0.1',
+  license: 'LGPL-2.1-or-later',
+  meson_version: '>= 0.54.0',
+  default_options: [
+    'b_pie=true',
+    'buildtype=debugoptimized',
+    'c_std=gnu99',
+    'warning_level=2',
+  ],
+)
 
 libnbd = dependency(
   'libnbd',
@@ -104,7 +115,8 @@ blkhash_test = executable(
 test('blkhash', blkhash_test)
 test('example', example)
 
-pytest = find_program('pytest', required: false)
+# On Centos Stream 8 pytest is installed as pytest-3
+pytest = find_program('pytest', '/usr/bin/pytest-3', required: false)
 
 if pytest.found()
   env = environment()
@@ -114,6 +126,7 @@ if pytest.found()
   test(
     'blksum',
     pytest,
+    args: ['blksum_test.py'],
     depends: blksum,
     env: env,
     workdir: meson.current_source_dir(),

@@ -1,0 +1,18 @@
+#!/usr/bin/python3
+# SPDX-FileCopyrightText: Red Hat Inc
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+import os
+import glob
+import subprocess
+
+
+def run(*args):
+    return subprocess.check_call(args)
+
+
+run("./build-srpm")
+
+rpm_dir = os.path.abspath("build/rpm")
+src_rpm = glob.glob("build/rpm/SRPMS/*.src.rpm")[0]
+run("rpmbuild", "--rebuild", f"--define=_topdir {rpm_dir}", src_rpm)

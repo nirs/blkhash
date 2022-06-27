@@ -1,0 +1,74 @@
+# SPDX-FileCopyrightText: Red Hat Inc
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+Name: blkhash
+Version: @VERSION@
+Release: @RELEASE@%{?dist}
+Summary: Block based hash optimized for disk images
+
+License: LGPLv2+
+URL: https://gitlab.com/nirs/blkhash
+
+# To create the tarball:
+#   git clone https://gitlab.com/nirs/blkhash.git
+#   cd blkhash
+#   meson build
+#   meson dist --include-subprojects -C build
+Source: %{name}-%{version}.tar.xz
+
+BuildRequires: asciidoc
+BuildRequires: gcc
+BuildRequires: libnbd-devel
+BuildRequires: meson
+BuildRequires: openssl-devel
+BuildRequires: python3-pytest
+BuildRequires: qemu-img
+
+Requires: qemu-img
+
+%description
+%{summary}.
+
+%package libs
+Summary: Libraries for %{name}
+
+%description libs
+%{summary}.
+
+%package devel
+Summary: Header files for %{name}
+Requires: %{name}-libs = %{version}-%{release}
+
+%description devel
+%{summary}.
+
+%prep
+%autosetup
+
+%build
+%meson
+%meson_build
+
+%check
+%meson_test
+
+%install
+%meson_install
+
+%files
+%license LICENSES/LGPL-2.1-or-later.txt
+%{_bindir}/blksum
+%{_mandir}/man1/blksum.1*
+
+%files libs
+%license LICENSES/LGPL-2.1-or-later.txt
+%{_libdir}/lib%{name}.so.*
+
+%files devel
+%{_includedir}/%{name}.h
+%{_libdir}/lib%{name}.so
+%{_mandir}/man3/%{name}_*.3*
+
+%changelog
+* Sat Jun 25 2022 Nir Soffer <nsoffer@redhat.com> - @VERSION@-@RELEASE@
+- Development build
