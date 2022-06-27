@@ -196,6 +196,23 @@ fail:
     return -1;
 }
 
+static int set_cloexec(int fd, bool on)
+{
+    int flags = fcntl(fd, F_GETFD, 0);
+    if (flags == -1)
+        return -1;
+
+    if (on)
+        flags |= FD_CLOEXEC;
+    else
+        flags &= ~FD_CLOEXEC;
+
+    if (fcntl(fd, F_SETFD, flags) == -1)
+        return -1;
+
+    return 0;
+}
+
 static void exec_qemu_nbd(int fd, char **env, struct server_options *opt)
 {
     const char *cache = opt->cache ? "writeback" : "none";
@@ -224,16 +241,8 @@ static void exec_qemu_nbd(int fd, char **env, struct server_options *opt)
         close(fd);
     } else {
         /* Unset close-on-exec flag on fd. */
-        int flags = fcntl(fd, F_GETFD, 0);
-        if (flags == -1) {
-            ERROR("fcntl(F_GETFD): %s", strerror(errno));
-            _exit(126);
-        }
-
-        if (fcntl(fd, F_SETFD, flags & ~FD_CLOEXEC) == -1) {
-            ERROR("fcntl(F_SETFD): %s", strerror(errno));
-            _exit(126);
-        }
+        if (set_cloexec(fd, false))
+            FAIL_ERRNO("set_cloexec");
     }
 
     /* Update LISTEN_PID= with child pid. */
