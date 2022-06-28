@@ -16,6 +16,14 @@ fedora-35:
   extends: .test
   image: quay.io/nirsof/blkhash-fedora-35
 
+fedora-36:
+  extends: .test
+  image: quay.io/nirsof/blkhash-fedora-36
+
+fedora-37:
+  extends: .test
+  image: quay.io/nirsof/blkhash-fedora-37
+
 centos-8:
   extends: .test
   image: quay.io/nirsof/blkhash-centos-8
