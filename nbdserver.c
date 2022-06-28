@@ -196,10 +196,53 @@ fail:
     return -1;
 }
 
+static int set_cloexec(int fd, bool on)
+{
+    int flags = fcntl(fd, F_GETFD, 0);
+    if (flags == -1)
+        return -1;
+
+    if (on)
+        flags |= FD_CLOEXEC;
+    else
+        flags &= ~FD_CLOEXEC;
+
+    if (fcntl(fd, F_SETFD, flags) == -1)
+        return -1;
+
+    return 0;
+}
+
+/*
+ * Redirect stderr to /dev/null, and return the previous stderr fd so it
+ * can be restored later.
+ */
+static int suppress_stderr()
+{
+    int saved, devnull;
+
+    saved = dup(STDERR_FILENO);
+    if (saved != -1)
+        set_cloexec(saved, true);
+
+    devnull = open("/dev/null", O_WRONLY);
+    if (devnull == -1) {
+        ERROR("Cannot open /dev/null for writing: %s", strerror(errno));
+        close(saved);
+        return -1;
+    }
+
+    dup2(devnull, STDERR_FILENO);
+    close(devnull);
+
+    return saved;
+}
+
 static void exec_qemu_nbd(int fd, char **env, struct server_options *opt)
 {
     const char *cache = opt->cache ? "writeback" : "none";
     char shared[21];
+    int saved_stderr = -1;
 
     snprintf(shared, sizeof(shared), "%ld", opt->workers);
 
@@ -224,16 +267,8 @@ static void exec_qemu_nbd(int fd, char **env, struct server_options *opt)
         close(fd);
     } else {
         /* Unset close-on-exec flag on fd. */
-        int flags = fcntl(fd, F_GETFD, 0);
-        if (flags == -1) {
-            ERROR("fcntl(F_GETFD): %s", strerror(errno));
-            _exit(126);
-        }
-
-        if (fcntl(fd, F_SETFD, flags & ~FD_CLOEXEC) == -1) {
-            ERROR("fcntl(F_SETFD): %s", strerror(errno));
-            _exit(126);
-        }
+        if (set_cloexec(fd, false))
+            FAIL_ERRNO("set_cloexec");
     }
 
     /* Update LISTEN_PID= with child pid. */
@@ -243,9 +278,16 @@ static void exec_qemu_nbd(int fd, char **env, struct server_options *opt)
     /* Reset signals. */
     signal(SIGPIPE, SIG_DFL);
 
+    if (!debug)
+        saved_stderr = suppress_stderr();
+
     execvpe(argv[0], argv, env);
 
     /* execvpe failed. */
+
+    if (saved_stderr != -1)
+        dup2(saved_stderr, STDERR_FILENO);
+
     ERROR("execvpe: %s", strerror(errno));
     if (errno == ENOENT)
         _exit(127);
