@@ -3,7 +3,7 @@
 
 project(
   'blkhash', 'c',
-  version: '0.1',
+  version: '0.2.0',
   license: 'LGPL-2.1-or-later',
   meson_version: '>= 0.54.0',
   default_options: [
@@ -128,6 +128,7 @@ if pytest.found()
     pytest,
     args: ['blksum_test.py'],
     depends: blksum,
+    timeout: 120,
     env: env,
     workdir: meson.current_source_dir(),
   )
