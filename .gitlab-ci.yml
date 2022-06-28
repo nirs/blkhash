@@ -6,11 +6,17 @@ variables:
 
 .test:
   script:
-  - meson setup build
-  - meson compile -C build
-  - meson test -C build -v
-  - ./build-rpms
-  - dnf install -y build/rpm/RPMS/*/*.rpm
+    - meson setup build
+    - meson compile -C build
+    - meson test -C build -v
+    - ./build-rpms
+    - mkdir rpms
+    - mv build/rpm/RPMS/*/*.rpm rpms
+    - dnf install -y rpms/*.rpm
+  artifacts:
+    name: $CI_JOB_NAME
+    paths:
+      - rpms
 
 fedora-35:
   extends: .test
