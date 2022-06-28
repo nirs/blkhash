@@ -291,6 +291,8 @@ Only some variants have CI on gitlab. Most variants are tested only in
 | OS                | Arch      | CI     | libnbd |
 |-------------------|-----------|--------|--------|
 | Fedora 35         | x86_64    | gitlab | yes    |
+| Fedora 36         | x86_64    | gitlab | yes    |
+| Fedora 37         | x86_64    | gitlab | yes    |
 | CentOS Stream 8   | x86_64    | gitlab | yes    |
 | CentOS Stream 9   | x86_64    | gitlab | yes    |
 | Fedora 35         | aarch64   | copr   | yes    |
