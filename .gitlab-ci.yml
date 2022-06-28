@@ -6,11 +6,11 @@ variables:
 
 .test:
   script:
-  - meson setup build
-  - meson compile -C build
-  - meson test -C build -v
-  - ./build-rpms
-  - dnf install -y build/rpm/RPMS/*/*.rpm
+    - meson setup build
+    - meson compile -C build
+    - meson test -C build -v
+    - ./build-rpms
+    - dnf install -y build/rpm/RPMS/*/*.rpm
 
 fedora-35:
   extends: .test
