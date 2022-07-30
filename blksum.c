@@ -215,7 +215,7 @@ static void parse_options(int argc, char *argv[])
         opt.filename = argv[optind++];
 }
 
-void terminate(int signum)
+static void terminate(int signum)
 {
     /* Kill child processes using same signal. */
     kill(0, signum);
@@ -224,7 +224,7 @@ void terminate(int signum)
     exit(signum + 128);
 }
 
-void setup_signals(void)
+static void setup_signals(void)
 {
     sigset_t all;
     sigfillset(&all);
