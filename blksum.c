@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Red Hat Inc
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+#include <assert.h>
 #include <getopt.h>
 #include <pthread.h>
 #include <signal.h>
@@ -24,7 +25,9 @@ bool debug = false;
 bool io_only = false;
 
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_t main_thread;
 static bool failed;
+static volatile sig_atomic_t terminated;
 
 static struct options opt = {
 
@@ -224,11 +227,9 @@ static void parse_options(int argc, char *argv[])
 
 static void handle_signal(int signum)
 {
-    /* Kill child processes using same signal. */
-    kill(0, signum);
-
-    /* And exit with the expected exit code. */
-    exit(signum + 128);
+    assert(signum > 0);
+    if (!terminated)
+        terminated = signum;
 }
 
 static void setup_signals(void)
@@ -246,6 +247,14 @@ static void setup_signals(void)
 
     if (sigaction(SIGTERM, &act, NULL) != 0)
         FAIL_ERRNO("sigaction");
+}
+
+bool running(void)
+{
+    pthread_mutex_lock(&lock);
+    bool value = !(terminated || failed);
+    pthread_mutex_unlock(&lock);
+    return value;
 }
 
 void fail(const char *fmt, ...)
@@ -268,7 +277,14 @@ void fail(const char *fmt, ...)
 
     va_end(args);
 
-    exit(EXIT_FAILURE);
+    /* If a worker thread failed, exit only the thread. All other threads
+     * will exit when detecting that the application was failed. If the
+     * main thread failed, exit the process. */
+
+    if (pthread_equal(pthread_self(), main_thread))
+        exit(EXIT_FAILURE);
+    else
+        pthread_exit(NULL);
 }
 
 int main(int argc, char *argv[])
@@ -276,6 +292,8 @@ int main(int argc, char *argv[])
     const EVP_MD *md;
     unsigned char md_value[EVP_MAX_MD_SIZE];
     char md_hex[EVP_MAX_MD_SIZE * 2 + 1];
+
+    main_thread = pthread_self();
 
     debug = getenv("BLKSUM_DEBUG") != NULL;
     io_only = getenv("BLKSUM_IO_ONLY") != NULL;
@@ -297,6 +315,20 @@ int main(int argc, char *argv[])
         simple_checksum(s, &opt, md_value);
         src_close(s);
     }
+
+    pthread_mutex_lock(&lock);
+
+    if (failed)
+        /* The failing thread already reported the error. */
+        exit(EXIT_FAILURE);
+
+    if (terminated) {
+        /* Trigger normal terminated behavior by signal. */
+        signal(terminated, SIG_DFL);
+        raise(terminated);
+    }
+
+    pthread_mutex_unlock(&lock);
 
     format_hex(md_value, EVP_MD_size(md), md_hex);
     printf("%s  %s\n", md_hex, opt.filename ? opt.filename : "-");

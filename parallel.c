@@ -557,6 +557,11 @@ static void *worker_thread(void *arg)
         blkhash_final(w->h, seg_md, NULL);
         blkhash_reset(w->h);
 
+        if (!running()) {
+            DEBUG("worker %d aborting", w->id);
+            break;
+        }
+
         if (job->progress)
             progress_update(job->progress, 1);
     }
@@ -598,7 +603,7 @@ void parallel_checksum(const char *filename, struct options *opt,
     }
 
     if (job.progress) {
-        while (progress_draw(job.progress))
+        while (running() && progress_draw(job.progress))
             usleep(100000);
     }
 
@@ -609,7 +614,8 @@ void parallel_checksum(const char *filename, struct options *opt,
             FAIL("pthread_join: %s", strerror(err));
     }
 
-    compute_root_hash(&job, out);
+    if (running())
+        compute_root_hash(&job, out);
 
     free(workers);
     destroy_job(&job);

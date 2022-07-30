@@ -56,6 +56,9 @@ void simple_checksum(struct src *s, struct options *opt, unsigned char *out)
         blkhash_final(h, seg_md, NULL);
         blkhash_reset(h);
 
+        if (!running())
+            break;
+
         if (debug) {
             char hex[EVP_MAX_MD_SIZE * 2 + 1];
 
@@ -67,7 +70,8 @@ void simple_checksum(struct src *s, struct options *opt, unsigned char *out)
         EVP_DigestUpdate(md_ctx, seg_md, md_size);
     }
 
-    EVP_DigestFinal_ex(md_ctx, out, NULL);
+    if (running())
+        EVP_DigestFinal_ex(md_ctx, out, NULL);
 
     EVP_MD_CTX_free(md_ctx);
     free(buf);
