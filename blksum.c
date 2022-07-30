@@ -23,7 +23,8 @@
 bool debug = false;
 bool io_only = false;
 
-static pthread_mutex_t failed = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+static bool failed;
 
 static struct options opt = {
 
@@ -256,8 +257,14 @@ void fail(const char *fmt, ...)
      * Unless we run in debug mode, only the first thread will log the
      * failure message.
      */
-    if (pthread_mutex_trylock(&failed) == 0 || debug)
+    pthread_mutex_lock(&lock);
+
+    if (!failed || debug) {
+        failed = true;
         vfprintf(stderr, fmt, args);
+    }
+
+    pthread_mutex_unlock(&lock);
 
     va_end(args);
 
