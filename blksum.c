@@ -1,11 +1,15 @@
 // SPDX-FileCopyrightText: Red Hat Inc
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+#include <getopt.h>
+#include <pthread.h>
+#include <signal.h>
+#include <stdarg.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <getopt.h>
-#include <signal.h>
 
 #include <openssl/evp.h>
 
@@ -18,6 +22,8 @@
 
 bool debug = false;
 bool io_only = false;
+
+static pthread_mutex_t failed = PTHREAD_MUTEX_INITIALIZER;
 
 static struct options opt = {
 
@@ -239,6 +245,23 @@ static void setup_signals(void)
 
     if (sigaction(SIGTERM, &act, NULL) != 0)
         FAIL_ERRNO("sigaction");
+}
+
+void fail(const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+
+    /*
+     * Unless we run in debug mode, only the first thread will log the
+     * failure message.
+     */
+    if (pthread_mutex_trylock(&failed) == 0 || debug)
+        vfprintf(stderr, fmt, args);
+
+    va_end(args);
+
+    exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[])
