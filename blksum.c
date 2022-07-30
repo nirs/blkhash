@@ -215,7 +215,7 @@ static void parse_options(int argc, char *argv[])
         opt.filename = argv[optind++];
 }
 
-static void terminate(int signum)
+static void handle_signal(int signum)
 {
     /* Kill child processes using same signal. */
     kill(0, signum);
@@ -230,7 +230,7 @@ static void setup_signals(void)
     sigfillset(&all);
 
     struct sigaction act = {
-        .sa_handler = terminate,
+        .sa_handler = handle_signal,
         .sa_mask = all,
     };
 
