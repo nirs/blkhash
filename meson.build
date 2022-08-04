@@ -42,7 +42,6 @@ blksum = executable(
     'blksum.c',
     'list-digests.c',
     'file.c',
-    'log.c',
     'nbd.c',
     'nbdserver.c',
     'parallel.c',

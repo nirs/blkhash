@@ -21,12 +21,15 @@ static ssize_t pipe_ops_read(struct src *s, void *buf, size_t len)
     while (pos < len) {
         ssize_t n;
 
-        do {
-            n = read(ps->fd, buf + pos, len - pos);
-        } while (n == -1 && errno == EINTR);
+        n = read(ps->fd, buf + pos, len - pos);
 
-        if (n < 0)
+        if (n == -1) {
+            if (errno == EINTR && !running())
+                /* Emulate end of file. */
+                break;
+
             FAIL_ERRNO("read");
+        }
 
         if (n == 0)
             /* End of file. */

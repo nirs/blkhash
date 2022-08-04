@@ -238,6 +238,19 @@ static int suppress_stderr()
     return saved;
 }
 
+static void setup_signals(void)
+{
+    sigset_t blocked;
+
+    /* Reset signals. */
+    signal(SIGPIPE, SIG_DFL);
+
+    /* Block SIGINT for clean shutdown on signals. */
+    sigemptyset(&blocked);
+    sigaddset(&blocked, SIGINT);
+    sigprocmask(SIG_BLOCK, &blocked, NULL);
+}
+
 static void exec_qemu_nbd(int fd, char **env, struct server_options *opt)
 {
     const char *cache = opt->cache ? "writeback" : "none";
@@ -275,8 +288,7 @@ static void exec_qemu_nbd(int fd, char **env, struct server_options *opt)
     snprintf(env[0] + PREFIX_LENGTH, strlen(env[0]) - PREFIX_LENGTH, "%d",
              getpid());
 
-    /* Reset signals. */
-    signal(SIGPIPE, SIG_DFL);
+    setup_signals();
 
     if (!debug)
         saved_stderr = suppress_stderr();
