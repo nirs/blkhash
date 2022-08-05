@@ -323,7 +323,11 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
 
     if (terminated) {
-        /* Trigger normal terminated behavior by signal. */
+        /* Be quiet if user interrupted. */
+        if (terminated != SIGINT)
+            ERROR("Terminated by signal %d", terminated);
+
+        /* Terminate by termination signal. */
         signal(terminated, SIG_DFL);
         raise(terminated);
     }

@@ -174,7 +174,8 @@ def test_default_digest(tmpdir):
 
 signals_params = pytest.mark.parametrize("signo,error", [
     pytest.param(signal.SIGINT, "", id="sigint"),
-    pytest.param(signal.SIGTERM, "", id="sigterm"),
+    pytest.param(
+        signal.SIGTERM, "blksum: Terminated by signal 15\n", id="sigterm"),
 ])
 
 
