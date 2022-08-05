@@ -12,6 +12,7 @@ RUN echo v1 \
         libnbd-devel \
         meson \
         openssl-devel \
+        procps-ng \
         python3 \
         python3-pytest \
         qemu-img \
