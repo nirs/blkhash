@@ -182,97 +182,156 @@ signals_params = pytest.mark.parametrize("signo,error", [
 @signals_params
 def test_term_signal_file(term, signo, error):
     remove_tempdirs()
-
-    blksum = subprocess.Popen(
-        [BLKSUM, term],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE)
-
-    blksum_sock = wait_for_file("/tmp/blksum-*/sock")
-    qemu_nbd = find_children(blksum.pid)[0]
+    bs = Blksum(filename=term)
+    sock = bs.wait_for_socket()
+    qemu_nbd = bs.children()[0]
 
     time.sleep(0.2)
-    blksum.send_signal(signo)
-    out, err = blksum.communicate()
+    bs.send_signal(signo)
+    bs.wait()
 
-    assert out.decode() == ""
-    assert err.decode() == error
-    assert blksum.returncode == -signo
+    assert bs.out == ""
+    assert bs.err == error
+    assert bs.returncode == -signo
     assert not os.path.isdir(f"/proc/{qemu_nbd.pid}")
-    assert not os.path.isdir(os.path.dirname(blksum_sock))
+    assert not os.path.isdir(os.path.dirname(sock))
 
 
 @signals_params
 def test_term_signal_nbd(tmpdir, term, signo, error):
     with open_nbd(tmpdir, term, "raw") as nbd:
-        blksum = subprocess.Popen(
-            [BLKSUM, nbd.url],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE)
-
+        bs = Blksum(filename=nbd.url)
         time.sleep(0.2)
-        blksum.send_signal(signo)
-        out, err = blksum.communicate()
+        bs.send_signal(signo)
+        bs.wait()
 
-        assert out.decode() == ""
-        assert err.decode() == error
-        assert blksum.returncode == -signo
+        assert bs.out == ""
+        assert bs.err == error
+        assert bs.returncode == -signo
 
 
 @signals_params
 def test_term_signal_pipe(term, signo, error):
     with open(term) as f:
-        blksum = subprocess.Popen(
-            [BLKSUM],
-            stdin=f,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE)
+        bs = Blksum(stdin=f)
+        time.sleep(0.2)
+        bs.send_signal(signo)
+        bs.wait()
 
-    time.sleep(0.2)
-    blksum.send_signal(signo)
-    out, err = blksum.communicate()
-
-    assert out.decode() == ""
-    assert err.decode() == error
-    assert blksum.returncode == -signo
+    assert bs.out == ""
+    assert bs.err == error
+    assert bs.returncode == -signo
 
 
 def test_term_qemu_nbd_file(term):
     remove_tempdirs()
-
-    blksum = subprocess.Popen(
-        [BLKSUM, term],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE)
-
-    blksum_sock = wait_for_file("/tmp/blksum-*/sock")
-    qemu_nbd = find_children(blksum.pid)[0]
+    bs = Blksum(filename=term)
+    sock = bs.wait_for_socket()
+    qemu_nbd = bs.children()[0]
 
     time.sleep(0.2)
     os.kill(qemu_nbd.pid, signal.SIGTERM)
-    out, err = blksum.communicate()
+    bs.wait()
 
-    assert out.decode() == ""
-    assert err.decode() != ""
-    assert blksum.returncode == 1
+    assert bs.out == ""
+    assert bs.err != ""
+    assert bs.returncode == 1
     assert not os.path.isdir(f"/proc/{qemu_nbd.pid}")
-    assert not os.path.isdir(os.path.dirname(blksum_sock))
+    assert not os.path.isdir(os.path.dirname(sock))
 
 
 def test_term_qemu_nbd_url(tmpdir, term):
     with open_nbd(tmpdir, term, "raw") as nbd:
-        blksum = subprocess.Popen(
-            [BLKSUM, nbd.url],
+        bs = Blksum(filename=nbd.url)
+        time.sleep(0.2)
+        os.kill(nbd.pid, signal.SIGTERM)
+        bs.wait()
+
+        assert bs.out == ""
+        assert bs.err != ""
+        assert bs.returncode == 1
+
+
+class Blksum:
+
+    def __init__(self, filename=None, digest=None, cache=None, stdin=None,
+                 timeout=10):
+        self.filename = filename
+        self.digest = digest
+        self.cache = cache
+        self.stdin = stdin
+
+        self.cmd = [BLKSUM]
+        if self.digest:
+            self.cmd.append("--digest")
+            self.cmd.append(self.digest)
+        if self.cache:
+            self.cmd.append("--cache")
+        if self.filename:
+            self.cmd.append(self.filename)
+
+        self.proc = subprocess.Popen(
+            self.cmd,
+            stdin=self.stdin,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE)
 
-        time.sleep(0.2)
-        os.kill(nbd.pid, signal.SIGTERM)
-        out, err = blksum.communicate()
+        self.returncode = None
+        self.out = None
+        self.err = None
 
-        assert out.decode() == ""
-        assert err.decode() != ""
-        assert blksum.returncode == 1
+    def wait(self, check=False):
+        out, err = self.proc.communicate()
+
+        self.out = out.decode()
+        self.err = err.decode()
+        self.returncode = self.proc.returncode
+
+        if check and self.returncode != 0:
+            raise RuntimeError(
+                f"Command {self.cmd} failed: returncode={self.returncode} "
+                f"out={self.out} err={self.err}")
+
+    def send_signal(self, signo):
+        self.proc.send_signal(signo)
+
+    def wait_for_socket(self, timeout=10):
+        start = time.monotonic()
+        deadline = start + timeout
+        delay = 0.005
+
+        while True:
+            time.sleep(delay)
+            delay = min(0.5, delay * 1.5)
+
+            found = glob.glob("/tmp/blksum-*/sock")
+            if found:
+                wait = time.monotonic() - start
+                print(f"Found {found} in {wait:.3f} seconds")
+                return found[0]
+
+            if time.monotonic() >= deadline:
+                raise RuntimeError(
+                    f"Timeout waiting for blksum")
+
+    def children(self):
+        cmd = ["pgrep", "--parent", str(self.proc.pid), "--list-name"]
+        cp = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
+        if cp.returncode != 0:
+            raise RuntimeError(
+                f"Command {cmd} failed with rc={cp.returncode} "
+                f"out={cp.stdout} err={cp.stderr}")
+
+        children = []
+        for line in cp.stdout.decode().splitlines():
+            pid, name = line.split(None, 1)
+            children.append(Child(pid=int(pid), name=name))
+
+        print(f"Found child processes {children}")
+        return children
 
 
 def remove_tempdirs():
@@ -282,78 +341,23 @@ def remove_tempdirs():
     subprocess.run(["rm", "-rf", "/tmp/blksum-*"], check=True)
 
 
-def wait_for_file(pattern, timeout=10):
-    start = time.monotonic()
-    deadline = start + timeout
-    delay = 0.005
-
-    while True:
-        time.sleep(delay)
-        delay = min(0.5, delay * 1.5)
-
-        found = glob.glob(pattern)
-        if found:
-            wait = time.monotonic() - start
-            print(f"Found {found} in {wait:.3f} seconds")
-            return found[0]
-
-        if time.monotonic() >= deadline:
-            raise RuntimeError(
-                f"Timeout waiting for blksum")
-
-
-def find_children(pid):
-    cmd = ["pgrep", "--parent", str(pid), "--list-name"]
-    cp = subprocess.run(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE)
-    if cp.returncode != 0:
-        raise RuntimeError(
-            f"Command {cmd} failed with rc={cp.returncode} "
-            f"out={cp.stdout} err={cp.stderr}")
-
-    children = []
-    for line in cp.stdout.decode().splitlines():
-        pid, name = line.split(None, 1)
-        children.append(Child(pid=int(pid), name=name))
-
-    print(f"Found child processes {children}")
-    return children
-
-
 def blksum_nbd(nbd_url, md=None):
-    cmd = [BLKSUM]
-    if md:
-        cmd.extend(["--digest", md])
-    cmd.append(nbd_url)
-    out = subprocess.check_output(cmd)
-    return out.decode().strip().split("  ")
+    bs = Blksum(filename=nbd_url, digest=md)
+    bs.wait(check=True)
+    return bs.out.strip().split("  ")
 
 
 def blksum_file(image, md=None, cache=True):
-    cmd = [BLKSUM]
-    if md:
-        cmd.extend(["--digest", md])
-    if cache:
-        cmd.append("--cache")
-    cmd.append(image)
-    out = subprocess.check_output(cmd)
-    return out.decode().strip().split("  ")
+    bs = Blksum(filename=image, digest=md, cache=cache)
+    bs.wait(check=True)
+    return bs.out.strip().split("  ")
 
 
 def blksum_pipe(image, md=None):
-    cmd = [BLKSUM]
-    if md:
-        cmd.extend(["--digest", md])
     with open(image) as f:
-        r = subprocess.run(
-            cmd,
-            stdin=f,
-            stdout=subprocess.PIPE,
-            check=True,
-        )
-    return r.stdout.decode().strip().split("  ")
+        bs = Blksum(digest=md, stdin=f)
+        bs.wait(check=True)
+    return bs.out.strip().split("  ")
 
 
 @contextmanager
