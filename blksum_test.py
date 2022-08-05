@@ -17,6 +17,7 @@ BLKSUM = os.environ.get("BLKSUM", "build/blksum")
 HAVE_NBD = bool(os.environ.get("HAVE_NBD"))
 
 Image = namedtuple("Image", "filename,md,checksum")
+NBDServer = namedtuple("NBDServer", "pid,url")
 
 requires_nbd = pytest.mark.skipif(not HAVE_NBD, reason="NBD required")
 
@@ -122,16 +123,16 @@ def test_raw_pipe(raw, cache):
 
 @requires_nbd
 def test_raw_nbd(tmpdir, raw, cache):
-    with open_nbd(tmpdir, raw.filename, "raw") as nbd_url:
-        res = blksum_nbd(nbd_url, md=raw.md)
-    assert res == [raw.checksum, nbd_url]
+    with open_nbd(tmpdir, raw.filename, "raw") as nbd:
+        res = blksum_nbd(nbd.url, md=raw.md)
+    assert res == [raw.checksum, nbd.url]
 
 
 @requires_nbd
 def test_qcow2_nbd(tmpdir, qcow2, cache):
-    with open_nbd(tmpdir, qcow2.filename, "qcow2") as nbd_url:
-        res = blksum_nbd(nbd_url, md=qcow2.md)
-    assert res == [qcow2.checksum, nbd_url]
+    with open_nbd(tmpdir, qcow2.filename, "qcow2") as nbd:
+        res = blksum_nbd(nbd.url, md=qcow2.md)
+    assert res == [qcow2.checksum, nbd.url]
 
 
 def test_list_digests():
@@ -208,7 +209,9 @@ def open_nbd(tmpdir, image, format):
             if p.poll() is not None:
                 raise RuntimeError("Error running qemu-nbd")
 
-        yield "nbd+unix:///?socket=" + sockfile
+        yield NBDServer(
+            pid=p.pid,
+            url="nbd+unix:///?socket=" + sockfile)
     finally:
         p.kill()
         p.wait()
