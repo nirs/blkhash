@@ -1,8 +1,10 @@
 # SPDX-FileCopyrightText: Red Hat Inc
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+import glob
 import hashlib
 import os
+import signal
 import subprocess
 import time
 
@@ -17,6 +19,7 @@ BLKSUM = os.environ.get("BLKSUM", "build/blksum")
 HAVE_NBD = bool(os.environ.get("HAVE_NBD"))
 
 Image = namedtuple("Image", "filename,md,checksum")
+Child = namedtuple("Child", "pid,name")
 NBDServer = namedtuple("NBDServer", "pid,url")
 
 requires_nbd = pytest.mark.skipif(not HAVE_NBD, reason="NBD required")
@@ -103,6 +106,20 @@ def qcow2(raw):
     return Image(filename, raw.md, raw.checksum)
 
 
+@pytest.fixture(scope="session")
+def term(tmpdir_factory):
+    filename = str(tmpdir_factory.mktemp("image").join("term"))
+    print(f"Creating image {filename}")
+    # Create image with 50,000 extents. This should be slow enough for testing
+    # termination behavior.
+    block = bytearray(4096)
+    with open(filename, "wb") as f:
+        for i in range(25000):
+            f.seek(124 * 1024, os.SEEK_CUR)
+            f.write(block)
+    return filename
+
+
 @pytest.mark.parametrize("cache", [True, False])
 def test_raw_file(raw, cache):
     res = blksum_file(raw.filename, md=raw.md, cache=cache)
@@ -153,6 +170,155 @@ def test_default_digest(tmpdir):
     path = tmpdir.join("empty.raw")
     create_image(path, "1m:-")
     assert blksum_file(path) == blksum_file(path, md="sha256")
+
+
+signals_params = pytest.mark.parametrize("signo,error", [
+    pytest.param(signal.SIGINT, "", id="sigint"),
+    pytest.param(signal.SIGTERM, "", id="sigterm"),
+])
+
+
+@signals_params
+def test_term_signal_file(term, signo, error):
+    remove_tempdirs()
+
+    blksum = subprocess.Popen(
+        [BLKSUM, term],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE)
+
+    blksum_sock = wait_for_file("/tmp/blksum-*/sock")
+    qemu_nbd = find_children(blksum.pid)[0]
+
+    time.sleep(0.2)
+    blksum.send_signal(signo)
+    out, err = blksum.communicate()
+
+    assert out.decode() == ""
+    assert err.decode() == error
+    assert blksum.returncode == -signo
+    assert not os.path.isdir(f"/proc/{qemu_nbd.pid}")
+    assert not os.path.isdir(os.path.dirname(blksum_sock))
+
+
+@signals_params
+def test_term_signal_nbd(tmpdir, term, signo, error):
+    with open_nbd(tmpdir, term, "raw") as nbd:
+        blksum = subprocess.Popen(
+            [BLKSUM, nbd.url],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
+
+        time.sleep(0.2)
+        blksum.send_signal(signo)
+        out, err = blksum.communicate()
+
+        assert out.decode() == ""
+        assert err.decode() == error
+        assert blksum.returncode == -signo
+
+
+@signals_params
+def test_term_signal_pipe(term, signo, error):
+    with open(term) as f:
+        blksum = subprocess.Popen(
+            [BLKSUM],
+            stdin=f,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
+
+    time.sleep(0.2)
+    blksum.send_signal(signo)
+    out, err = blksum.communicate()
+
+    assert out.decode() == ""
+    assert err.decode() == error
+    assert blksum.returncode == -signo
+
+
+def test_term_qemu_nbd_file(term):
+    remove_tempdirs()
+
+    blksum = subprocess.Popen(
+        [BLKSUM, term],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE)
+
+    blksum_sock = wait_for_file("/tmp/blksum-*/sock")
+    qemu_nbd = find_children(blksum.pid)[0]
+
+    time.sleep(0.2)
+    os.kill(qemu_nbd.pid, signal.SIGTERM)
+    out, err = blksum.communicate()
+
+    assert out.decode() == ""
+    assert err.decode() != ""
+    assert blksum.returncode == 1
+    assert not os.path.isdir(f"/proc/{qemu_nbd.pid}")
+    assert not os.path.isdir(os.path.dirname(blksum_sock))
+
+
+def test_term_qemu_nbd_url(tmpdir, term):
+    with open_nbd(tmpdir, term, "raw") as nbd:
+        blksum = subprocess.Popen(
+            [BLKSUM, nbd.url],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
+
+        time.sleep(0.2)
+        os.kill(nbd.pid, signal.SIGTERM)
+        out, err = blksum.communicate()
+
+        assert out.decode() == ""
+        assert err.decode() != ""
+        assert blksum.returncode == 1
+
+
+def remove_tempdirs():
+    """
+    Remove leftovers from previous tests.
+    """
+    subprocess.run(["rm", "-rf", "/tmp/blksum-*"], check=True)
+
+
+def wait_for_file(pattern, timeout=10):
+    start = time.monotonic()
+    deadline = start + timeout
+    delay = 0.005
+
+    while True:
+        time.sleep(delay)
+        delay = min(0.5, delay * 1.5)
+
+        found = glob.glob(pattern)
+        if found:
+            wait = time.monotonic() - start
+            print(f"Found {found} in {wait:.3f} seconds")
+            return found[0]
+
+        if time.monotonic() >= deadline:
+            raise RuntimeError(
+                f"Timeout waiting for blksum")
+
+
+def find_children(pid):
+    cmd = ["pgrep", "--parent", str(pid), "--list-name"]
+    cp = subprocess.run(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE)
+    if cp.returncode != 0:
+        raise RuntimeError(
+            f"Command {cmd} failed with rc={cp.returncode} "
+            f"out={cp.stdout} err={cp.stderr}")
+
+    children = []
+    for line in cp.stdout.decode().splitlines():
+        pid, name = line.split(None, 1)
+        children.append(Child(pid=int(pid), name=name))
+
+    print(f"Found child processes {children}")
+    return children
 
 
 def blksum_nbd(nbd_url, md=None):
