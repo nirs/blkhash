@@ -34,6 +34,9 @@ struct blkhash {
     /* Precomputed zero block digest. */
     unsigned char zero_md[EVP_MAX_MD_SIZE];
     unsigned int zero_md_len;
+
+    /* Current block index, increased when consuming a data or zero block. */
+    int64_t block_index;
 };
 
 /*
@@ -182,6 +185,7 @@ static size_t add_pending_zeroes(struct blkhash *h, size_t len)
 static inline void consume_zero_block(struct blkhash *h)
 {
     EVP_DigestUpdate(h->root_ctx, h->zero_md, h->zero_md_len);
+    h->block_index++;
 }
 
 /*
@@ -202,6 +206,7 @@ static void consume_data(struct blkhash *h, const void *buf, size_t len)
         compute_digest(h, buf, len, md_value, &md_len);
         EVP_DigestUpdate(h->root_ctx, md_value, md_len);
     }
+    h->block_index++;
 }
 
 /*
@@ -299,6 +304,7 @@ void blkhash_final(struct blkhash *h, unsigned char *md_value,
 void blkhash_reset(struct blkhash *h)
 {
     h->pending_len = 0;
+    h->block_index = 0;
 
     EVP_DigestInit_ex(h->root_ctx, h->md, NULL);
 }
