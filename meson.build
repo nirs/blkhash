@@ -120,7 +120,6 @@ pytest = find_program('pytest', '/usr/bin/pytest-3', required: false)
 if pytest.found()
   env = environment()
   env.set('BLKSUM', blksum.full_path())
-  env.set('BLKSUM_DEBUG', '1')
   env.set('HAVE_NBD', libnbd.found() ? '1' : '')
   test(
     'blksum',

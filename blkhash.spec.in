@@ -21,6 +21,7 @@ BuildRequires: gcc
 BuildRequires: libnbd-devel
 BuildRequires: meson
 BuildRequires: openssl-devel
+BuildRequires: procps-ng
 BuildRequires: python3-pytest
 BuildRequires: qemu-img
 
