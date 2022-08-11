@@ -12,12 +12,13 @@
 #include <openssl/evp.h>
 
 #include "blkhash.h"
+#include "blkhash_internal.h"
 
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
+#define WORKERS 4
 
 struct blkhash {
-    size_t block_size;
-    const EVP_MD *md;
+    struct config *config;
 
     /* For computing root digest. */
     EVP_MD_CTX *root_ctx;
@@ -30,10 +31,6 @@ struct blkhash {
     unsigned char *pending;
     size_t pending_len;
     bool pending_zero;
-
-    /* Precomputed zero block digest. */
-    unsigned char zero_md[EVP_MAX_MD_SIZE];
-    unsigned int zero_md_len;
 
     /* Current block index, increased when consuming a data or zero block. */
     int64_t block_index;
@@ -74,7 +71,7 @@ static bool is_zero(const void *buf, size_t buf_len)
 static void compute_digest(struct blkhash *h, const void *buf, unsigned int buf_len,
                            unsigned char *md_value, unsigned int *md_len)
 {
-    EVP_DigestInit_ex(h->block_ctx, h->md, NULL);
+    EVP_DigestInit_ex(h->block_ctx, h->config->md, NULL);
     EVP_DigestUpdate(h->block_ctx, buf, buf_len);
     EVP_DigestFinal_ex(h->block_ctx, md_value, md_len);
 }
@@ -89,12 +86,9 @@ struct blkhash *blkhash_new(size_t block_size, const char *md_name)
         return NULL;
     }
 
-    h->block_size = block_size;
-
-    h->md = EVP_get_digestbyname(md_name);
-    if (h->md == NULL) {
+    h->config = config_new(md_name, block_size, WORKERS);
+    if (h->config == NULL)
         goto error;
-    }
 
     h->root_ctx = EVP_MD_CTX_new();
     if (h->root_ctx == NULL) {
@@ -113,11 +107,7 @@ struct blkhash *blkhash_new(size_t block_size, const char *md_name)
 
     h->pending_len = 0;
 
-    EVP_DigestInit_ex(h->root_ctx, h->md, NULL);
-
-    /* Compute the zero block digest. This digest will be used for zero
-     * blocks later. */
-    compute_digest(h, h->pending, block_size, h->zero_md, &h->zero_md_len);
+    EVP_DigestInit_ex(h->root_ctx, h->config->md, NULL);
 
     return h;
 
@@ -138,7 +128,7 @@ error:
  */
 static size_t add_pending_data(struct blkhash *h, const void *buf, size_t len)
 {
-    size_t n = MIN(len, h->block_size - h->pending_len);
+    size_t n = MIN(len, h->config->block_size - h->pending_len);
 
     if (h->pending_zero) {
         /*
@@ -164,7 +154,7 @@ static size_t add_pending_data(struct blkhash *h, const void *buf, size_t len)
  */
 static size_t add_pending_zeroes(struct blkhash *h, size_t len)
 {
-    size_t n = MIN(len, h->block_size - h->pending_len);
+    size_t n = MIN(len, h->config->block_size - h->pending_len);
 
     if (h->pending_len == 0) {
         /* The buffer is empty, start collecting pending zeroes. */
@@ -187,7 +177,7 @@ static size_t add_pending_zeroes(struct blkhash *h, size_t len)
  */
 static inline void consume_zero_block(struct blkhash *h)
 {
-    EVP_DigestUpdate(h->root_ctx, h->zero_md, h->zero_md_len);
+    EVP_DigestUpdate(h->root_ctx, h->config->zero_md, h->config->zero_md_len);
     h->block_index++;
 }
 
@@ -198,7 +188,7 @@ static inline void consume_zero_block(struct blkhash *h)
  */
 static void consume_data(struct blkhash *h, const void *buf, size_t len)
 {
-    if (len == h->block_size && is_zero(buf, len)) {
+    if (len == h->config->block_size && is_zero(buf, len)) {
         /* Fast path. */
         consume_zero_block(h);
     } else {
@@ -219,9 +209,9 @@ static void consume_data(struct blkhash *h, const void *buf, size_t len)
  */
 static void consume_pending(struct blkhash *h)
 {
-    assert(h->pending_len <= h->block_size);
+    assert(h->pending_len <= h->config->block_size);
 
-    if (h->pending_len == h->block_size && h->pending_zero) {
+    if (h->pending_len == h->config->block_size && h->pending_zero) {
         /* Very fast path. */
         consume_zero_block(h);
     } else {
@@ -250,16 +240,16 @@ void blkhash_update(struct blkhash *h, const void *buf, size_t len)
         size_t n = add_pending_data(h, buf, len);
         buf += n;
         len -= n;
-        if (h->pending_len == h->block_size) {
+        if (h->pending_len == h->config->block_size) {
             consume_pending(h);
         }
     }
 
     /* Consume all full blocks in caller buffer. */
-    while (len >= h->block_size) {
-        consume_data(h, buf, h->block_size);
-        buf += h->block_size;
-        len -= h->block_size;
+    while (len >= h->config->block_size) {
+        consume_data(h, buf, h->config->block_size);
+        buf += h->config->block_size;
+        len -= h->config->block_size;
     }
 
     /* Copy rest of the data to the internal buffer. */
@@ -279,15 +269,15 @@ void blkhash_zero(struct blkhash *h, size_t len)
     /* Try to fill the pending buffer and consume it. */
     if (h->pending_len > 0) {
         len -= add_pending_zeroes(h, len);
-        if (h->pending_len == h->block_size) {
+        if (h->pending_len == h->config->block_size) {
             consume_pending(h);
         }
     }
 
     /* Consume all full zero blocks. */
-    while (len >= h->block_size) {
+    while (len >= h->config->block_size) {
         consume_zero_block(h);
-        len -= h->block_size;
+        len -= h->config->block_size;
     }
 
     /* Save the rest in the pending buffer. */
@@ -313,7 +303,7 @@ void blkhash_reset(struct blkhash *h)
     h->pending_len = 0;
     h->block_index = 0;
 
-    EVP_DigestInit_ex(h->root_ctx, h->md, NULL);
+    EVP_DigestInit_ex(h->root_ctx, h->config->md, NULL);
 }
 
 void blkhash_free(struct blkhash *h)
@@ -324,6 +314,7 @@ void blkhash_free(struct blkhash *h)
     EVP_MD_CTX_free(h->root_ctx);
     EVP_MD_CTX_free(h->block_ctx);
     free(h->pending);
+    config_free(h->config);
 
     free(h);
 }
