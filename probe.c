@@ -19,6 +19,10 @@
 #include <sys/mount.h>
 #endif
 
+#if __APPLE__
+#include <sys/mount.h>
+#endif
+
 #include "blksum.h"
 
 #define PROBE_SIZE 512

@@ -183,20 +183,25 @@ signals_params = pytest.mark.parametrize("signo,error", [
 def test_term_signal_file(term, signo, error):
     remove_tempdirs()
     bs = Blksum(filename=term)
-    sock = bs.wait_for_socket()
-    qemu_nbd = bs.children()[0]
+
+    if HAVE_NBD:
+        sock = bs.wait_for_socket()
+        qemu_nbd = bs.children()[0]
 
     time.sleep(0.2)
     bs.send_signal(signo)
     bs.wait()
 
+    assert bs.returncode == -signo
     assert bs.out == ""
     assert bs.err == error
-    assert bs.returncode == -signo
-    assert not os.path.isdir(f"/proc/{qemu_nbd.pid}")
-    assert not os.path.isdir(os.path.dirname(sock))
+
+    if HAVE_NBD:
+        assert not os.path.isdir(f"/proc/{qemu_nbd.pid}")
+        assert not os.path.isdir(os.path.dirname(sock))
 
 
+@requires_nbd
 @signals_params
 def test_term_signal_nbd(tmpdir, term, signo, error):
     with open_nbd(tmpdir, term, "raw") as nbd:
@@ -205,9 +210,9 @@ def test_term_signal_nbd(tmpdir, term, signo, error):
         bs.send_signal(signo)
         bs.wait()
 
+        assert bs.returncode == -signo
         assert bs.out == ""
         assert bs.err == error
-        assert bs.returncode == -signo
 
 
 @signals_params
@@ -218,11 +223,12 @@ def test_term_signal_pipe(term, signo, error):
         bs.send_signal(signo)
         bs.wait()
 
+    assert bs.returncode == -signo
     assert bs.out == ""
     assert bs.err == error
-    assert bs.returncode == -signo
 
 
+@requires_nbd
 def test_term_qemu_nbd_file(term):
     remove_tempdirs()
     bs = Blksum(filename=term)
@@ -233,13 +239,14 @@ def test_term_qemu_nbd_file(term):
     os.kill(qemu_nbd.pid, signal.SIGTERM)
     bs.wait()
 
+    assert bs.returncode == 1
     assert bs.out == ""
     assert bs.err != ""
-    assert bs.returncode == 1
     assert not os.path.isdir(f"/proc/{qemu_nbd.pid}")
     assert not os.path.isdir(os.path.dirname(sock))
 
 
+@requires_nbd
 def test_term_qemu_nbd_url(tmpdir, term):
     with open_nbd(tmpdir, term, "raw") as nbd:
         bs = Blksum(filename=nbd.url)
@@ -247,9 +254,9 @@ def test_term_qemu_nbd_url(tmpdir, term):
         os.kill(nbd.pid, signal.SIGTERM)
         bs.wait()
 
+        assert bs.returncode == 1
         assert bs.out == ""
         assert bs.err != ""
-        assert bs.returncode == 1
 
 
 class Blksum:

@@ -23,6 +23,8 @@ if libnbd.found()
   add_project_arguments('-DHAVE_NBD=1', language : 'c')
 endif
 
+openssl = dependency('openssl')
+
 blkhash_lib = library(
   'blkhash',
   [
@@ -30,7 +32,9 @@ blkhash_lib = library(
   ],
   version: meson.project_version(),
   soversion: '0',
-  dependencies: dependency('libcrypto'),
+  dependencies: [
+    openssl,
+  ],
   install: true,
 )
 
@@ -55,7 +59,7 @@ blksum = executable(
   link_with: blkhash_lib,
   dependencies: [
     libnbd,
-    dependency('libcrypto'),
+    openssl,
     dependency('threads'),
   ],
   install: true,
@@ -95,7 +99,7 @@ example = executable(
   ],
   link_with: blkhash_lib,
   dependencies: [
-    dependency('libcrypto'),
+    openssl,
   ],
 )
 
