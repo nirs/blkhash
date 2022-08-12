@@ -326,6 +326,18 @@ zero (sha256): 2500.00 GiB in 0.93 seconds (2676.24 GiB/s)
 zero (sha1): 7500.00 GiB in 1.01 seconds (7455.21 GiB/s)
 ```
 
+Example run on MacBook Air M1 with macOS 12.5:
+
+```
+$ build/blkhash_bench
+update data (sha256): 2.00 GiB in 0.29 seconds (6.81 GiB/s)
+update data (sha1): 4.00 GiB in 0.52 seconds (7.63 GiB/s)
+update zero (sha256): 50.00 GiB in 1.40 seconds (35.73 GiB/s)
+update zero (sha1): 50.00 GiB in 1.40 seconds (35.61 GiB/s)
+zero (sha256): 2500.00 GiB in 0.20 seconds (12361.12 GiB/s)
+zero (sha1): 7500.00 GiB in 0.59 seconds (12620.00 GiB/s)
+```
+
 Tested cases:
 - update data - calling `blkhash_update()` with buffer full of non-zero
   bytes.
