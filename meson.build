@@ -115,7 +115,20 @@ blkhash_test = executable(
   dependencies: unity_dep,
 )
 
-test('blkhash', blkhash_test)
+blkhash_bench = executable(
+  'blkhash_bench',
+  [
+    'blkhash_bench.c',
+    'util.c',
+  ],
+  link_with: blkhash_lib,
+  dependencies: [
+    openssl,
+  ],
+)
+
+test('blkhash-test', blkhash_test)
+test('blkhash-bench', blkhash_bench, args: ['quick'])
 test('example', example)
 
 # On Centos Stream 8 pytest is installed as pytest-3

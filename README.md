@@ -271,6 +271,31 @@ See the [example program](example.c) for example of using the library.
 
 See [blkhash(3)](blkhash.3.adoc) for complete documentation.
 
+### blkhash performance
+
+You can use the `blkhash_bench` program to measure `blkhash` throughput
+with different kinds of input.
+
+Example run on Lenovo ThinkPad P1 Gen 3 with Fedora 36:
+
+```
+$ build/blkhash_bench
+update data (sha256): 0.50 GiB in 0.91 seconds (0.55 GiB/s)
+update data (sha1): 1.00 GiB in 0.85 seconds (1.18 GiB/s)
+update zero (sha256): 50.00 GiB in 0.97 seconds (51.46 GiB/s)
+update zero (sha1): 50.00 GiB in 0.95 seconds (52.83 GiB/s)
+zero (sha256): 750.00 GiB in 0.86 seconds (873.24 GiB/s)
+zero (sha1): 2000.00 GiB in 0.85 seconds (2349.94 GiB/s)
+```
+
+Tested cases:
+- update data - calling `blkhash_update()` with buffer full of non-zero
+  bytes.
+- update zero - calling `blkhash_update()` with buffer full of zero
+  bytes.
+- zero - calling `blkhash_zero()` when you know a range of a n image is
+  unallocated or reads as zeroes.
+
 ## Portability
 
 The `blkhash` library and `blksum` command are developed on Linux, but
