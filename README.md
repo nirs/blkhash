@@ -237,6 +237,43 @@ Summary
   'blksum <50p.raw' ran
     6.88 ± 0.33 times faster than 'sha256sum <50p.raw'
 ```
+
+The best case is a completely empty image. `blksum` detects that the
+entire image is unallocated without reading any data from storage and
+optimize zero hashing:
+
+```
+$ hyperfine -w1 -p "sleep 2" "blksum empty-6g.raw" "sha256sum empty-6g.raw"
+Benchmark 1: blksum empty-6g.raw
+  Time (mean ± σ):      37.1 ms ±   6.8 ms    [User: 11.3 ms, System: 5.1 ms]
+  Range (min … max):    27.1 ms …  44.1 ms    10 runs
+
+Benchmark 2: sha256sum empty-6g.raw
+  Time (mean ± σ):     13.522 s ±  0.557 s    [User: 12.795 s, System: 0.692 s]
+  Range (min … max):   12.545 s … 14.190 s    10 runs
+
+Summary
+  'blksum empty-6g.raw' ran
+  364.58 ± 68.72 times faster than 'sha256sum empty-6g.raw'
+```
+
+A less optimal case is a fully allocated image full of zeroes. `blksum`
+must read the entire image, but it detects that all blocks are zeroes
+and optimize zero hashing:
+
+```
+$ hyperfine -w1 -p "sleep 2" "blksum zero-6g.raw" "sha256sum zero-6g.raw"
+Benchmark 1: blksum zero-6g.raw
+  Time (mean ± σ):      2.041 s ±  0.011 s    [User: 0.446 s, System: 1.786 s]
+  Range (min … max):    2.026 s …  2.065 s    10 runs
+
+Benchmark 2: sha256sum zero-6g.raw
+  Time (mean ± σ):     13.683 s ±  0.537 s    [User: 12.854 s, System: 0.790 s]
+  Range (min … max):   13.024 s … 14.661 s    10 runs
+
+Summary
+  'blksum zero-6g.raw' ran
+    6.70 ± 0.27 times faster than 'sha256sum zero-6g.raw'
 ```
 
 The worst case is a completely full image, when nothing can be
