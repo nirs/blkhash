@@ -57,10 +57,6 @@ static struct options opt = {
     /* Size of image segment. */
     .segment_size = 128 * 1024 * 1024,
 
-    /* Number of worker threads to use. This is the most important
-     * configuration for best performance. */
-    .workers = 4,
-
     /*
      * Use host page cache. This is may be faster, but is not correct
      * when using a block device connected to multiple hosts. Typically
@@ -90,13 +86,12 @@ enum {
 };
 
 /* Start with ':' to enable detection of missing argument. */
-static const char *short_options = ":hld:w:cp";
+static const char *short_options = ":hld:cp";
 
 static struct option long_options[] = {
    {"help",         no_argument,        0,  'h'},
    {"list-digests", no_argument,        0,  'l'},
    {"digest",       required_argument,  0,  'd'},
-   {"workers",      required_argument,  0,  'w'},
    {"progress",     no_argument,        0,  'p'},
    {"cache",        no_argument,        0,  'c'},
    {"queue-size",   required_argument,  0,  QUEUE_SIZE},
@@ -110,9 +105,9 @@ static void usage(int code)
         "\n"
         "Compute message digest for disk images\n"
         "\n"
-        "    blksum [-d DIGEST|--digest=DIGEST] [-w N|--workers=N]\n"
-        "           [-p|--progress] [-c|--cache] [--queue-size=N]\n"
-        "           [--read-size=N] [-l|--list-digests] [-h|--help]\n"
+        "    blksum [-d DIGEST|--digest=DIGEST] [-p|--progress]\n"
+        "           [-c|--cache] [--queue-size=N] [--read-size=N]\n"
+        "           [-l|--list-digests] [-h|--help]\n"
         "           [filename]\n"
         "\n"
         "Please read the blksum(1) manual page for more info.\n"
@@ -149,22 +144,6 @@ static void parse_options(int argc, char *argv[])
         case 'd':
             opt.digest_name = optarg;
             break;
-        case 'w': {
-            char *end;
-            opt.workers = strtol(optarg, &end, 10);
-            if (*end != '\0' || end == optarg)
-                FAIL("Invalid value for option %s: '%s'", optname, optarg);
-
-            int online_cpus = sysconf(_SC_NPROCESSORS_ONLN);
-            int max_workers = online_cpus < MAX_WORKERS
-                ? online_cpus : MAX_WORKERS;
-            if (opt.workers < 1 || opt.workers > max_workers)
-                FAIL("Invalid number of workers: %ld (1-%d)",
-                     opt.workers, max_workers);
-
-            opt.flags |= USER_WORKERS;
-            break;
-        }
         case 'p':
             opt.progress = true;
             break;

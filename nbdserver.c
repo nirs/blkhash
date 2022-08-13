@@ -254,10 +254,7 @@ static void setup_signals(void)
 static void exec_qemu_nbd(int fd, char **env, struct server_options *opt)
 {
     const char *cache = opt->cache ? "writeback" : "none";
-    char shared[21];
     int saved_stderr = -1;
-
-    snprintf(shared, sizeof(shared), "%ld", opt->workers);
 
     char *const argv[] = {
         "qemu-nbd",
@@ -265,7 +262,7 @@ static void exec_qemu_nbd(int fd, char **env, struct server_options *opt)
         "--persistent",
         "--cache", (char *)cache,
         "--aio", (char *)opt->aio,
-        "--shared", shared,
+        "--shared", "0",
         "--format", (char *)opt->format,
         (char *)opt->filename,
         NULL

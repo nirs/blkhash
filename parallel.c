@@ -215,7 +215,6 @@ static void init_job(struct job *job, const char *filename,
             .format=fi.format,
             .aio=opt->aio,
             .cache=opt->cache,
-            .workers=opt->workers,
         };
 
         job->nbd_server = start_nbd_server(&options);
@@ -578,13 +577,13 @@ void parallel_checksum(const char *filename, struct options *opt,
 {
     struct job job = {0};
     struct worker *workers;
-    size_t worker_count;
+    size_t worker_count = 4;
     int err;
 
     init_job(&job, filename, opt);
 
-    worker_count = (job.segment_count < opt->workers)
-        ? job.segment_count : opt->workers;
+    if (job.segment_count < worker_count)
+        worker_count = job.segment_count;
 
     workers = calloc(worker_count, sizeof(*workers));
     if (workers == NULL)
