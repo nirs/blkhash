@@ -294,6 +294,69 @@ Summary
     3.17 ± 0.22 times faster than 'sha256sum full-6g.raw'
 ```
 
+### blksum --queue-size option
+
+The `--queue-size` option limit the total size of in-flight NBD
+requests. Testing shows that it can change the throughput by 10%,
+depending on the machine. The default value (2097152) works well on on
+tested machines.
+
+Example run on Lenovo ThinkPad P1 Gen 3 (i7-10850H CPU @ 2.70GHz) with
+Fedora 36:
+
+```
+$ hyperfine -p "sleep 3" -L q 1048576,2097152,4194304,8388608 "blksum --queue-size {q} 50p.raw"
+Benchmark 1: blksum --queue-size 1048576 50p.raw
+  Time (mean ± σ):      1.873 s ±  0.066 s    [User: 7.274 s, System: 1.213 s]
+  Range (min … max):    1.811 s …  2.014 s    10 runs
+
+Benchmark 2: blksum --queue-size 2097152 50p.raw
+  Time (mean ± σ):      1.926 s ±  0.046 s    [User: 7.541 s, System: 1.228 s]
+  Range (min … max):    1.826 s …  2.006 s    10 runs
+
+Benchmark 3: blksum --queue-size 4194304 50p.raw
+  Time (mean ± σ):      1.988 s ±  0.070 s    [User: 7.857 s, System: 1.307 s]
+  Range (min … max):    1.879 s …  2.103 s    10 runs
+
+Benchmark 4: blksum --queue-size 8388608 50p.raw
+  Time (mean ± σ):      2.043 s ±  0.092 s    [User: 8.035 s, System: 1.427 s]
+  Range (min … max):    1.954 s …  2.222 s    10 runs
+
+Summary
+  'blksum --queue-size 1048576 50p.raw' ran
+    1.03 ± 0.04 times faster than 'blksum --queue-size 2097152 50p.raw'
+    1.06 ± 0.05 times faster than 'blksum --queue-size 4194304 50p.raw'
+    1.09 ± 0.06 times faster than 'blksum --queue-size 8388608 50p.raw'
+```
+
+Example run on Dell PowerEdge R640 (Xeon(R) Gold 5218R CPU @ 2.10GHz)
+with RHEL 8.5:
+
+```
+# hyperfine -w1 -L q 1048576,2097152,4194304,8388608 "blksum --queue-size {q} 50p.raw"
+Benchmark 1: blksum --queue-size 1048576 50p.raw
+  Time (mean ± σ):      1.877 s ±  0.026 s    [User: 7.245 s, System: 1.271 s]
+  Range (min … max):    1.852 s …  1.926 s    10 runs
+
+Benchmark 2: blksum --queue-size 2097152 50p.raw
+  Time (mean ± σ):      1.718 s ±  0.023 s    [User: 7.302 s, System: 1.221 s]
+  Range (min … max):    1.691 s …  1.772 s    10 runs
+
+Benchmark 3: blksum --queue-size 4194304 50p.raw
+  Time (mean ± σ):      1.697 s ±  0.014 s    [User: 7.233 s, System: 1.261 s]
+  Range (min … max):    1.680 s …  1.726 s    10 runs
+
+Benchmark 4: blksum --queue-size 8388608 50p.raw
+  Time (mean ± σ):      1.700 s ±  0.017 s    [User: 7.253 s, System: 1.261 s]
+  Range (min … max):    1.680 s …  1.740 s    10 runs
+
+Summary
+  'blksum --queue-size 4194304 50p.raw' ran
+    1.00 ± 0.01 times faster than 'blksum --queue-size 8388608 50p.raw'
+    1.01 ± 0.02 times faster than 'blksum --queue-size 2097152 50p.raw'
+    1.11 ± 0.02 times faster than 'blksum --queue-size 1048576 50p.raw'
+```
+
 ## The blkhash library
 
 The `blkhash` C library implements the block based hash algorithm, zero
