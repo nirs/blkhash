@@ -37,6 +37,9 @@ struct blkhash {
 
     /* Current block index, increased when consuming a data or zero block. */
     int64_t block_index;
+
+    /* Image size, increased when adding data or zero to the hash. */
+    int64_t image_size;
 };
 
 /*
@@ -240,6 +243,8 @@ static void consume_pending(struct blkhash *h)
 
 void blkhash_update(struct blkhash *h, const void *buf, size_t len)
 {
+    h->image_size += len;
+
     /* Try to fill the pending buffer and consume it. */
     if (h->pending_len > 0) {
         size_t n = add_pending_data(h, buf, len);
@@ -269,6 +274,8 @@ void blkhash_update(struct blkhash *h, const void *buf, size_t len)
 
 void blkhash_zero(struct blkhash *h, size_t len)
 {
+    h->image_size += len;
+
     /* Try to fill the pending buffer and consume it. */
     if (h->pending_len > 0) {
         len -= add_pending_zeroes(h, len);
