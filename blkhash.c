@@ -181,6 +181,11 @@ static inline void consume_zero_block(struct blkhash *h)
     h->block_index++;
 }
 
+static inline bool is_zero_block(struct blkhash *h, const void *buf, size_t len)
+{
+    return len == h->config->block_size && is_zero(buf, len);
+}
+
 /*
  * Consume len bytes of data from buf. If called with a full block, try
  * to speed the computation by detecting zeroes. Detecting zeroes in
@@ -188,7 +193,7 @@ static inline void consume_zero_block(struct blkhash *h)
  */
 static void consume_data(struct blkhash *h, const void *buf, size_t len)
 {
-    if (len == h->config->block_size && is_zero(buf, len)) {
+    if (is_zero_block(h, buf, len)) {
         /* Fast path. */
         consume_zero_block(h);
     } else {
