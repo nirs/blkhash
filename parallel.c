@@ -12,25 +12,23 @@
 #include "blksum.h"
 #include "util.h"
 
-/* Maximum number of commands per worker. */
+/* qemu-nbd process up to 16 in-flight commands per connection. */
 #define MAX_COMMANDS 16
 
 struct job {
     char *uri;
     uint64_t size;
     struct options *opt;
-    const EVP_MD *md;
-    int md_size;
     size_t segment_count;
-    pthread_mutex_t mutex;
-    size_t segment;
-    unsigned char *digests_buffer;
 
     /* Set if job started a nbd server to serve filename. */
     struct nbd_server *nbd_server;
 
     /* Set if progress is enabled. */
     struct progress *progress;
+
+    /* The computed checksum. */
+    unsigned char *out;
 };
 
 struct extent_array {
@@ -189,10 +187,11 @@ static void optimize(const char *filename, struct options *opt,
 }
 
 static void init_job(struct job *job, const char *filename,
-                     struct options *opt)
+                     struct options *opt, unsigned char *out)
 {
-    int err;
     struct src *src;
+
+    job->out = out;
 
     if (is_nbd_uri(filename)) {
         /* Use user provided nbd server. */
@@ -236,21 +235,8 @@ static void init_job(struct job *job, const char *filename,
 
     /* Initialize job. */
     job->opt = opt;
-    job->md = EVP_get_digestbyname(opt->digest_name);
-    if (job->md == NULL)
-        FAIL_ERRNO("EVP_get_digestbyname");
-
-    job->md_size = EVP_MD_size(job->md);
     job->segment_count = (job->size + opt->segment_size - 1)
         / opt->segment_size;
-    err = pthread_mutex_init(&job->mutex, NULL);
-    if (err)
-        FAIL("pthread_mutex_init: %s", strerror(err));
-
-    job->segment = 0;
-    job->digests_buffer = malloc(job->segment_count * job->md_size);
-    if (job->digests_buffer == NULL)
-        FAIL_ERRNO("malloc");
 
     if (opt->progress)
         job->progress = progress_open(job->segment_count);
@@ -258,15 +244,6 @@ static void init_job(struct job *job, const char *filename,
 
 static void destroy_job(struct job *job)
 {
-    int err;
-
-    err = pthread_mutex_destroy(&job->mutex);
-    if (err)
-        FAIL("pthread_mutex_destroy: %s", strerror(err));
-
-    free(job->digests_buffer);
-    job->digests_buffer = NULL;
-
     free(job->uri);
     job->uri = NULL;
 
@@ -282,61 +259,6 @@ static void destroy_job(struct job *job)
         progress_close(job->progress);
         job->progress = NULL;
     }
-}
-
-static inline unsigned char *segment_md(struct job *job, size_t n)
-{
-    return &job->digests_buffer[n * job->md_size];
-}
-
-static ssize_t next_segment(struct job *job)
-{
-    int err;
-    ssize_t segment = -1;
-
-    err = pthread_mutex_lock(&job->mutex);
-    if (err)
-        FAIL("pthread_mutex_lock: %s", strerror(err));
-
-    if (job->segment < job->segment_count) {
-        segment = job->segment++;
-    }
-
-    err = pthread_mutex_unlock(&job->mutex);
-    if (err)
-        FAIL("pthread_mutex_unlock: %s", strerror(err));
-
-    return segment;
-}
-
-static void compute_root_hash(struct job *job, unsigned char *out)
-{
-    struct options *opt = job->opt;
-    EVP_MD_CTX *md_ctx;
-
-    md_ctx = EVP_MD_CTX_new();
-    if (md_ctx == NULL)
-        FAIL_ERRNO("EVP_MD_CTX_new");
-
-    EVP_DigestInit_ex(md_ctx, job->md, NULL);
-
-    for (size_t i = 0; i < job->segment_count; i++) {
-        unsigned char *seg_md = segment_md(job, i);
-
-        if (debug) {
-            char hex[EVP_MAX_MD_SIZE * 2 + 1];
-
-            format_hex(seg_md, job->md_size, hex);
-            DEBUG("segment %ld offset %ld checksum %s",
-                  i, i * opt->segment_size, hex);
-        }
-
-        EVP_DigestUpdate(md_ctx, seg_md, job->md_size);
-    }
-
-    EVP_DigestFinal_ex(md_ctx, out, NULL);
-
-    EVP_MD_CTX_free(md_ctx);
 }
 
 static struct command *create_command(int64_t offset, struct extent *extent,
@@ -535,7 +457,7 @@ static void *worker_thread(void *arg)
     struct worker *w = (struct worker *)arg;
     struct job *job = w->job;
     struct options *opt = job->opt;
-    ssize_t segment;
+    int64_t offset;
 
     DEBUG("worker %d started", w->id);
 
@@ -545,16 +467,11 @@ static void *worker_thread(void *arg)
     if (w->h == NULL)
         FAIL_ERRNO("blkhash_new");
 
-    while ((segment = next_segment(job)) != -1) {
-        int64_t offset = segment * opt->segment_size;
-        unsigned char *seg_md = segment_md(job, segment);
-
-        DEBUG("worker %d processing segment %zd offset %" PRIi64,
-              w->id, segment, offset);
+    for (offset = 0; offset < job->size; offset += opt->segment_size) {
+        DEBUG("worker %d processing segment at offset %" PRIi64,
+              w->id, offset);
 
         process_segment(w, offset);
-        blkhash_final(w->h, seg_md, NULL);
-        blkhash_reset(w->h);
 
         if (!running()) {
             DEBUG("worker %d aborting", w->id);
@@ -564,6 +481,8 @@ static void *worker_thread(void *arg)
         if (job->progress)
             progress_update(job->progress, 1);
     }
+
+    blkhash_final(w->h, job->out, NULL);
 
     blkhash_free(w->h);
     src_close(w->s);
@@ -576,46 +495,27 @@ void parallel_checksum(const char *filename, struct options *opt,
                        unsigned char *out)
 {
     struct job job = {0};
-    struct worker *workers;
-    size_t worker_count = 4;
+    struct worker worker = {.job=&job};
     int err;
 
-    init_job(&job, filename, opt);
+    init_job(&job, filename, opt, out);
 
-    if (job.segment_count < worker_count)
-        worker_count = job.segment_count;
+    queue_init(&worker.queue, opt->queue_size);
 
-    workers = calloc(worker_count, sizeof(*workers));
-    if (workers == NULL)
-        FAIL_ERRNO("calloc");
-
-    for (int i = 0; i < worker_count; i++) {
-        struct worker *w = &workers[i];
-        w->id = i;
-        w->job = &job;
-        queue_init(&w->queue, opt->queue_size);
-
-        DEBUG("starting worker %d", i);
-        err = pthread_create(&w->thread, NULL, worker_thread, w);
-        if (err)
-            FAIL("pthread_create: %s", strerror(err));
-    }
+    DEBUG("starting worker");
+    err = pthread_create(&worker.thread, NULL, worker_thread, &worker);
+    if (err)
+        FAIL("pthread_create: %s", strerror(err));
 
     if (job.progress) {
         while (running() && progress_draw(job.progress))
             usleep(100000);
     }
 
-    for (int i = 0; i < worker_count; i++) {
-        DEBUG("joining worker %d", i);
-        err = pthread_join(workers[i].thread, NULL);
-        if (err)
-            FAIL("pthread_join: %s", strerror(err));
-    }
+    DEBUG("joining worker");
+    err = pthread_join(worker.thread, NULL);
+    if (err)
+        FAIL("pthread_join: %s", strerror(err));
 
-    if (running())
-        compute_root_hash(&job, out);
-
-    free(workers);
     destroy_job(&job);
 }

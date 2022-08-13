@@ -66,14 +66,6 @@ OPTIONS
 *-l, --list-digests*::
   Print available digest names and exit.
 
-USING QEMU-NBD
---------------
-
-For best performance when exporting images via 'qemu-nbd(8)' configure
-it to accept 4 client connections:
-
-    qemu-nbd --shared 4 -t -r -k /tmp/nbd.sock -f qcow2 disk.qcow2
-
 EXAMPLES
 --------
 

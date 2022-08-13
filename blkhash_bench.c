@@ -60,8 +60,8 @@ void bench(const char *name, const char *digest, uint64_t size, bool is_zero)
 void bench_update_data()
 {
     memset(buf, 0x55, READ_SIZE);
-    bench("update data", "sha256", 512 * MiB, false);
-    bench("update data", "sha1", 1 * GiB, false);
+    bench("update data", "sha256", 2 * GiB, false);
+    bench("update data", "sha1", 4 * GiB, false);
 }
 
 void bench_update_zero()
@@ -73,8 +73,8 @@ void bench_update_zero()
 
 void bench_zero()
 {
-    bench("zero", "sha256", 750 * GiB, true);
-    bench("zero", "sha1", 2000 * GiB, true);
+    bench("zero", "sha256", 2500 * GiB, true);
+    bench("zero", "sha1", 7500 * GiB, true);
 }
 
 int main(int argc, char *argv[])

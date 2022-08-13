@@ -19,12 +19,10 @@
 
 struct blkhash {
     struct config *config;
+    struct worker workers[WORKERS];
 
     /* For computing root digest. */
     EVP_MD_CTX *root_ctx;
-
-    /* For computing block digests. */
-    EVP_MD_CTX *block_ctx;
 
     /* For keeping partial blocks when user call blkhash_update() with buffer
      * that is not aligned to block size. */
@@ -37,6 +35,9 @@ struct blkhash {
 
     /* Image size, increased when adding data or zero to the hash. */
     int64_t image_size;
+
+    /* Set when hash is finalized. */
+    bool finalized;
 };
 
 /*
@@ -68,14 +69,6 @@ static bool is_zero(const void *buf, size_t buf_len)
     return memcmp(buf, p, buf_len) == 0;
 }
 
-static void compute_digest(struct blkhash *h, const void *buf, unsigned int buf_len,
-                           unsigned char *md_value, unsigned int *md_len)
-{
-    EVP_DigestInit_ex(h->block_ctx, h->config->md, NULL);
-    EVP_DigestUpdate(h->block_ctx, buf, buf_len);
-    EVP_DigestFinal_ex(h->block_ctx, md_value, md_len);
-}
-
 struct blkhash *blkhash_new(size_t block_size, const char *md_name)
 {
     struct blkhash *h;
@@ -95,11 +88,6 @@ struct blkhash *blkhash_new(size_t block_size, const char *md_name)
         goto error;
     }
 
-    h->block_ctx = EVP_MD_CTX_new();
-    if (h->block_ctx == NULL) {
-        goto error;
-    }
-
     h->pending = calloc(1, block_size);
     if (h->pending == NULL) {
         goto error;
@@ -108,6 +96,9 @@ struct blkhash *blkhash_new(size_t block_size, const char *md_name)
     h->pending_len = 0;
 
     EVP_DigestInit_ex(h->root_ctx, h->config->md, NULL);
+
+    for (int i = 0; i < WORKERS; i++)
+        worker_init(&h->workers[i], i, h->config);
 
     return h;
 
@@ -171,13 +162,8 @@ static size_t add_pending_zeroes(struct blkhash *h, size_t len)
     return n;
 }
 
-/*
- * Consume full block of zeroes. This is several orders of magnitude
- * faster than computing message digest.
- */
-static inline void consume_zero_block(struct blkhash *h)
+static inline void skip_zero_block(struct blkhash *h)
 {
-    EVP_DigestUpdate(h->root_ctx, h->config->zero_md, h->config->zero_md_len);
     h->block_index++;
 }
 
@@ -195,16 +181,14 @@ static void consume_data(struct blkhash *h, const void *buf, size_t len)
 {
     if (is_zero_block(h, buf, len)) {
         /* Fast path. */
-        consume_zero_block(h);
+        skip_zero_block(h);
     } else {
-        /* Slow path - compute md for buf. */
-        unsigned char md_value[EVP_MAX_MD_SIZE];
-        unsigned int md_len;
-
-        compute_digest(h, buf, len, md_value, &md_len);
-        EVP_DigestUpdate(h->root_ctx, md_value, md_len);
+        /* Slow path. */
+        struct block *block = block_new(h->block_index, len, buf);
+        struct worker *worker = &h->workers[h->block_index % WORKERS];
+        worker_update(worker, block);
+        h->block_index++;
     }
-    h->block_index++;
 }
 
 /*
@@ -217,8 +201,8 @@ static void consume_pending(struct blkhash *h)
     assert(h->pending_len <= h->config->block_size);
 
     if (h->pending_len == h->config->block_size && h->pending_zero) {
-        /* Very fast path. */
-        consume_zero_block(h);
+        /* Fast path. */
+        skip_zero_block(h);
     } else {
         /*
          * Slow path if pending is partial block, fast path is pending
@@ -281,7 +265,7 @@ void blkhash_zero(struct blkhash *h, size_t len)
 
     /* Consume all full zero blocks. */
     while (len >= h->config->block_size) {
-        consume_zero_block(h);
+        skip_zero_block(h);
         len -= h->config->block_size;
     }
 
@@ -293,22 +277,32 @@ void blkhash_zero(struct blkhash *h, size_t len)
     assert(len == 0);
 }
 
-void blkhash_final(struct blkhash *h, unsigned char *md_value,
+int blkhash_final(struct blkhash *h, unsigned char *md_value,
                   unsigned int *md_len)
 {
+    unsigned char md[EVP_MAX_MD_SIZE];
+    unsigned int len;
+
+    if (h->finalized)
+        return EINVAL;
+
+    h->finalized = true;
+
     if (h->pending_len > 0) {
         consume_pending(h);
     }
 
+    for (int i = 0; i < WORKERS; i++)
+        worker_final(&h->workers[i], h->image_size);
+
+    for (int i = 0; i < WORKERS; i++) {
+        worker_digest(&h->workers[i], md, &len);
+        EVP_DigestUpdate(h->root_ctx, md, len);
+    }
+
     EVP_DigestFinal_ex(h->root_ctx, md_value, md_len);
-}
 
-void blkhash_reset(struct blkhash *h)
-{
-    h->pending_len = 0;
-    h->block_index = 0;
-
-    EVP_DigestInit_ex(h->root_ctx, h->config->md, NULL);
+    return 0;
 }
 
 void blkhash_free(struct blkhash *h)
@@ -316,8 +310,15 @@ void blkhash_free(struct blkhash *h)
     if (h == NULL)
         return;
 
+    if (!h->finalized) {
+        unsigned char drop[EVP_MAX_MD_SIZE];
+        blkhash_final(h, drop, NULL);
+    }
+
+    for (int i = 0; i < WORKERS; i++)
+        worker_destroy(&h->workers[i]);
+
     EVP_MD_CTX_free(h->root_ctx);
-    EVP_MD_CTX_free(h->block_ctx);
     free(h->pending);
     config_free(h->config);
 
