@@ -32,6 +32,7 @@ blkhash_lib = library(
     'worker.c',
     'block.c',
     'config.c',
+    'zero.c',
   ],
   version: meson.project_version(),
   soversion: '0',

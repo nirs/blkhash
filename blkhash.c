@@ -40,35 +40,6 @@ struct blkhash {
     bool finalized;
 };
 
-/*
- * Based on Rusty Russell's memeqzero.
- * See http://rusty.ozlabs.org/?p=560 for more info.
- */
-static bool is_zero(const void *buf, size_t buf_len)
-{
-    const unsigned char *p;
-    size_t i;
-
-    p = buf;
-
-    /* Check first 16 bytes manually. */
-    for (i = 0; i < 16; i++) {
-        if (buf_len == 0) {
-            return true;
-        }
-
-        if (*p) {
-            return false;
-        }
-
-        p++;
-        buf_len--;
-    }
-
-    /* Now we know that's zero, memcmp with self. */
-    return memcmp(buf, p, buf_len) == 0;
-}
-
 struct blkhash *blkhash_new(size_t block_size, const char *md_name)
 {
     struct blkhash *h;
