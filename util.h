@@ -13,6 +13,7 @@
 #define TiB (1LL<<40)
 
 void format_hex(unsigned char *md, unsigned int len, char *s);
+char *humansize(int64_t bytes);
 uint64_t gettime(void);
 bool supports_direct_io(const char *filename);
 

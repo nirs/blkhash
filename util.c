@@ -3,10 +3,11 @@
 
 #define _GNU_SOURCE     /* For O_DIRECT */
 
-#include <stdio.h>
-#include <time.h>
-#include <sys/time.h>
 #include <fcntl.h>
+#include <inttypes.h>
+#include <stdio.h>
+#include <sys/time.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "util.h"
@@ -19,6 +20,26 @@ void format_hex(unsigned char *md, unsigned int len, char *s)
         snprintf(&s[i * 2], 3, "%02x", md[i]);
     }
     s[len * 2] = 0;
+}
+
+/* Based on nbdkit stats filter. */
+char* humansize(int64_t bytes)
+{
+    int r;
+    char *s;
+
+    if (bytes < KiB)
+        r = asprintf(&s, "%" PRIu64 " bytes", bytes);
+    else if (bytes < MiB)
+        r = asprintf(&s, "%.2f KiB", bytes / (double)KiB);
+    else if (bytes < GiB)
+        r = asprintf(&s, "%.2f MiB", bytes / (double)MiB);
+    else if (bytes < TiB)
+        r = asprintf(&s, "%.2f GiB", bytes / (double)GiB);
+    else
+        r = asprintf(&s, "%.2f TiB", bytes / (double)TiB);
+
+    return r != -1 ? s : NULL;
 }
 
 uint64_t gettime(void)
