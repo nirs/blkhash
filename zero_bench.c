@@ -10,10 +10,6 @@
 
 #define BLOCK_SIZE (64*1024L)
 
-#define MiB (1L<<20)
-#define GiB (1L<<30)
-#define TiB (1L<<40)
-
 static unsigned char *buffer;
 static bool quick;
 
