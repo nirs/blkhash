@@ -54,7 +54,7 @@ void bench_aligned_data_best()
     assert(((uintptr_t)buffer % 8) == 0);
     memset(buffer, 0, BLOCK_SIZE);
     buffer[7] = 0x55;
-    bench("aligned data best", 30000 * GiB, buffer, false);
+    bench("aligned data best", 27 * TiB, buffer, false);
 }
 
 void bench_aligned_data_worst()
@@ -76,7 +76,7 @@ void bench_unaligned_data_best()
     assert(((uintptr_t)p % 8) != 0);
     memset(p, 0, BLOCK_SIZE);
     p[7] = 0x55;
-    bench("unaligned data best", 30000 * GiB, p, false);
+    bench("unaligned data best", 27 * TiB, p, false);
 }
 
 void bench_unaligned_data_worst()
