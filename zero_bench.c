@@ -17,7 +17,7 @@ void bench(const char *name, uint64_t size, const void *buf, bool zero)
 {
     int64_t start, elapsed;
     double seconds;
-    double rate;
+    char *hsize, *hrate;
 
     if (quick)
         size /= 100;
@@ -30,11 +30,15 @@ void bench(const char *name, uint64_t size, const void *buf, bool zero)
     }
 
     elapsed = gettime() - start;
-    seconds = elapsed / 1e6;
-    rate = size / seconds / GiB;
 
-    printf("%s: %.2f GiB in %.2f seconds (%.2f GiB/s)\n",
-           name, (double)size / GiB, seconds, rate);
+    seconds = elapsed / 1e6;
+    hsize = humansize(size);
+    hrate = humansize(size / seconds);
+
+    printf("%s: %s in %.3f seconds (%s/s)\n", name, hsize, seconds, hrate);
+
+    free(hsize);
+    free(hrate);
 }
 
 void bench_aligned_data_best()

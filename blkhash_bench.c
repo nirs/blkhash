@@ -25,7 +25,7 @@ void bench(const char *name, const char *digest, uint64_t size, bool is_zero)
     unsigned int len;
     int64_t start, elapsed;
     double seconds;
-    double rate;
+    char *hsize, *hrate;
 
     if (quick)
         size /= 100;
@@ -47,10 +47,14 @@ void bench(const char *name, const char *digest, uint64_t size, bool is_zero)
 
     elapsed = gettime() - start;
     seconds = elapsed / 1e6;
-    rate = size / seconds / GiB;
+    hsize = humansize(size);
+    hrate = humansize(size / seconds);
 
-    printf("%s (%s): %.2f GiB in %.2f seconds (%.2f GiB/s)\n",
-           name, digest, (double)size / GiB, seconds, rate);
+    printf("%s (%s): %s in %.2f seconds (%s/s)\n",
+           name, digest, hsize, seconds, hrate);
+
+    free(hsize);
+    free(hrate);
 }
 
 void bench_update_data()
