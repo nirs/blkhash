@@ -652,9 +652,7 @@ To run only `blkhash` tests:
   [blkhash module](https://github.com/oVirt/ovirt-imageio/blob/master/ovirt_imageio/_internal/blkhash.py).
 
 - The `blksum` command NBD support is powered by the
-  [libnbd](https://gitlab.com/nbdkit/libnbd/) library, and the
-  implementaion is inspired by the
-  [nbdcopy](https://gitlab.com/nbdkit/libnbd/-/tree/master/copy) command.
+  [libnbd](https://gitlab.com/nbdkit/libnbd/) library.
 
 ## License
 
