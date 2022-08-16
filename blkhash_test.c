@@ -13,8 +13,8 @@
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
 static const size_t block_size = 64 * 1024;
-static const char * digest_name = "sha1";
-static const unsigned int digest_len = 20;
+static const char * digest_name = "sha256";
+static const unsigned int digest_len = 32;
 static const unsigned int hexdigest_len = digest_len * 2 + 1; /* NULL */
 
 void setUp() {}
@@ -62,7 +62,9 @@ void test_block_data()
     };
     char hexdigest[hexdigest_len];
     checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
-    TEST_ASSERT_EQUAL_STRING("7f18f4ceb77fd099a58fd2b5e3e6fbe959e07d77", hexdigest);
+    TEST_ASSERT_EQUAL_STRING(
+        "b1a37d57301efe26db0ae98c681fb33bc7718e2d7eaa6d14bef667fdb0ce4153",
+        hexdigest);
 }
 
 void test_block_data_zero()
@@ -72,7 +74,9 @@ void test_block_data_zero()
     };
     char hexdigest[hexdigest_len];
     checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
-    TEST_ASSERT_EQUAL_STRING("cb29e710160d736b446eba4fc235ce3dc0ea5542", hexdigest);
+    TEST_ASSERT_EQUAL_STRING(
+        "e3464a69bf8aa32beb68088f07a797b61edba57b87bcccb19e4b093ded09d2c3",
+        hexdigest);
 }
 
 void test_block_zero()
@@ -82,7 +86,9 @@ void test_block_zero()
     };
     char hexdigest[hexdigest_len];
     checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
-    TEST_ASSERT_EQUAL_STRING("cb29e710160d736b446eba4fc235ce3dc0ea5542", hexdigest);
+    TEST_ASSERT_EQUAL_STRING(
+        "e3464a69bf8aa32beb68088f07a797b61edba57b87bcccb19e4b093ded09d2c3",
+        hexdigest);
 }
 
 void test_partial_block_data()
@@ -92,7 +98,9 @@ void test_partial_block_data()
     };
     char hexdigest[hexdigest_len];
     checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
-    TEST_ASSERT_EQUAL_STRING("d00e4e24b73cdbfe1e85d70926f90386d5a1ca99", hexdigest);
+    TEST_ASSERT_EQUAL_STRING(
+        "9882fe93f0340c4414833acadae9c0dcf1c988e2cf1da67902e6863f069c2617",
+        hexdigest);
 }
 
 void test_partial_block_data_zero()
@@ -102,7 +110,9 @@ void test_partial_block_data_zero()
     };
     char hexdigest[hexdigest_len];
     checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
-    TEST_ASSERT_EQUAL_STRING("f3181c76c4a5094b6fd65ec1d186cb1ec35bcfa6", hexdigest);
+    TEST_ASSERT_EQUAL_STRING(
+        "982e8f30451ead173a4da1df76e3b8849a3d0a5126f03e09b54e7c107c429b01",
+        hexdigest);
 }
 
 void test_partial_block_zero()
@@ -112,28 +122,21 @@ void test_partial_block_zero()
     };
     char hexdigest[hexdigest_len];
     checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
-    TEST_ASSERT_EQUAL_STRING("f3181c76c4a5094b6fd65ec1d186cb1ec35bcfa6", hexdigest);
+    TEST_ASSERT_EQUAL_STRING(
+        "982e8f30451ead173a4da1df76e3b8849a3d0a5126f03e09b54e7c107c429b01",
+        hexdigest);
 }
 
 void test_sparse()
 {
     struct extent extents[] = {
-        {'-', block_size * 3},
+        {'-', block_size * 8},
     };
     char hexdigest[hexdigest_len];
     checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
-    TEST_ASSERT_EQUAL_STRING("abf5dc2d9aba57fd01b38403c16d3d0dbf9bd341", hexdigest);
-}
-
-void test_sparse_unaligned()
-{
-    struct extent extents[] = {
-        {'-', block_size * 2},
-        {'-', block_size / 2},
-    };
-    char hexdigest[hexdigest_len];
-    checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
-    TEST_ASSERT_EQUAL_STRING("bb54c3bea2b1e6aedbeed5270e910fc96c26bec6", hexdigest);
+    TEST_ASSERT_EQUAL_STRING(
+        "823d6ac7d26b7768abfbd2051a6bb167937043e884bac39ea8da31bae7bf5ace",
+        hexdigest);
 }
 
 void test_sparse_large()
@@ -143,28 +146,47 @@ void test_sparse_large()
     };
     char hexdigest[hexdigest_len];
     checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
-    TEST_ASSERT_EQUAL_STRING("fe623c97a1b52b9263043bf11e9ec686dab34da9", hexdigest);
+    TEST_ASSERT_EQUAL_STRING(
+        "9b3d2f329b8e1a3a10ac623efa163c12e953dbb5192825b4772dcf0f8905e1b1",
+        hexdigest);
+}
+
+void test_sparse_unaligned()
+{
+    struct extent extents[] = {
+        {'-', block_size * 8},
+        {'-', block_size / 2},
+    };
+    char hexdigest[hexdigest_len];
+    checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
+    TEST_ASSERT_EQUAL_STRING(
+        "d28c351b1e0d8293aace1032ccee33579fbaf3075e0d5e868226bf9d898cc476",
+        hexdigest);
 }
 
 void test_zero()
 {
     struct extent extents[] = {
-        {'\0', block_size * 3},
+        {'\0', block_size * 8},
     };
     char hexdigest[hexdigest_len];
     checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
-    TEST_ASSERT_EQUAL_STRING("abf5dc2d9aba57fd01b38403c16d3d0dbf9bd341", hexdigest);
+    TEST_ASSERT_EQUAL_STRING(
+        "823d6ac7d26b7768abfbd2051a6bb167937043e884bac39ea8da31bae7bf5ace",
+        hexdigest);
 }
 
 void test_zero_unaligned()
 {
     struct extent extents[] = {
-        {'\0', block_size * 2},
+        {'\0', block_size * 8},
         {'\0', block_size / 2},
     };
     char hexdigest[hexdigest_len];
     checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
-    TEST_ASSERT_EQUAL_STRING("bb54c3bea2b1e6aedbeed5270e910fc96c26bec6", hexdigest);
+    TEST_ASSERT_EQUAL_STRING(
+        "d28c351b1e0d8293aace1032ccee33579fbaf3075e0d5e868226bf9d898cc476",
+        hexdigest);
 }
 
 void test_full()
@@ -179,7 +201,9 @@ void test_full()
     };
     char hexdigest[hexdigest_len];
     checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
-    TEST_ASSERT_EQUAL_STRING("4c66cc478df1ad296bcd6e4f28620f5556b13ca3", hexdigest);
+    TEST_ASSERT_EQUAL_STRING(
+        "658d47f67ee57ce66c71fccc5ebf7768f5720c9c37139409874d8afe354a9571",
+        hexdigest);
 }
 
 void test_full_unaligned()
@@ -193,7 +217,9 @@ void test_full_unaligned()
     };
     char hexdigest[hexdigest_len];
     checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
-    TEST_ASSERT_EQUAL_STRING("cb2c09df8d1e976768307c63cc764b2fb52679f8", hexdigest);
+    TEST_ASSERT_EQUAL_STRING(
+        "d08e319cba087440b6f42120df4a8830b2475463edf2967cc61f3cd6ccaa84c6",
+        hexdigest);
 }
 
 void test_mix()
@@ -218,7 +244,9 @@ void test_mix()
     };
     char hexdigest[hexdigest_len];
     checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
-    TEST_ASSERT_EQUAL_STRING("7a64eb9e5b568a4c912f9749aadd305fb463e614", hexdigest);
+    TEST_ASSERT_EQUAL_STRING(
+        "fe6ed2020798c76a9a28e98c4a575f12a29710f41ec88f1055fa5b407361085a",
+        hexdigest);
 }
 
 void test_mix_unaligned()
@@ -242,7 +270,9 @@ void test_mix_unaligned()
     };
     char hexdigest[hexdigest_len];
     checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
-    TEST_ASSERT_EQUAL_STRING("dbaf0d2128c147d032842474c04918cc57f8da68", hexdigest);
+    TEST_ASSERT_EQUAL_STRING(
+        "8b4034f448346b3feeb89b08d15a07feeba8de3baaeda47ecc15d3dd16d8c4ca",
+        hexdigest);
 }
 
 int main(void)

@@ -12,7 +12,7 @@ from collections import namedtuple
 from contextlib import contextmanager
 
 import pytest
-import blksum
+import blkhash
 
 DIGEST_NAMES = ["sha1", "blake2b512"]
 BLKSUM = os.environ.get("BLKSUM", "build/blksum")
@@ -94,7 +94,7 @@ def image(tmpdir_factory, request):
 @pytest.fixture(scope="session", params=DIGEST_NAMES)
 def raw(image, request):
     print(f"Computing {request.param} checksum for {image}")
-    checksum = blksum.checksum(request.param, image)
+    checksum = blkhash.checksum(image, request.param)
     return Image(image, request.param, checksum)
 
 

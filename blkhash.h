@@ -35,8 +35,8 @@ void blkhash_update(struct blkhash *h, const void *buf, size_t len);
  *
  * Should be used when you know that a range of bytes is read as zeroes.
  * Example use cases are a hole in a sparse file, or area in qcow2 image
- * that is a hole or reads as zeroes. If you don't the contents of the
- * data, use blkhash_update().
+ * that is a hole or reads as zeroes. If you don't know the contents of
+ * the data, use blkhash_update().
  */
 void blkhash_zero(struct blkhash *h, size_t len);
 
@@ -44,13 +44,8 @@ void blkhash_zero(struct blkhash *h, size_t len);
  * Finalize a hash and return a message digest. See blkhash_reset() if
  * you want to create a new digest.
  */
-void blkhash_final(struct blkhash *h, unsigned char *md_value,
-                   unsigned int *md_len);
-
-/*
- * Reset the hash for computing a new message digest.
- */
-void blkhash_reset(struct blkhash *h);
+int blkhash_final(struct blkhash *h, unsigned char *md_value,
+                  unsigned int *md_len);
 
 /*
  * Free resources allocated in blkhash_init().

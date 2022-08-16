@@ -69,8 +69,8 @@ best performance, len should be aligned to the block size specified in
 
 Should be used when you know that a range of bytes is read as zeroes.
 Example use cases are a hole in a sparse file, or area in qcow2 image
-that is a hole or reads as zeroes. If you don't the contents of the
-data, use *blkhash_update()*.
+that is a hole or reads as zeroes. If you don't know the contents of
+the data, use *blkhash_update()*.
 
 blkhash_final()
 ~~~~~~~~~~~~~~~

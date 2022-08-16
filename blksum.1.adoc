@@ -13,9 +13,9 @@ blksum - compute message digest for disk images
 SYNOPSYS
 --------
 
-*blksum* [-d DIGEST|--digest=DIGEST] [-w N|--workers=N]
-         [-p|--progress] [-c|--cache] [--queue-size=N]
-         [--read-size=N] [-l|--list-digests] [-h|--help]
+*blksum* [-d DIGEST|--digest=DIGEST] [-p|--progress]
+         [-c|--cache] [--queue-size=N] [--read-size=N]
+         [-l|--list-digests] [-h|--help]
          ['FILENAME']
 
 DESCRIPTION
@@ -41,12 +41,6 @@ OPTIONS
   Select message digest algorithm supported by openssl. If not specified
   'sha256' is used.
 
-*-w, --workers*='N'::
-  Set the number of workers. The default (4) gives good performance for
-  fast digest like sha1. For slower digest like sha256 larger number of
-  workers improves performance. The valid value is 1 up to the number of
-  online cpus but not more than 16.
-
 *-p, --progress*::
   Show progress bar when computing a checksum.
 
@@ -71,16 +65,6 @@ OPTIONS
 
 *-l, --list-digests*::
   Print available digest names and exit.
-
-
-USING QEMU-NBD
---------------
-
-For best performance when exporting images via 'qemu-nbd(8)' set the
-'--shared' option to value equal or larger than the number of workers.
-For example if using 4 workers, use:
-
-    qemu-nbd --shared 4 -t -r -k /tmp/nbd.sock -f qcow2 disk.qcow2
 
 EXAMPLES
 --------
@@ -112,4 +96,4 @@ LGPL-2.1-or-later.
 SEE ALSO
 --------
 
-qemu-nbd(8), openssl(1)
+openssl(1)

@@ -35,7 +35,6 @@ extern bool io_only;
 #define USER_QUEUE_SIZE  (1 << 0)
 #define USER_READ_SIZE   (1 << 1)
 #define USER_CACHE       (1 << 2)
-#define USER_WORKERS     (1 << 3)
 
 struct options {
     const char *digest_name;
@@ -43,7 +42,6 @@ struct options {
     size_t queue_size;
     size_t block_size;
     size_t segment_size;
-    size_t workers;
     const char *aio;
     bool cache;
     const char *filename;
@@ -56,7 +54,6 @@ struct server_options {
     const char *format;
     const char *aio;
     bool cache;
-    size_t workers;
 };
 
 struct nbd_server {
