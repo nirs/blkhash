@@ -25,7 +25,7 @@ void bench(const char *name, uint64_t size, const void *buf, bool zero)
     bool result = !zero;
 
     if (quick)
-        size /= 100;
+        size /= 1024;
 
     start = gettime();
 
