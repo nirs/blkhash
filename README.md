@@ -380,25 +380,25 @@ with different kinds of input.
 Example run on Lenovo ThinkPad P1 Gen 3 with Fedora 36:
 
 ```
-$ build/blkhash_bench
-update data (sha256): 2.00 GiB in 1.05 seconds (1.90 GiB/s)
-update data (sha1): 4.00 GiB in 1.03 seconds (3.88 GiB/s)
-update zero (sha256): 50.00 GiB in 0.91 seconds (54.76 GiB/s)
-update zero (sha1): 50.00 GiB in 0.90 seconds (55.32 GiB/s)
-zero (sha256): 2500.00 GiB in 0.93 seconds (2676.24 GiB/s)
-zero (sha1): 7500.00 GiB in 1.01 seconds (7455.21 GiB/s)
+$ build/blkhash_bench | grep -v PASS
+update-data (sha256): 2.00 GiB in 1.036 seconds (1.93 GiB/s)
+update-data (sha1): 4.00 GiB in 1.029 seconds (3.89 GiB/s)
+update-zero (sha256): 50.00 GiB in 0.964 seconds (51.85 GiB/s)
+update-zero (sha1): 50.00 GiB in 0.947 seconds (52.82 GiB/s)
+zero (sha256): 2.44 TiB in 0.935 seconds (2.61 TiB/s)
+zero (sha1): 7.32 TiB in 1.014 seconds (7.22 TiB/s)
 ```
 
 Example run on MacBook Air M1 with macOS 12.5:
 
 ```
-$ build/blkhash_bench
-update data (sha256): 2.00 GiB in 0.29 seconds (6.81 GiB/s)
-update data (sha1): 4.00 GiB in 0.52 seconds (7.63 GiB/s)
-update zero (sha256): 50.00 GiB in 1.40 seconds (35.73 GiB/s)
-update zero (sha1): 50.00 GiB in 1.40 seconds (35.61 GiB/s)
-zero (sha256): 2500.00 GiB in 0.20 seconds (12361.12 GiB/s)
-zero (sha1): 7500.00 GiB in 0.59 seconds (12620.00 GiB/s)
+% build/blkhash_bench | grep -v PASS
+update-data (sha256): 2.00 GiB in 0.289 seconds (6.92 GiB/s)
+update-data (sha1): 4.00 GiB in 0.522 seconds (7.67 GiB/s)
+update-zero (sha256): 50.00 GiB in 1.393 seconds (35.90 GiB/s)
+update-zero (sha1): 50.00 GiB in 1.391 seconds (35.96 GiB/s)
+zero (sha256): 2.44 TiB in 0.203 seconds (12.05 TiB/s)
+zero (sha1): 7.32 TiB in 0.595 seconds (12.31 TiB/s)
 ```
 
 Tested cases:
