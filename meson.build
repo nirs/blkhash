@@ -32,6 +32,7 @@ blkhash_lib = library(
     'worker.c',
     'block.c',
     'config.c',
+    'zero.c',
   ],
   version: meson.project_version(),
   soversion: '0',
@@ -132,6 +133,18 @@ blkhash_test = executable(
   dependencies: unity_dep,
 )
 
+zero_bench = executable(
+  'zero_bench',
+  [
+    'zero_bench.c',
+    'util.c',
+  ],
+  link_with: blkhash_lib,
+  dependencies: [
+    openssl,
+  ],
+)
+
 blkhash_bench = executable(
   'blkhash_bench',
   [
@@ -146,6 +159,7 @@ blkhash_bench = executable(
 
 test('worker-test', worker_test)
 test('blkhash-test', blkhash_test)
+test('zero-bench', zero_bench, args: ['quick'])
 test('blkhash-bench', blkhash_bench, args: ['quick'])
 test('example', example)
 
