@@ -155,6 +155,7 @@ blkhash_bench = executable(
   link_with: blkhash_lib,
   dependencies: [
     openssl,
+    unity_dep,
   ],
 )
 
