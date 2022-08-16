@@ -7,7 +7,13 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define KiB (1LL<<10)
+#define MiB (1LL<<20)
+#define GiB (1LL<<30)
+#define TiB (1LL<<40)
+
 void format_hex(unsigned char *md, unsigned int len, char *s);
+char *humansize(int64_t bytes);
 uint64_t gettime(void);
 bool supports_direct_io(const char *filename);
 

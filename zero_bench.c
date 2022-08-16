@@ -5,14 +5,14 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "unity.h"
 #include "blkhash_internal.h"
 #include "util.h"
 
 #define BLOCK_SIZE (64*1024L)
 
-#define MiB (1L<<20)
-#define GiB (1L<<30)
-#define TiB (1L<<40)
+void setUp() {}
+void tearDown() {}
 
 static unsigned char *buffer;
 static bool quick;
@@ -21,24 +21,32 @@ void bench(const char *name, uint64_t size, const void *buf, bool zero)
 {
     int64_t start, elapsed;
     double seconds;
-    double rate;
+    char *hsize, *hrate;
+    bool result = !zero;
 
     if (quick)
-        size /= 100;
+        size /= 1024;
 
     start = gettime();
 
     for (uint64_t i = 0; i < size / BLOCK_SIZE; i++) {
-        bool result = is_zero(buf, BLOCK_SIZE);
-        assert(result == zero);
+        result = is_zero(buf, BLOCK_SIZE);
+        if (result != zero)
+            break;
     }
 
     elapsed = gettime() - start;
-    seconds = elapsed / 1e6;
-    rate = size / seconds / GiB;
 
-    printf("%s: %.2f GiB in %.2f seconds (%.2f GiB/s)\n",
-           name, (double)size / GiB, seconds, rate);
+    TEST_ASSERT_EQUAL_INT(zero, result);
+
+    seconds = elapsed / 1e6;
+    hsize = humansize(size);
+    hrate = humansize(size / seconds);
+
+    printf("%s: %s in %.3f seconds (%s/s)\n", name, hsize, seconds, hrate);
+
+    free(hsize);
+    free(hrate);
 }
 
 void bench_aligned_data_best()
@@ -46,7 +54,7 @@ void bench_aligned_data_best()
     assert(((uintptr_t)buffer % 8) == 0);
     memset(buffer, 0, BLOCK_SIZE);
     buffer[7] = 0x55;
-    bench("aligned data best", 30000 * GiB, buffer, false);
+    bench("aligned data best", 27 * TiB, buffer, false);
 }
 
 void bench_aligned_data_worst()
@@ -68,7 +76,7 @@ void bench_unaligned_data_best()
     assert(((uintptr_t)p % 8) != 0);
     memset(p, 0, BLOCK_SIZE);
     p[7] = 0x55;
-    bench("unaligned data best", 30000 * GiB, p, false);
+    bench("unaligned data best", 27 * TiB, p, false);
 }
 
 void bench_unaligned_data_worst()
@@ -95,13 +103,17 @@ int main(int argc, char *argv[])
     /* Minimal test for CI and build machines. */
     quick = (argc > 1 && strcmp(argv[1], "quick") == 0);
 
-    bench_aligned_data_best();
-    bench_aligned_data_worst();
-    bench_aligned_zero();
+    UNITY_BEGIN();
 
-    bench_unaligned_data_best();
-    bench_unaligned_data_worst();
-    bench_unaligned_zero();
+    RUN_TEST(bench_aligned_data_best);
+    RUN_TEST(bench_aligned_data_worst);
+    RUN_TEST(bench_aligned_zero);
+
+    RUN_TEST(bench_unaligned_data_best);
+    RUN_TEST(bench_unaligned_data_worst);
+    RUN_TEST(bench_unaligned_zero);
 
     free(buffer);
+
+    return UNITY_END();
 }
