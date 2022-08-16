@@ -5,10 +5,14 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "unity.h"
 #include "blkhash_internal.h"
 #include "util.h"
 
 #define BLOCK_SIZE (64*1024L)
+
+void setUp() {}
+void tearDown() {}
 
 static unsigned char *buffer;
 static bool quick;
@@ -18,6 +22,7 @@ void bench(const char *name, uint64_t size, const void *buf, bool zero)
     int64_t start, elapsed;
     double seconds;
     char *hsize, *hrate;
+    bool result = !zero;
 
     if (quick)
         size /= 100;
@@ -25,11 +30,14 @@ void bench(const char *name, uint64_t size, const void *buf, bool zero)
     start = gettime();
 
     for (uint64_t i = 0; i < size / BLOCK_SIZE; i++) {
-        bool result = is_zero(buf, BLOCK_SIZE);
-        assert(result == zero);
+        result = is_zero(buf, BLOCK_SIZE);
+        if (result != zero)
+            break;
     }
 
     elapsed = gettime() - start;
+
+    TEST_ASSERT_EQUAL_INT(zero, result);
 
     seconds = elapsed / 1e6;
     hsize = humansize(size);
@@ -95,13 +103,17 @@ int main(int argc, char *argv[])
     /* Minimal test for CI and build machines. */
     quick = (argc > 1 && strcmp(argv[1], "quick") == 0);
 
-    bench_aligned_data_best();
-    bench_aligned_data_worst();
-    bench_aligned_zero();
+    UNITY_BEGIN();
 
-    bench_unaligned_data_best();
-    bench_unaligned_data_worst();
-    bench_unaligned_zero();
+    RUN_TEST(bench_aligned_data_best);
+    RUN_TEST(bench_aligned_data_worst);
+    RUN_TEST(bench_aligned_zero);
+
+    RUN_TEST(bench_unaligned_data_best);
+    RUN_TEST(bench_unaligned_data_worst);
+    RUN_TEST(bench_unaligned_zero);
 
     free(buffer);
+
+    return UNITY_END();
 }
