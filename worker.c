@@ -35,6 +35,27 @@ static struct block *pop_block(struct worker *w)
     return block;
 }
 
+/* Called during cleanup - ignore errors. */
+static void drain_queue(struct worker *w)
+{
+    struct block *block;
+
+    pthread_mutex_lock(&w->mutex);
+
+    while (!STAILQ_EMPTY(&w->queue)) {
+        block = STAILQ_FIRST(&w->queue);
+        STAILQ_REMOVE_HEAD(&w->queue, entry);
+        block_free(block);
+    }
+
+    if (w->queue_len == MAX_BLOCKS)
+        pthread_cond_signal(&w->not_full);
+
+    w->queue_len = 0;
+
+    pthread_mutex_unlock(&w->mutex);
+}
+
 static void add_zero_blocks_before(struct worker *w, struct block *b)
 {
     int64_t index = w->last_index + w->config->workers;
@@ -79,6 +100,8 @@ static void *worker_thread(void *arg)
 
         block_free(block);
     }
+
+    drain_queue(w);
 
     return NULL;
 }
