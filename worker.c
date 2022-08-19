@@ -86,29 +86,55 @@ static void drain_queue(struct worker *w)
     pthread_mutex_unlock(&w->mutex);
 }
 
-static void add_zero_blocks_before(struct worker *w, struct block *b)
+static int add_zero_blocks_before(struct worker *w, struct block *b)
 {
-    int64_t index = w->last_index + w->config->workers;
+    int64_t index;
+
+    /* Don't modify the hash after errors. */
+    if (w->error)
+        return -1;
+
+    index = w->last_index + w->config->workers;
 
     while (index < b->index) {
-        EVP_DigestUpdate(w->root_ctx, w->config->zero_md, w->config->zero_md_len);
+        if (!EVP_DigestUpdate(w->root_ctx, w->config->zero_md, w->config->zero_md_len)) {
+            set_error(w, errno);
+            return -1;
+        }
         w->last_index = index;
         index += w->config->workers;
     }
+
+    return 0;
 }
 
-static void add_data_block(struct worker *w, struct block *b)
+static int add_data_block(struct worker *w, struct block *b)
 {
     unsigned char block_md[EVP_MAX_MD_SIZE];
     unsigned int md_len;
 
-    EVP_DigestInit_ex(w->block_ctx, w->config->md, NULL);
-    EVP_DigestUpdate(w->block_ctx, b->data, b->len);
-    EVP_DigestFinal_ex(w->block_ctx, block_md, &md_len);
+    /* Don't modify the hash after errors. */
+    if (w->error)
+        return -1;
 
-    EVP_DigestUpdate(w->root_ctx, block_md, md_len);
+    if (!EVP_DigestInit_ex(w->block_ctx, w->config->md, NULL))
+        goto error;
+
+    if (!EVP_DigestUpdate(w->block_ctx, b->data, b->len))
+        goto error;
+
+    if (!EVP_DigestFinal_ex(w->block_ctx, block_md, &md_len))
+        goto error;
+
+    if (!EVP_DigestUpdate(w->root_ctx, block_md, md_len))
+        goto error;
 
     w->last_index = b->index;
+    return 0;
+
+error:
+    set_error(w, errno);
+    return -1;
 }
 
 static void *worker_thread(void *arg)
