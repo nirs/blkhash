@@ -176,7 +176,7 @@ fail:
     return err;
 }
 
-int worker_destroy(struct worker *w)
+void worker_destroy(struct worker *w)
 {
     pthread_cond_destroy(&w->not_full);
     pthread_cond_destroy(&w->not_empty);
@@ -187,8 +187,6 @@ int worker_destroy(struct worker *w)
 
     EVP_MD_CTX_free(w->root_ctx);
     w->root_ctx = NULL;
-
-    return 0;
 }
 
 int worker_update(struct worker *w, struct block *b)
