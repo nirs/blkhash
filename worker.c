@@ -23,12 +23,22 @@ static inline void set_error(struct worker *w, int error)
 static struct block *pop_block(struct worker *w)
 {
     bool was_full;
-    struct block *block;
+    struct block *block = NULL;
+    int err;
 
-    pthread_mutex_lock(&w->mutex);
+    err = pthread_mutex_lock(&w->mutex);
+    if (err) {
+        set_error(w, err);
+        return NULL;
+    }
 
-    while (STAILQ_EMPTY(&w->queue))
-        pthread_cond_wait(&w->not_empty, &w->mutex);
+    while (STAILQ_EMPTY(&w->queue)) {
+        err = pthread_cond_wait(&w->not_empty, &w->mutex);
+        if (err) {
+            set_error(w, err);
+            goto out;
+        }
+    }
 
     block = STAILQ_FIRST(&w->queue);
     STAILQ_REMOVE_HEAD(&w->queue, entry);
@@ -36,10 +46,21 @@ static struct block *pop_block(struct worker *w)
     was_full = w->queue_len == MAX_BLOCKS;
     w->queue_len--;
 
-    if (was_full)
-        pthread_cond_signal(&w->not_full);
+    if (was_full) {
+        err = pthread_cond_signal(&w->not_full);
+        if (err)
+            set_error(w, err);
+    }
 
-    pthread_mutex_unlock(&w->mutex);
+out:
+    err = pthread_mutex_unlock(&w->mutex);
+    if (err)
+        set_error(w, err);
+
+    if (w->error) {
+        block_free(block);
+        return NULL;
+    }
 
     return block;
 }
@@ -98,6 +119,8 @@ static void *worker_thread(void *arg)
         struct block *block;
 
         block = pop_block(w);
+        if (block == NULL)
+            break;
 
         if (block->len == 0)
             w->running = false;
