@@ -125,6 +125,7 @@ int worker_init(struct worker *w, int id, struct config *config)
     w->queue_len = 0;
     w->error = 0;
     w->running = true;
+    w->finalized = false;
 
     w->root_ctx = NULL;
     w->block_ctx = NULL;
@@ -194,6 +195,9 @@ int worker_update(struct worker *w, struct block *b)
     int err = 0;
     int rv;
 
+    if (w->finalized)
+        return EPERM;
+
     if (b->len > 0 && (b->index % w->config->workers) != w->id)
         return EINVAL;
 
@@ -228,13 +232,26 @@ out:
 
 int worker_final(struct worker *w, int64_t size)
 {
+    int err;
+
+    if (w->finalized)
+        return EPERM;
+
     /* A sentinel zero length block at the end of the image. */
     int64_t end_index = size / w->config->block_size;
+
     struct block *quit = block_new(end_index, 0, NULL);
     if (quit == NULL)
         return errno;
 
-    return worker_update(w, quit);
+    err = worker_update(w, quit);
+    if (err) {
+        block_free(quit);
+        return err;
+    }
+
+    w->finalized = true;
+    return 0;
 }
 
 int worker_digest(struct worker *w, unsigned char *md, unsigned int *len)

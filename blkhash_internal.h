@@ -52,6 +52,9 @@ struct worker {
     /* Set to false when worker is stopped by the final zero length block, or
      * when a worker fails. */
     bool running;
+
+    /* Set when finalizing the worker. No updates are allowed after this. */
+    bool finalized;
 };
 
 struct config *config_new(const char *digest_name, size_t block_size, int workers);
