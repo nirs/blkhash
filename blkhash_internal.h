@@ -25,7 +25,7 @@ struct block {
     STAILQ_ENTRY(block) entry;
     int64_t index;
     size_t len;
-    unsigned char data[1];
+    unsigned char data[0];
 };
 
 struct worker {
