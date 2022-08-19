@@ -14,8 +14,10 @@
 static inline void set_error(struct worker *w, int error)
 {
     /* Keep the first error. */
-    if (w->error == 0)
+    if (w->error == 0) {
         w->error = error;
+        w->running = false;
+    }
 }
 
 static struct block *pop_block(struct worker *w)
@@ -91,14 +93,14 @@ static void add_data_block(struct worker *w, struct block *b)
 static void *worker_thread(void *arg)
 {
     struct worker *w = arg;
-    bool running = true;
-    struct block *block;
 
-    while (running) {
+    while (w->running) {
+        struct block *block;
+
         block = pop_block(w);
 
         if (block->len == 0)
-            running = false;
+            w->running = false;
 
         add_zero_blocks_before(w, block);
 
@@ -122,6 +124,7 @@ int worker_init(struct worker *w, int id, struct config *config)
     w->last_index = id - config->workers;
     w->queue_len = 0;
     w->error = 0;
+    w->running = true;
 
     w->root_ctx = NULL;
     w->block_ctx = NULL;

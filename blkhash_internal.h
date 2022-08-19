@@ -48,6 +48,10 @@ struct worker {
     /* If non-zero, the worker has failed. The value is the first error that
      * caused the failure. */
     int error;
+
+    /* Set to false when worker is stopped by the final zero length block, or
+     * when a worker fails. */
+    bool running;
 };
 
 struct config *config_new(const char *digest_name, size_t block_size, int workers);
