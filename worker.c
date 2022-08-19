@@ -11,6 +11,13 @@
 /* Maximum number of blocks to queue per worker. */
 #define MAX_BLOCKS 16
 
+static inline void set_error(struct worker *w, int error)
+{
+    /* Keep the first error. */
+    if (w->error == 0)
+        w->error = error;
+}
+
 static struct block *pop_block(struct worker *w)
 {
     bool was_full;
@@ -114,6 +121,7 @@ int worker_init(struct worker *w, int id, struct config *config)
     w->config = config;
     w->last_index = id - config->workers;
     w->queue_len = 0;
+    w->error = 0;
 
     w->root_ctx = NULL;
     w->block_ctx = NULL;

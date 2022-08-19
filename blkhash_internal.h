@@ -44,6 +44,10 @@ struct worker {
 
     /* Last consumed block. */
     int64_t last_index;
+
+    /* If non-zero, the worker has failed. The value is the first error that
+     * caused the failure. */
+    int error;
 };
 
 struct config *config_new(const char *digest_name, size_t block_size, int workers);
