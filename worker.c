@@ -191,23 +191,39 @@ void worker_destroy(struct worker *w)
 
 int worker_update(struct worker *w, struct block *b)
 {
+    int err = 0;
+    int rv;
+
     if (b->len > 0 && (b->index % w->config->workers) != w->id)
         return EINVAL;
 
-    pthread_mutex_lock(&w->mutex);
+    err = pthread_mutex_lock(&w->mutex);
+    if (err)
+        return err;
 
-    while (w->queue_len >= MAX_BLOCKS)
-        pthread_cond_wait(&w->not_full, &w->mutex);
+    /* The block will leak if the worker failed. */
+    if (w->error) {
+        err = w->error;
+        goto out;
+    }
+
+    while (w->queue_len >= MAX_BLOCKS) {
+        err = pthread_cond_wait(&w->not_full, &w->mutex);
+        if (err)
+            goto out;
+    }
 
     STAILQ_INSERT_TAIL(&w->queue, b, entry);
 
     w->queue_len++;
     if (w->queue_len == 1)
-        pthread_cond_signal(&w->not_empty);
+        err = pthread_cond_signal(&w->not_empty);
+out:
+    rv = pthread_mutex_unlock(&w->mutex);
+    if (rv && !err)
+        err = rv;
 
-    pthread_mutex_unlock(&w->mutex);
-
-    return 0;
+    return err;
 }
 
 int worker_final(struct worker *w, int64_t size)
