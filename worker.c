@@ -256,7 +256,17 @@ int worker_final(struct worker *w, int64_t size)
 
 int worker_digest(struct worker *w, unsigned char *md, unsigned int *len)
 {
-    pthread_join(w->thread, NULL);
-    EVP_DigestFinal_ex(w->root_ctx, md, len);
+    int err;
+
+    err = pthread_join(w->thread, NULL);
+    if (err)
+        return err;
+
+    if (w->error)
+        return w->error;
+
+    if (!EVP_DigestFinal_ex(w->root_ctx, md, len))
+        return errno;
+
     return 0;
 }
