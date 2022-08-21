@@ -44,6 +44,17 @@ struct worker {
 
     /* Last consumed block. */
     int64_t last_index;
+
+    /* If non-zero, the worker has failed. The value is the first error that
+     * caused the failure. */
+    int error;
+
+    /* Set to false when worker is stopped by the final zero length block, or
+     * when a worker fails. */
+    bool running;
+
+    /* Set when finalizing the worker. No updates are allowed after this. */
+    bool finalized;
 };
 
 struct config *config_new(const char *digest_name, size_t block_size, int workers);
@@ -53,8 +64,12 @@ struct block *block_new(uint64_t index, size_t len, const void *data);
 void block_free(struct block *b);
 
 int worker_init(struct worker *w, int id, struct config *config);
-int worker_destroy(struct worker *w);
+void worker_destroy(struct worker *w);
+
+/* If call is successful the worker will free the block. On error the caller
+ * need to free the block. */
 int worker_update(struct worker *w, struct block *b);
+
 int worker_final(struct worker *w, int64_t size);
 int worker_digest(struct worker *w, unsigned char *md, unsigned int *len);
 
