@@ -43,6 +43,9 @@ blkhash_lib = library(
   install: true,
 )
 
+pkg_config = import('pkgconfig')
+pkg_config.generate(blkhash_lib)
+
 install_headers('blkhash.h')
 
 blksum = executable(
