@@ -68,6 +68,7 @@ Requires: %{name}-libs = %{version}-%{release}
 %files devel
 %{_includedir}/%{name}.h
 %{_libdir}/lib%{name}.so
+%{_libdir}/pkgconfig/%{name}.pc
 %{_mandir}/man3/%{name}_*.3*
 
 %changelog
