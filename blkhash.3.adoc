@@ -38,9 +38,9 @@ images.
 blkhash_new()
 ~~~~~~~~~~~~~
 
-Allocate and initialize a block hash for creating one or more message
-digests.  The hash buffers block_size bytes for zero detection. The
-message digest is created using the provided message digest name.
+Allocate and initialize a block hash for creating one message digest.
+The hash buffers block_size bytes for zero detection. The message digest
+is created using the provided message digest name.
 
 On error return NULL and set errno.
 

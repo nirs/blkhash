@@ -7,10 +7,9 @@
 struct blkhash;
 
 /*
- * Allocates and initialize a block hash for creating one or more
- * message digests. The hash buffers block_size bytes for zero
- * detection. The message digest is created using the provided message
- * digest name.
+ * Allocates and initialize a block hash for creating one message
+ * digest. The hash buffers block_size bytes for zero detection. The
+ * message digest is created using the provided message digest name.
  */
 struct blkhash *blkhash_new(size_t block_size, const char *md_name);
 
