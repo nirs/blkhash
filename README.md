@@ -10,7 +10,7 @@ Block based hash optimized for disk images.
 ![blksum demo](https://i.imgur.com/FXifrxt.gif)
 
 Disk images are typically sparse, containing unallocated areas read as
-zeroes by the guest. The `blkhash` hash algorithm is optimized for
+zeros by the guest. The `blkhash` hash algorithm is optimized for
 computing checksums of sparse disk images.
 
 This project provides the `blksum` command and the `blkahsh` C library.
@@ -257,8 +257,8 @@ Summary
   364.58 ± 68.72 times faster than 'sha256sum empty-6g.raw'
 ```
 
-A less optimal case is a fully allocated image full of zeroes. `blksum`
-must read the entire image, but it detects that all blocks are zeroes
+A less optimal case is a fully allocated image full of zeros. `blksum`
+must read the entire image, but it detects that all blocks are zeros
 and optimize zero hashing:
 
 ```
@@ -365,7 +365,7 @@ detection, and used multiple threads to speed up the computation.
 The library provides the expected interface for creating, updating,
 finalizing and destroying a hash. The `blkhash_update()` function
 implements zero detection, speeding up data processing. When you know
-that some areas of the image are read as zeroes, you can skip reading
+that some areas of the image are read as zeros, you can skip reading
 them and use `blkhash_zero()` to add zero range to the hash.
 
 See the [example program](example.c) for example of using the library.
@@ -407,7 +407,7 @@ Tested cases:
 - update zero - calling `blkhash_update()` with buffer full of zero
   bytes.
 - zero - calling `blkhash_zero()` when you know a range of a n image is
-  unallocated or reads as zeroes.
+  unallocated or reads as zeros.
 
 ## Portability
 

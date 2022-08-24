@@ -21,20 +21,20 @@ struct blkhash *blkhash_new(size_t block_size, const char *md_name);
  *
  * This function detects zero blocks in buf to optimize hashing, so you
  * don't need to do this yourself. However if you know that a byte range
- * contains only zeroes, call blkhash_zero() instead, which is much
+ * contains only zeros, call blkhash_zero() instead, which is much
  * faster.
  */
 void blkhash_update(struct blkhash *h, const void *buf, size_t len);
 
 /*
- * Hashes len bytes of zeores efficiently into the hash h. This function
+ * Hashes len bytes of zeros efficiently into the hash h. This function
  * can be called several times on the same hash to hash additional
- * zeroes. For best performance, len should be aligned to the block size
+ * zeros. For best performance, len should be aligned to the block size
  * specified in blkhash_new().
  *
- * Should be used when you know that a range of bytes is read as zeroes.
+ * Should be used when you know that a range of bytes is read as zeros.
  * Example use cases are a hole in a sparse file, or area in qcow2 image
- * that is a hole or reads as zeroes. If you don't know the contents of
+ * that is a hole or reads as zeros. If you don't know the contents of
  * the data, use blkhash_update().
  */
 void blkhash_zero(struct blkhash *h, size_t len);
