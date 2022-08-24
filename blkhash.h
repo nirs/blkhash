@@ -9,7 +9,7 @@ struct blkhash;
 /*
  * Allocates and initialize a block hash for creating one or more
  * message digests. The hash buffers block_size bytes for zero
- * detection. The messge digest is created using the provided message
+ * detection. The message digest is created using the provided message
  * digest name.
  */
 struct blkhash *blkhash_new(size_t block_size, const char *md_name);
@@ -20,7 +20,7 @@ struct blkhash *blkhash_new(size_t block_size, const char *md_name);
  * best performance, len should be aligned to the block size specified
  * in blkhash_new().
  *
- * This function etects zero blocks in buf to optimize hashing, so you
+ * This function detects zero blocks in buf to optimize hashing, so you
  * don't need to do this yourself. However if you know that a byte range
  * contains only zeroes, call blkhash_zero() instead, which is much
  * faster.
