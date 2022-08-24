@@ -41,14 +41,13 @@ void blkhash_update(struct blkhash *h, const void *buf, size_t len);
 void blkhash_zero(struct blkhash *h, size_t len);
 
 /*
- * Finalize a hash and return a message digest. See blkhash_reset() if
- * you want to create a new digest.
+ * Finalize a hash and return a message digest.
  */
 int blkhash_final(struct blkhash *h, unsigned char *md_value,
                   unsigned int *md_len);
 
 /*
- * Free resources allocated in blkhash_init().
+ * Free resources allocated in blkhash_new().
  */
 void blkhash_free(struct blkhash *h);
 
