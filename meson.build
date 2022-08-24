@@ -93,7 +93,6 @@ blksum_1 = custom_target(
     'blkhash_update.3',
     'blkhash_zero.3',
     'blkhash_final.3',
-    'blkhash_reset.3',
     'blkhash_free.3',
   ],
   install: true,

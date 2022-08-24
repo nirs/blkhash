@@ -8,8 +8,8 @@ blkhash(3)
 NAME
 ----
 
-blkhash_new, blkhash_update, blkhash_zero, blkhash_final, blkhash_reset,
-blkhash_free - block based hash optimized for disk images.
+blkhash_new, blkhash_update, blkhash_zero, blkhash_final, blkhash_free -
+block based hash optimized for disk images.
 
 SYNOPSIS
 --------
@@ -25,8 +25,6 @@ void blkhash_zero(struct blkhash *h, size_t len);
 
 void blkhash_final(struct blkhash *h, unsigned char *md_value,
                    unsigned int *md_len);
-
-void blkhash_reset(struct blkhash *h);
 
 void blkhash_free(struct blkhash *h);
 ------------------------------------------------------------------------
@@ -75,13 +73,7 @@ the data, use *blkhash_update()*.
 blkhash_final()
 ~~~~~~~~~~~~~~~
 
-Finalize a hash and return a message digest. See *blkhash_reset()* if
-you want to create a new digest.
-
-blkhash_reset()
-~~~~~~~~~~~~~~~
-
-Reset the hash for computing a new message digest.
+Finalize a hash and return a message digest.
 
 blkhash_free()
 ~~~~~~~~~~~~~~
