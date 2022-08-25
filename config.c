@@ -5,7 +5,6 @@
 #include <errno.h>
 #include <stdlib.h>
 
-#include <openssl/err.h>
 #include "blkhash_internal.h"
 
 static int compute_zero_md(struct config *c)
@@ -18,8 +17,8 @@ static int compute_zero_md(struct config *c)
         return errno;
 
     /* Returns 1 on success. */
-    if (EVP_Digest(buf, c->block_size, c->zero_md, &c->zero_md_len, c->md, NULL) != 1)
-        err = ERR_get_error();
+    if (!EVP_Digest(buf, c->block_size, c->zero_md, &c->zero_md_len, c->md, NULL))
+        err = ENOMEM;
 
     free(buf);
     return err;
@@ -34,8 +33,10 @@ struct config *config_new(const char *digest_name, size_t block_size, int worker
     assert(workers > 0);
 
     md = EVP_get_digestbyname(digest_name);
-    if (md == NULL)
+    if (md == NULL) {
+        errno = EINVAL;
         return NULL;
+    }
 
     c = malloc(sizeof(*c));
     if (c == NULL)

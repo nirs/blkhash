@@ -43,30 +43,36 @@ struct blkhash {
 struct blkhash *blkhash_new(size_t block_size, const char *md_name)
 {
     struct blkhash *h;
-    int saved_errno;
+    int err;
 
     h = calloc(1, sizeof(*h));
-    if (h == NULL) {
+    if (h == NULL)
         return NULL;
-    }
 
     h->config = config_new(md_name, block_size, WORKERS);
-    if (h->config == NULL)
+    if (h->config == NULL) {
+        err = errno;
         goto error;
+    }
 
     h->root_ctx = EVP_MD_CTX_new();
     if (h->root_ctx == NULL) {
+        err = ENOMEM;
         goto error;
     }
 
     h->pending = calloc(1, block_size);
     if (h->pending == NULL) {
+        err = errno;
         goto error;
     }
 
     h->pending_len = 0;
 
-    EVP_DigestInit_ex(h->root_ctx, h->config->md, NULL);
+    if (!EVP_DigestInit_ex(h->root_ctx, h->config->md, NULL)) {
+        err = ENOMEM;
+        goto error;
+    }
 
     for (int i = 0; i < WORKERS; i++)
         worker_init(&h->workers[i], i, h->config);
@@ -74,9 +80,8 @@ struct blkhash *blkhash_new(size_t block_size, const char *md_name)
     return h;
 
 error:
-    saved_errno = errno;
     blkhash_free(h);
-    errno = saved_errno;
+    errno = err;
 
     return NULL;
 }
@@ -253,6 +258,7 @@ int blkhash_final(struct blkhash *h, unsigned char *md_value,
 {
     unsigned char md[EVP_MAX_MD_SIZE];
     unsigned int len;
+    int err = 0;
 
     if (h->finalized)
         return EINVAL;
@@ -268,10 +274,17 @@ int blkhash_final(struct blkhash *h, unsigned char *md_value,
 
     for (int i = 0; i < WORKERS; i++) {
         worker_digest(&h->workers[i], md, &len);
-        EVP_DigestUpdate(h->root_ctx, md, len);
+        if (!EVP_DigestUpdate(h->root_ctx, md, len)) {
+            if (err == 0)
+                err = ENOMEM;
+        }
     }
 
-    EVP_DigestFinal_ex(h->root_ctx, md_value, md_len);
+    if (err)
+        return err;
+
+    if (!EVP_DigestFinal_ex(h->root_ctx, md_value, md_len))
+        return ENOMEM;
 
     return 0;
 }

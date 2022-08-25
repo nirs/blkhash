@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include <assert.h>
+#include <errno.h>
 #include <string.h>
 
 #include "blkhash_internal.h"
@@ -61,7 +62,9 @@ void test_1_aligned_full()
 
     worker_final(&w, BLOCKS * cfg->block_size);
     worker_digest(&w, md_value, &md_len);
-    EVP_Digest(md_value, md_len, md_value, &md_len, cfg->md, NULL);
+
+    if (!EVP_Digest(md_value, md_len, md_value, &md_len, cfg->md, NULL))
+        TEST_FAIL_MESSAGE("EVP_Digest failed");
 
     worker_destroy(&w);
 
@@ -85,7 +88,8 @@ void test_1_aligned_sparse()
     worker_digest(&w, md_value, &md_len);
     worker_destroy(&w);
 
-    EVP_Digest(md_value, md_len, md_value, &md_len, cfg->md, NULL);
+    if (!EVP_Digest(md_value, md_len, md_value, &md_len, cfg->md, NULL))
+        TEST_FAIL_MESSAGE("EVP_Digest failed");
 
     format_hex(md_value, md_len, hexdigest);
     TEST_ASSERT_EQUAL_STRING(
@@ -105,6 +109,8 @@ void test_1_aligned_sparse()
 
 void test_4_aligned_full()
 {
+    int err = 0;
+
     cfg = config_new(DIGEST_NAME, BLOCK_SIZE, 4);
     assert(cfg);
 
@@ -122,12 +128,22 @@ void test_4_aligned_full()
         worker_final(&ws[i], BLOCKS * cfg->block_size);
 
     /* Compute root hash. */
-    EVP_DigestInit_ex(ctx, cfg->md, NULL);
+    if (!EVP_DigestInit_ex(ctx, cfg->md, NULL))
+        TEST_FAIL_MESSAGE("EVP_DigestInit_ex failed");
+
     for (int i = 0; i < 4; i++) {
         worker_digest(&ws[i], md_value, &md_len);
-        EVP_DigestUpdate(ctx, md_value, md_len);
+        if (!EVP_DigestUpdate(ctx, md_value, md_len)) {
+            if (err == 0)
+                err = ENOMEM;
+        }
     }
-    EVP_DigestFinal_ex(ctx, md_value, &md_len);
+
+    if (err)
+        TEST_FAIL_MESSAGE("EVP_DigestUpdate failed");
+
+    if (!EVP_DigestFinal_ex(ctx, md_value, &md_len))
+        TEST_FAIL_MESSAGE("EVP_DigestFinal_ex failed");
 
     for (int i = 0; i < 4; i++)
         worker_destroy(&ws[i]);
@@ -140,6 +156,7 @@ void test_4_aligned_full()
 
 void test_4_aligned_sparse()
 {
+    int err = 0;
     cfg = config_new(DIGEST_NAME, BLOCK_SIZE, 4);
     assert(cfg);
 
@@ -154,12 +171,22 @@ void test_4_aligned_sparse()
         worker_final(&ws[i], BLOCKS * cfg->block_size);
 
     /* Compute root hash. */
-    EVP_DigestInit_ex(ctx, cfg->md, NULL);
+    if (!EVP_DigestInit_ex(ctx, cfg->md, NULL))
+        TEST_FAIL_MESSAGE("EVP_DigestInit_ex failed");
+
     for (int i = 0; i < 4; i++) {
         worker_digest(&ws[i], md_value, &md_len);
-        EVP_DigestUpdate(ctx, md_value, md_len);
+        if (!EVP_DigestUpdate(ctx, md_value, md_len)) {
+            if (err == 0)
+                err = ENOMEM;
+        }
     }
-    EVP_DigestFinal_ex(ctx, md_value, &md_len);
+
+    if (err)
+        TEST_FAIL_MESSAGE("EVP_DigestUpdate failed");
+
+    if (!EVP_DigestFinal_ex(ctx, md_value, &md_len))
+        TEST_FAIL_MESSAGE("EVP_DigestFinal_ex failed");
 
     for (int i = 0; i < 4; i++)
         worker_destroy(&ws[i]);
