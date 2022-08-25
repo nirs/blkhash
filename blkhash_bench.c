@@ -41,11 +41,17 @@ void bench(const char *name, const char *digest, uint64_t size, bool is_zero,
     h = blkhash_new(BLOCK_SIZE, digest);
     assert(h);
 
-    for (uint64_t i = 0; i < size / READ_SIZE; i++) {
-        if (is_zero)
-            blkhash_zero(h, READ_SIZE);
-        else
+    if (is_zero) {
+        while (size >= SIZE_MAX) {
+            blkhash_zero(h, SIZE_MAX);
+            size -= SIZE_MAX;
+        }
+        if (size > 0)
+            blkhash_zero(h, size);
+    } else {
+        for (uint64_t i = 0; i < size / READ_SIZE; i++) {
             blkhash_update(h, buf, READ_SIZE);
+        }
     }
 
     blkhash_final(h, md, &len);
