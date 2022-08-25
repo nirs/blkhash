@@ -4,6 +4,15 @@
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
 
+workflow:
+  rules:
+    # See https://docs.gitlab.com/ee/ci/jobs/job_control.html#common-if-clauses-for-rules
+    # https://docs.gitlab.com/ee/ci/yaml/workflow.html#switch-between-branch-pipelines-and-merge-request-pipelines
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_OPEN_MERGE_REQUESTS == null
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "web"
+
 .test:
   script:
     - meson setup build
