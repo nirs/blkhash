@@ -498,7 +498,7 @@ Fedora:
         qemu-img \
         reuse \
         rpm-build \
-        rpmlint \
+        rpmlint
 
 FreeBSD:
 
@@ -624,7 +624,7 @@ To see verbose test output use:
 
 To run specific `blksum` tests, use pytest directly:
 
-    meson -C build compile
+    meson compile -C build
     pytest -k sha1-sparse
 
 If `blksum` is built with NBD support, enable the NBD tests:
