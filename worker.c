@@ -164,7 +164,7 @@ static void *worker_thread(void *arg)
     return NULL;
 }
 
-int worker_init(struct worker *w, int id, struct config *config)
+int worker_init(struct worker *w, int id, const struct config *config)
 {
     int err;
 

@@ -33,7 +33,7 @@ struct worker {
     pthread_cond_t not_empty;
     pthread_cond_t not_full;
 
-    struct config *config;
+    const struct config *config;
     int id;
     unsigned int queue_len;
 
@@ -61,7 +61,7 @@ void config_free(struct config *c);
 struct block *block_new(uint64_t index, size_t len, const void *data);
 void block_free(struct block *b);
 
-int worker_init(struct worker *w, int id, struct config *config);
+int worker_init(struct worker *w, int id, const struct config *config);
 void worker_destroy(struct worker *w);
 
 /* If call is successful the worker will free the block. On error the caller
