@@ -468,10 +468,18 @@ static void *worker_thread(void *arg)
         FAIL_ERRNO("blkhash_new");
 
     for (offset = 0; offset < job->size; offset += opt->segment_size) {
+        uint64_t segment_start;
+
+        if (debug)
+            segment_start = gettime();
+
         DEBUG("worker %d processing segment at offset %" PRIi64,
               w->id, offset);
 
         process_segment(w, offset);
+        
+        DEBUG("worker %d segment at offset %" PRIi64 " processed in %" PRIu64 " usec",
+              w->id, offset, gettime() - segment_start);
 
         if (!running()) {
             DEBUG("worker %d aborting", w->id);
