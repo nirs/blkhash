@@ -19,8 +19,6 @@ struct config {
     unsigned int zero_md_len;
 };
 
-typedef void (*complete_callback)(int64_t index);
-
 struct block {
     STAILQ_ENTRY(block) entry;
     int64_t index;
