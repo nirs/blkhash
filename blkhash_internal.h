@@ -55,8 +55,7 @@ struct worker {
     bool finalized;
 };
 
-struct config *config_new(const char *digest_name, size_t block_size, int workers);
-void config_free(struct config *c);
+int config_init(struct config *c, const char *digest_name, size_t block_size, int workers);
 
 struct block *block_new(uint64_t index, size_t len, const void *data);
 void block_free(struct block *b);

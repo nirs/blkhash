@@ -19,7 +19,6 @@ static unsigned char data[BLOCKS][BLOCK_SIZE];
 static unsigned char md_value[EVP_MAX_MD_SIZE];
 static unsigned int md_len;
 static char hexdigest[EVP_MAX_MD_SIZE * 2 + 1];
-static struct config *cfg;
 static EVP_MD_CTX *ctx;
 
 void setUp()
@@ -38,9 +37,6 @@ void tearDown()
 {
     EVP_MD_CTX_free(ctx);
     ctx = NULL;
-
-    config_free(cfg);
-    cfg = NULL;
 }
 
 /*
@@ -49,21 +45,24 @@ void tearDown()
 
 void test_1_aligned_full()
 {
-    cfg = config_new(DIGEST_NAME, BLOCK_SIZE, 1);
-    assert(cfg);
+    struct config cfg;
+    int err;
+
+    err = config_init(&cfg, DIGEST_NAME, BLOCK_SIZE, 1);
+    assert(err == 0);
 
     struct worker w;
-    worker_init(&w, 0, cfg);
+    worker_init(&w, 0, &cfg);
 
     for (int i = 0; i < BLOCKS; i++) {
-        struct block *b = block_new(i, cfg->block_size, data[i]);
+        struct block *b = block_new(i, cfg.block_size, data[i]);
         assert(worker_update(&w, b) == 0);
     }
 
-    worker_final(&w, BLOCKS * cfg->block_size);
+    worker_final(&w, BLOCKS * cfg.block_size);
     worker_digest(&w, md_value, &md_len);
 
-    if (!EVP_Digest(md_value, md_len, md_value, &md_len, cfg->md, NULL))
+    if (!EVP_Digest(md_value, md_len, md_value, &md_len, cfg.md, NULL))
         TEST_FAIL_MESSAGE("EVP_Digest failed");
 
     worker_destroy(&w);
@@ -76,19 +75,22 @@ void test_1_aligned_full()
 
 void test_1_aligned_sparse()
 {
-    cfg = config_new(DIGEST_NAME, BLOCK_SIZE, 1);
-    assert(cfg);
+    struct config cfg;
+    int err;
+
+    err = config_init(&cfg, DIGEST_NAME, BLOCK_SIZE, 1);
+    assert(err == 0);
 
     struct worker w;
-    worker_init(&w, 0, cfg);
+    worker_init(&w, 0, &cfg);
 
     /* Skipping all blocks... */
 
-    worker_final(&w, BLOCKS * cfg->block_size);
+    worker_final(&w, BLOCKS * cfg.block_size);
     worker_digest(&w, md_value, &md_len);
     worker_destroy(&w);
 
-    if (!EVP_Digest(md_value, md_len, md_value, &md_len, cfg->md, NULL))
+    if (!EVP_Digest(md_value, md_len, md_value, &md_len, cfg.md, NULL))
         TEST_FAIL_MESSAGE("EVP_Digest failed");
 
     format_hex(md_value, md_len, hexdigest);
@@ -109,26 +111,27 @@ void test_1_aligned_sparse()
 
 void test_4_aligned_full()
 {
+    struct config cfg;
     int err = 0;
 
-    cfg = config_new(DIGEST_NAME, BLOCK_SIZE, 4);
-    assert(cfg);
+    err = config_init(&cfg, DIGEST_NAME, BLOCK_SIZE, 4);
+    assert(err == 0);
 
     struct worker ws[4];
 
     for (int i = 0; i < 4; i++)
-        worker_init(&ws[i], i, cfg);
+        worker_init(&ws[i], i, &cfg);
 
     for (int i = 0; i < BLOCKS; i++) {
-        struct block *b = block_new(i, cfg->block_size, data[i]);
+        struct block *b = block_new(i, cfg.block_size, data[i]);
         assert(worker_update(&ws[i % 4], b) == 0);
     }
 
     for (int i = 0; i < 4; i++)
-        worker_final(&ws[i], BLOCKS * cfg->block_size);
+        worker_final(&ws[i], BLOCKS * cfg.block_size);
 
     /* Compute root hash. */
-    if (!EVP_DigestInit_ex(ctx, cfg->md, NULL))
+    if (!EVP_DigestInit_ex(ctx, cfg.md, NULL))
         TEST_FAIL_MESSAGE("EVP_DigestInit_ex failed");
 
     for (int i = 0; i < 4; i++) {
@@ -156,22 +159,24 @@ void test_4_aligned_full()
 
 void test_4_aligned_sparse()
 {
+    struct config cfg;
     int err = 0;
-    cfg = config_new(DIGEST_NAME, BLOCK_SIZE, 4);
-    assert(cfg);
+
+    err = config_init(&cfg, DIGEST_NAME, BLOCK_SIZE, 4);
+    assert(err == 0);
 
     struct worker ws[4];
 
     for (int i = 0; i < 4; i++)
-        worker_init(&ws[i], i, cfg);
+        worker_init(&ws[i], i, &cfg);
 
     /* Skipping all blocks... */
 
     for (int i = 0; i < 4; i++)
-        worker_final(&ws[i], BLOCKS * cfg->block_size);
+        worker_final(&ws[i], BLOCKS * cfg.block_size);
 
     /* Compute root hash. */
-    if (!EVP_DigestInit_ex(ctx, cfg->md, NULL))
+    if (!EVP_DigestInit_ex(ctx, cfg.md, NULL))
         TEST_FAIL_MESSAGE("EVP_DigestInit_ex failed");
 
     for (int i = 0; i < 4; i++) {
