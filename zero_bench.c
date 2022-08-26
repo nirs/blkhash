@@ -9,7 +9,7 @@
 #include "blkhash_internal.h"
 #include "util.h"
 
-#define BLOCK_SIZE (64*1024L)
+#define BLOCK_SIZE (64 * KiB)
 
 void setUp() {}
 void tearDown() {}

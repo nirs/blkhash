@@ -12,8 +12,8 @@
 #include "blkhash.h"
 #include "util.h"
 
-#define READ_SIZE (1024*1024L)
-#define BLOCK_SIZE (64*1024L)
+#define READ_SIZE (1 * MiB)
+#define BLOCK_SIZE (64 * KiB)
 #define DIGEST_NAME "sha256"
 
 static unsigned char buf[READ_SIZE];
