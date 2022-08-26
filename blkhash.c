@@ -83,8 +83,8 @@ error:
 
 /*
  * Add up to block_size bytes of data to the pending buffer, trying to
- * fill the pending buffer. If the buffer kept pending zeroes, convert
- * the pending zeroes to data.
+ * fill the pending buffer. If the buffer kept pending zeros, convert
+ * the pending zeros to data.
  *
  * Return the number of bytes added to the pending buffer.
  */
@@ -94,7 +94,7 @@ static size_t add_pending_data(struct blkhash *h, const void *buf, size_t len)
 
     if (h->pending_zero) {
         /*
-         * The buffer contains zeroes, convert pending zeros to data.
+         * The buffer contains zeros, convert pending zeros to data.
          */
         memset(h->pending, 0, h->pending_len);
         h->pending_zero = false;
@@ -110,20 +110,20 @@ static size_t add_pending_data(struct blkhash *h, const void *buf, size_t len)
 /*
  * Add up to block_size zero bytes to the pending buffer, trying to fill
  * the pending buffer. If the buffer kept pending data, convert the
- * zeroes to data.
+ * zeros to data.
  *
  * Return the number of bytes added to the pending buffer.
  */
-static size_t add_pending_zeroes(struct blkhash *h, size_t len)
+static size_t add_pending_zeros(struct blkhash *h, size_t len)
 {
     size_t n = MIN(len, h->config->block_size - h->pending_len);
 
     if (h->pending_len == 0) {
-        /* The buffer is empty, start collecting pending zeroes. */
+        /* The buffer is empty, start collecting pending zeros. */
         h->pending_zero = true;
     } else if (!h->pending_zero) {
         /*
-         * The buffer contains some data, convert the zeroes to pending data.
+         * The buffer contains some data, convert the zeros to pending data.
          */
         memset(h->pending + h->pending_len, 0, n);
     }
@@ -145,7 +145,7 @@ static inline bool is_zero_block(struct blkhash *h, const void *buf, size_t len)
 
 /*
  * Consume len bytes of data from buf. If called with a full block, try
- * to speed the computation by detecting zeroes. Detecting zeroes in
+ * to speed the computation by detecting zeros. Detecting zeros in
  * order of magnitude faster compared with computing a message digest.
  */
 static void consume_data(struct blkhash *h, const void *buf, size_t len)
@@ -163,8 +163,8 @@ static void consume_data(struct blkhash *h, const void *buf, size_t len)
 }
 
 /*
- * Consume all pending data or zeroes. The pending buffer may contain
- * full or partial block of data or zeroes. The pending buffer is
+ * Consume all pending data or zeros. The pending buffer may contain
+ * full or partial block of data or zeros. The pending buffer is
  * cleared after this call.
  */
 static void consume_pending(struct blkhash *h)
@@ -177,10 +177,10 @@ static void consume_pending(struct blkhash *h)
     } else {
         /*
          * Slow path if pending is partial block, fast path is pending
-         * is full block and pending data is zeroes.
+         * is full block and pending data is zeros.
          */
         if (h->pending_zero) {
-            /* Convert partial block of zeroes to data. */
+            /* Convert partial block of zeros to data. */
             memset(h->pending, 0, h->pending_len);
         }
 
@@ -228,7 +228,7 @@ void blkhash_zero(struct blkhash *h, size_t len)
 
     /* Try to fill the pending buffer and consume it. */
     if (h->pending_len > 0) {
-        len -= add_pending_zeroes(h, len);
+        len -= add_pending_zeros(h, len);
         if (h->pending_len == h->config->block_size) {
             consume_pending(h);
         }
@@ -242,7 +242,7 @@ void blkhash_zero(struct blkhash *h, size_t len)
 
     /* Save the rest in the pending buffer. */
     if (len > 0) {
-        len -= add_pending_zeroes(h, len);
+        len -= add_pending_zeros(h, len);
     }
 
     assert(len == 0);

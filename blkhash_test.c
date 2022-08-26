@@ -227,19 +227,19 @@ void test_mix()
     struct extent extents[] = {
         /* Add pending data... */
         {'A', block_size / 2},
-        /* Add zeroes converting zeroes to data and consume pending. */
+        /* Add zeros converting zeros to data and consume pending. */
         {'-', block_size / 2},
-        /* Add pending zeroes... */
+        /* Add pending zeros... */
         {'-', block_size / 2},
-        /* Add data, converting pending zeroes to data and consume pending. */
+        /* Add data, converting pending zeros to data and consume pending. */
         {'\0', block_size / 2},
         /* Add pending data... */
         {'E', block_size / 2},
-        /* Add zeroes, converting zeroes to data and consume pending. */
+        /* Add zeros, converting zeros to data and consume pending. */
         {'-', block_size / 2},
-        /* Add pending zeroes... */
+        /* Add pending zeros... */
         {'-', block_size / 2},
-        /* Add data, converting pending zeroes to data and consume pending. */
+        /* Add data, converting pending zeros to data and consume pending. */
         {'\0', block_size / 2},
     };
     char hexdigest[hexdigest_len];
@@ -254,19 +254,19 @@ void test_mix_unaligned()
     struct extent extents[] = {
         /* Add pending data... */
         {'A', block_size / 2},
-        /* Add zeroes converting zeroes to data and consume pending. */
+        /* Add zeros converting zeros to data and consume pending. */
         {'-', block_size / 2},
-        /* Add pending zeroes... */
+        /* Add pending zeros... */
         {'-', block_size / 2},
-        /* Add data, converting pending zeroes to data and consume pending. */
+        /* Add data, converting pending zeros to data and consume pending. */
         {'\0', block_size / 2},
         /* Add pending data... */
         {'E', block_size / 2},
-        /* Add zeroes, converting zeroes to data and consume pending. */
+        /* Add zeros, converting zeros to data and consume pending. */
         {'-', block_size / 2},
-        /* Add pending zeroes... */
+        /* Add pending zeros... */
         {'-', block_size / 2},
-        /* Consume pending zeroes. */
+        /* Consume pending zeros. */
     };
     char hexdigest[hexdigest_len];
     checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);

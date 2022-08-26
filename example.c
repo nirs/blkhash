@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
     memset(buf, '\0', BUF_SIZE);
     blkhash_update(h, buf, BUF_SIZE);
 
-    /* Hash 1G of zeroes. */
+    /* Hash 1G of zeros. */
 
     blkhash_zero(h, 1024 * 1024 * 1024);
 
