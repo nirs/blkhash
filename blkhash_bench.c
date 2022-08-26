@@ -12,7 +12,7 @@
 #include "blkhash.h"
 #include "util.h"
 
-#define READ_SIZE (256*1024L)
+#define READ_SIZE (1024*1024L)
 #define BLOCK_SIZE (64*1024L)
 #define DIGEST_NAME "sha256"
 
