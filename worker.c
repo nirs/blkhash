@@ -95,7 +95,7 @@ static int add_zero_blocks_before(struct worker *w, struct block *b)
 
     while (index < b->index) {
         if (!EVP_DigestUpdate(w->root_ctx, w->config->zero_md, w->config->zero_md_len)) {
-            set_error(w, errno);
+            set_error(w, ENOMEM);
             return -1;
         }
         w->last_index = index;
@@ -130,7 +130,7 @@ static int add_data_block(struct worker *w, struct block *b)
     return 0;
 
 error:
-    set_error(w, errno);
+    set_error(w, ENOMEM);
     return -1;
 }
 
@@ -180,15 +180,18 @@ int worker_init(struct worker *w, int id, const struct config *config)
 
     w->root_ctx = EVP_MD_CTX_new();
     if (w->root_ctx == NULL) {
-        err = errno;
+        err = ENOMEM;
         goto fail;
     }
 
-    EVP_DigestInit_ex(w->root_ctx, w->config->md, NULL);
+    if (!EVP_DigestInit_ex(w->root_ctx, w->config->md, NULL)) {
+        err = ENOMEM;
+        goto fail;
+    }
 
     w->block_ctx = EVP_MD_CTX_new();
     if (w->block_ctx == NULL) {
-        err = errno;
+        err = ENOMEM;
         goto fail;
     }
 
@@ -312,7 +315,7 @@ int worker_digest(struct worker *w, unsigned char *md, unsigned int *len)
         return w->error;
 
     if (!EVP_DigestFinal_ex(w->root_ctx, md, len))
-        return errno;
+        return ENOMEM;
 
     return 0;
 }
