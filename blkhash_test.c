@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Red Hat Inc
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#include <assert.h>
+#include <errno.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,29 +30,47 @@ void checksum(struct extent *extents, unsigned int len,
 {
     unsigned char md[digest_len];
     unsigned int md_len = digest_len;
-    struct blkhash *h = blkhash_new(block_size, digest_name);
-    assert(h != NULL);
+    struct blkhash *h;
+    int err = 0;
+
+    h = blkhash_new(block_size, digest_name);
+    TEST_ASSERT_NOT_NULL_MESSAGE(h, strerror(errno));
 
     for (int i = 0; i < len; i++) {
         struct extent *e = &extents[i];
 
         if (e->byte == '-') {
-            blkhash_zero(h, e->len);
+            err = blkhash_zero(h, e->len);
+            if (err)
+                goto out;
         } else {
-            unsigned char *buf = malloc(e->len);
-            assert(buf != NULL);
+            unsigned char *buf;
+
+            buf = malloc(e->len);
+            if (buf == NULL) {
+                err = errno;
+                goto out;
+            }
+
             memset(buf, e->byte, e->len);
 
-            blkhash_update(h, buf, e->len);
-
+            err = blkhash_update(h, buf, e->len);
             free(buf);
+            if (err)
+                goto out;
         }
     }
 
-    blkhash_final(h, md, &md_len);
-    blkhash_free(h);
+    err = blkhash_final(h, md, &md_len);
+    if (err)
+        goto out;
 
     format_hex(md, md_len, hexdigest);
+
+out:
+    blkhash_free(h);
+    if (err)
+        TEST_FAIL_MESSAGE(strerror(err));
 }
 
 void test_block_data()
@@ -277,15 +295,22 @@ void test_mix_unaligned()
 
 void test_abort_quickly()
 {
-    struct blkhash *h = blkhash_new(block_size, digest_name);
-    assert(h != NULL);
+    struct blkhash *h;
+    int err;
 
-    for (int i = 0; i < 10; i++)
-        blkhash_zero(h, 3 * GiB);
+    h = blkhash_new(block_size, digest_name);
+    TEST_ASSERT_NOT_NULL_MESSAGE(h, strerror(errno));
+
+    for (int i = 0; i < 10; i++) {
+        err = blkhash_zero(h, 3 * GiB);
+        if (err)
+            break;
+    }
 
     blkhash_free(h);
 
     /* TODO: check that workers were stopped without doing any work. */
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, err, strerror(err));
 }
 
 int main(void)
