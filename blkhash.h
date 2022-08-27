@@ -10,6 +10,8 @@ struct blkhash;
  * Allocates and initialize a block hash for creating one message
  * digest. The hash buffers block_size bytes for zero detection. The
  * message digest is created using the provided message digest name.
+ *
+ * Return NULL and set errno on error.
  */
 struct blkhash *blkhash_new(size_t block_size, const char *md_name);
 
@@ -23,6 +25,9 @@ struct blkhash *blkhash_new(size_t block_size, const char *md_name);
  * don't need to do this yourself. However if you know that a byte range
  * contains only zeros, call blkhash_zero() instead, which is much
  * faster.
+ *
+ * Return 0 on success and errno value on error. All future calls will
+ * fail after the first error.
  */
 int blkhash_update(struct blkhash *h, const void *buf, size_t len);
 
@@ -36,11 +41,18 @@ int blkhash_update(struct blkhash *h, const void *buf, size_t len);
  * Example use cases are a hole in a sparse file, or area in qcow2 image
  * that is a hole or reads as zeros. If you don't know the contents of
  * the data, use blkhash_update().
+ *
+ * Return 0 on success and errno value on error. All future calls will
+ * fail after the first error.
  */
 int blkhash_zero(struct blkhash *h, size_t len);
 
 /*
- * Finalize a hash and return a message digest.
+ * Finalize a hash and store the message digest in md_value. If md_len
+ * is not NULL, store the length of the digest in md_len.
+ *
+ * Return 0 on success and errno value on error. The contents of
+ * md_value and md_len are undefined on error.
  */
 int blkhash_final(struct blkhash *h, unsigned char *md_value,
                   unsigned int *md_len);
