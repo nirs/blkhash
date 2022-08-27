@@ -259,7 +259,7 @@ void blkhash_zero(struct blkhash *h, size_t len)
     assert(len == 0);
 }
 
-static int stop_workers(struct blkhash *h)
+static int stop_workers(struct blkhash *h, bool want_digest)
 {
     unsigned char md[EVP_MAX_MD_SIZE];
     unsigned int len;
@@ -267,7 +267,7 @@ static int stop_workers(struct blkhash *h)
     int rv;
 
     for (unsigned i = 0; i < h->workers_count; i++) {
-        rv = worker_final(&h->workers[i], h->image_size);
+        rv = worker_final(&h->workers[i], want_digest ? h->image_size : 0);
         if (rv && err == 0)
             err = rv;
     }
@@ -277,7 +277,7 @@ static int stop_workers(struct blkhash *h)
         if (rv && err == 0)
             err = rv;
 
-        if (err == 0) {
+        if (want_digest && err == 0) {
             if (!EVP_DigestUpdate(h->root_ctx, md, len)) {
                 if (err == 0)
                     err = ENOMEM;
@@ -302,7 +302,7 @@ int blkhash_final(struct blkhash *h, unsigned char *md_value,
         consume_pending(h);
     }
 
-    err = stop_workers(h);
+    err = stop_workers(h, true);
     if (err)
         return err;
 
@@ -318,7 +318,7 @@ void blkhash_free(struct blkhash *h)
         return;
 
     if (!h->finalized)
-        stop_workers(h);
+        stop_workers(h, false);
 
     for (unsigned i = 0; i < h->workers_count; i++)
         worker_destroy(&h->workers[i]);
