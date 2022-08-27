@@ -112,19 +112,6 @@ example = executable(
 
 unity_dep = dependency('unity', fallback : ['unity', 'unity_dep'])
 
-worker_test = executable(
-  'worker_test',
-  [
-    'worker_test.c',
-    'util.c',
-  ],
-  link_with: blkhash_lib,
-  dependencies: [
-    openssl,
-    unity_dep,
-  ],
-)
-
 blkhash_test = executable(
   'blkhash_test',
   [
@@ -161,7 +148,6 @@ blkhash_bench = executable(
   ],
 )
 
-test('worker-test', worker_test)
 test('blkhash-test', blkhash_test)
 test('zero-bench', zero_bench, args: ['quick'])
 test('blkhash-bench', blkhash_bench, args: ['quick'])
