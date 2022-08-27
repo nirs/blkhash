@@ -19,12 +19,12 @@ SYNOPSIS
 
 struct blkhash *blkhash_new(size_t block_size, const char *md_name);
 
-void blkhash_update(struct blkhash *h, const void *buf, size_t len);
+int blkhash_update(struct blkhash *h, const void *buf, size_t len);
 
-void blkhash_zero(struct blkhash *h, size_t len);
+int blkhash_zero(struct blkhash *h, size_t len);
 
-void blkhash_final(struct blkhash *h, unsigned char *md_value,
-                   unsigned int *md_len);
+int blkhash_final(struct blkhash *h, unsigned char *md_value,
+                  unsigned int *md_len);
 
 void blkhash_free(struct blkhash *h);
 ------------------------------------------------------------------------

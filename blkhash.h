@@ -24,7 +24,7 @@ struct blkhash *blkhash_new(size_t block_size, const char *md_name);
  * contains only zeros, call blkhash_zero() instead, which is much
  * faster.
  */
-void blkhash_update(struct blkhash *h, const void *buf, size_t len);
+int blkhash_update(struct blkhash *h, const void *buf, size_t len);
 
 /*
  * Hashes len bytes of zeros efficiently into the hash h. This function
@@ -37,7 +37,7 @@ void blkhash_update(struct blkhash *h, const void *buf, size_t len);
  * that is a hole or reads as zeros. If you don't know the contents of
  * the data, use blkhash_update().
  */
-void blkhash_zero(struct blkhash *h, size_t len);
+int blkhash_zero(struct blkhash *h, size_t len);
 
 /*
  * Finalize a hash and return a message digest.

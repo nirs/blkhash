@@ -221,8 +221,10 @@ static int consume_pending(struct blkhash *h)
     return 0;
 }
 
-void blkhash_update(struct blkhash *h, const void *buf, size_t len)
+int blkhash_update(struct blkhash *h, const void *buf, size_t len)
 {
+    int err;
+
     h->image_size += len;
 
     /* Try to fill the pending buffer and consume it. */
@@ -231,13 +233,18 @@ void blkhash_update(struct blkhash *h, const void *buf, size_t len)
         buf += n;
         len -= n;
         if (h->pending_len == h->config.block_size) {
-            consume_pending(h);
+            err = consume_pending(h);
+            if (err)
+                return err;
         }
     }
 
     /* Consume all full blocks in caller buffer. */
     while (len >= h->config.block_size) {
-        consume_data(h, buf, h->config.block_size);
+        err = consume_data(h, buf, h->config.block_size);
+        if (err)
+            return err;
+
         buf += h->config.block_size;
         len -= h->config.block_size;
     }
@@ -250,17 +257,22 @@ void blkhash_update(struct blkhash *h, const void *buf, size_t len)
     }
 
     assert(len == 0);
+    return 0;
 }
 
-void blkhash_zero(struct blkhash *h, size_t len)
+int blkhash_zero(struct blkhash *h, size_t len)
 {
+    int err;
+
     h->image_size += len;
 
     /* Try to fill the pending buffer and consume it. */
     if (h->pending_len > 0) {
         len -= add_pending_zeros(h, len);
         if (h->pending_len == h->config.block_size) {
-            consume_pending(h);
+            err = consume_pending(h);
+            if (err)
+                return err;
         }
     }
 
@@ -276,6 +288,7 @@ void blkhash_zero(struct blkhash *h, size_t len)
     }
 
     assert(len == 0);
+    return 0;
 }
 
 static int stop_workers(struct blkhash *h, bool want_digest)
