@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Red Hat Inc
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#include <assert.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,6 +37,7 @@ void bench(const char *name, const char *digest, uint64_t size, bool is_zero,
     char *hsize, *hrate;
     size_t chunk;
     uint64_t todo;
+    int err = 0;
 
     if (quick)
         size /= 1024;
@@ -47,25 +48,34 @@ void bench(const char *name, const char *digest, uint64_t size, bool is_zero,
     start = gettime();
 
     h = blkhash_new(BLOCK_SIZE, digest);
-    assert(h);
+    TEST_ASSERT_NOT_NULL_MESSAGE(h, strerror(errno));
 
     while (todo >= chunk) {
         if (is_zero)
-            blkhash_zero(h, chunk);
+            err = blkhash_zero(h, chunk);
         else
-            blkhash_update(h, buf, chunk);
+            err = blkhash_update(h, buf, chunk);
+        if (err)
+            goto out;
         todo -= chunk;
     }
 
     if (todo > 0) {
         if (is_zero)
-            blkhash_zero(h, todo);
+            err = blkhash_zero(h, todo);
         else
-            blkhash_update(h, buf, todo);
+            err = blkhash_update(h, buf, todo);
+        if (err)
+            goto out;
     }
 
-    blkhash_final(h, md, &len);
+    err = blkhash_final(h, md, &len);
+
+out:
     blkhash_free(h);
+
+    if (err)
+        TEST_FAIL_MESSAGE(strerror(err));
 
     elapsed = gettime() - start;
 
