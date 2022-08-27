@@ -259,12 +259,39 @@ void blkhash_zero(struct blkhash *h, size_t len)
     assert(len == 0);
 }
 
-int blkhash_final(struct blkhash *h, unsigned char *md_value,
-                  unsigned int *md_len)
+static int stop_workers(struct blkhash *h)
 {
     unsigned char md[EVP_MAX_MD_SIZE];
     unsigned int len;
     int err = 0;
+    int rv;
+
+    for (unsigned i = 0; i < h->workers_count; i++) {
+        rv = worker_final(&h->workers[i], h->image_size);
+        if (rv && err == 0)
+            err = rv;
+    }
+
+    for (unsigned i = 0; i < h->workers_count; i++) {
+        rv = worker_digest(&h->workers[i], md, &len);
+        if (rv && err == 0)
+            err = rv;
+
+        if (err == 0) {
+            if (!EVP_DigestUpdate(h->root_ctx, md, len)) {
+                if (err == 0)
+                    err = ENOMEM;
+            }
+        }
+    }
+
+    return err;
+}
+
+int blkhash_final(struct blkhash *h, unsigned char *md_value,
+                  unsigned int *md_len)
+{
+    int err;
 
     if (h->finalized)
         return EINVAL;
@@ -275,17 +302,7 @@ int blkhash_final(struct blkhash *h, unsigned char *md_value,
         consume_pending(h);
     }
 
-    for (unsigned i = 0; i < h->workers_count; i++)
-        worker_final(&h->workers[i], h->image_size);
-
-    for (unsigned i = 0; i < h->workers_count; i++) {
-        worker_digest(&h->workers[i], md, &len);
-        if (!EVP_DigestUpdate(h->root_ctx, md, len)) {
-            if (err == 0)
-                err = ENOMEM;
-        }
-    }
-
+    err = stop_workers(h);
     if (err)
         return err;
 
@@ -300,10 +317,8 @@ void blkhash_free(struct blkhash *h)
     if (h == NULL)
         return;
 
-    if (!h->finalized) {
-        unsigned char drop[EVP_MAX_MD_SIZE];
-        blkhash_final(h, drop, NULL);
-    }
+    if (!h->finalized)
+        stop_workers(h);
 
     for (unsigned i = 0; i < h->workers_count; i++)
         worker_destroy(&h->workers[i]);
