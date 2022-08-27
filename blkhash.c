@@ -36,6 +36,9 @@ struct blkhash {
     /* Image size, increased when adding data or zero to the hash. */
     int64_t image_size;
 
+    /* Number of workers started. */
+    unsigned workers_count;
+
     /* Set when hash is finalized. */
     bool finalized;
 };
@@ -72,8 +75,13 @@ struct blkhash *blkhash_new(size_t block_size, const char *md_name)
         goto error;
     }
 
-    for (int i = 0; i < WORKERS; i++)
-        worker_init(&h->workers[i], i, &h->config);
+    for (unsigned i = 0; i < WORKERS; i++) {
+        err = worker_init(&h->workers[i], i, &h->config);
+        if (err)
+            goto error;
+
+        h->workers_count++;
+    }
 
     return h;
 
@@ -267,10 +275,10 @@ int blkhash_final(struct blkhash *h, unsigned char *md_value,
         consume_pending(h);
     }
 
-    for (int i = 0; i < WORKERS; i++)
+    for (unsigned i = 0; i < h->workers_count; i++)
         worker_final(&h->workers[i], h->image_size);
 
-    for (int i = 0; i < WORKERS; i++) {
+    for (unsigned i = 0; i < h->workers_count; i++) {
         worker_digest(&h->workers[i], md, &len);
         if (!EVP_DigestUpdate(h->root_ctx, md, len)) {
             if (err == 0)
@@ -297,7 +305,7 @@ void blkhash_free(struct blkhash *h)
         blkhash_final(h, drop, NULL);
     }
 
-    for (int i = 0; i < WORKERS; i++)
+    for (unsigned i = 0; i < h->workers_count; i++)
         worker_destroy(&h->workers[i]);
 
     EVP_MD_CTX_free(h->root_ctx);
