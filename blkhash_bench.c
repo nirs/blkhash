@@ -12,7 +12,10 @@
 #include "blkhash.h"
 #include "util.h"
 
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+
 #define READ_SIZE (1 * MiB)
+#define ZERO_SIZE MIN(16 * GiB, SIZE_MAX)
 #define BLOCK_SIZE (64 * KiB)
 #define DIGEST_NAME "sha256"
 
@@ -42,12 +45,15 @@ void bench(const char *name, const char *digest, uint64_t size, bool is_zero,
     assert(h);
 
     if (is_zero) {
-        while (size >= SIZE_MAX) {
-            blkhash_zero(h, SIZE_MAX);
-            size -= SIZE_MAX;
+        uint64_t todo = size;
+        size_t chunk = MIN(size, ZERO_SIZE);
+
+        while (todo >= chunk) {
+            blkhash_zero(h, chunk);
+            todo -= chunk;
         }
-        if (size > 0)
-            blkhash_zero(h, size);
+        if (todo > 0)
+            blkhash_zero(h, todo);
     } else {
         for (uint64_t i = 0; i < size / READ_SIZE; i++) {
             blkhash_update(h, buf, READ_SIZE);
