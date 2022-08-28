@@ -35,29 +35,33 @@ void bench(const char *name, const char *digest, uint64_t size, bool is_zero,
     int64_t start, elapsed;
     double seconds;
     char *hsize, *hrate;
+    size_t chunk;
+    uint64_t todo;
 
     if (quick)
         size /= 1024;
+
+    todo = size;
+    chunk = MIN(size, is_zero ? ZERO_SIZE : READ_SIZE);
 
     start = gettime();
 
     h = blkhash_new(BLOCK_SIZE, digest);
     assert(h);
 
-    if (is_zero) {
-        uint64_t todo = size;
-        size_t chunk = MIN(size, ZERO_SIZE);
-
-        while (todo >= chunk) {
+    while (todo >= chunk) {
+        if (is_zero)
             blkhash_zero(h, chunk);
-            todo -= chunk;
-        }
-        if (todo > 0)
+        else
+            blkhash_update(h, buf, chunk);
+        todo -= chunk;
+    }
+
+    if (todo > 0) {
+        if (is_zero)
             blkhash_zero(h, todo);
-    } else {
-        for (uint64_t i = 0; i < size / READ_SIZE; i++) {
-            blkhash_update(h, buf, READ_SIZE);
-        }
+        else
+            blkhash_update(h, buf, todo);
     }
 
     blkhash_final(h, md, &len);
