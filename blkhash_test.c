@@ -275,6 +275,19 @@ void test_mix_unaligned()
         hexdigest);
 }
 
+void test_abort_quickly()
+{
+    struct blkhash *h = blkhash_new(block_size, digest_name);
+    assert(h != NULL);
+
+    for (int i = 0; i < 10; i++)
+        blkhash_zero(h, 3 * GiB);
+
+    blkhash_free(h);
+
+    /* TODO: check that workers were stopped without doing any work. */
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -299,6 +312,8 @@ int main(void)
 
     RUN_TEST(test_mix);
     RUN_TEST(test_mix_unaligned);
+
+    RUN_TEST(test_abort_quickly);
 
     return UNITY_END();
 }
