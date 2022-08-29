@@ -381,24 +381,24 @@ Example run on Lenovo ThinkPad P1 Gen 3 with Fedora 36:
 
 ```
 $ build/blkhash_bench | grep -v PASS
-update-data (sha256): 2.00 GiB in 1.036 seconds (1.93 GiB/s)
-update-data (sha1): 4.00 GiB in 1.029 seconds (3.89 GiB/s)
-update-zero (sha256): 50.00 GiB in 0.964 seconds (51.85 GiB/s)
-update-zero (sha1): 50.00 GiB in 0.947 seconds (52.82 GiB/s)
-zero (sha256): 2.44 TiB in 0.935 seconds (2.61 TiB/s)
-zero (sha1): 7.32 TiB in 1.014 seconds (7.22 TiB/s)
+update-data (sha256): 2.00 GiB in 1.190 seconds (1.68 GiB/s)
+update-data (sha1): 4.00 GiB in 1.078 seconds (3.71 GiB/s)
+update-zero (sha256): 50.00 GiB in 1.101 seconds (45.42 GiB/s)
+update-zero (sha1): 50.00 GiB in 1.053 seconds (47.50 GiB/s)
+zero (sha256): 2.44 TiB in 0.972 seconds (2.51 TiB/s)
+zero (sha1): 7.32 TiB in 0.965 seconds (7.59 TiB/s)
 ```
 
-Example run on MacBook Air M1 with macOS 12.5:
+Example run on MacBook Air M1 with macOS 12.5.1:
 
 ```
 % build/blkhash_bench | grep -v PASS
-update-data (sha256): 2.00 GiB in 0.289 seconds (6.92 GiB/s)
-update-data (sha1): 4.00 GiB in 0.522 seconds (7.67 GiB/s)
-update-zero (sha256): 50.00 GiB in 1.393 seconds (35.90 GiB/s)
-update-zero (sha1): 50.00 GiB in 1.391 seconds (35.96 GiB/s)
-zero (sha256): 2.44 TiB in 0.203 seconds (12.05 TiB/s)
-zero (sha1): 7.32 TiB in 0.595 seconds (12.31 TiB/s)
+update-data (sha256): 2.00 GiB in 0.286 seconds (6.99 GiB/s)
+update-data (sha1): 4.00 GiB in 0.519 seconds (7.71 GiB/s)
+update-zero (sha256): 50.00 GiB in 1.389 seconds (36.01 GiB/s)
+update-zero (sha1): 50.00 GiB in 1.388 seconds (36.02 GiB/s)
+zero (sha256): 2.44 TiB in 0.182 seconds (13.41 TiB/s)
+zero (sha1): 7.32 TiB in 0.527 seconds (13.91 TiB/s)
 ```
 
 Tested cases:
