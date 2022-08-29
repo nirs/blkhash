@@ -39,9 +39,23 @@ struct blkhash {
     /* Number of workers started. */
     unsigned workers_count;
 
+    /* The first error. Once set, any operation will fail quickly with this
+     * error. */
+    int error;
+
     /* Set when hash is finalized. */
     bool finalized;
 };
+
+/* Set the error and return -1. All intenral errors should be handled with
+ * this. Public APIs should always return the internal error on failures. */
+static inline int set_error(struct blkhash *h, int error)
+{
+    if (h->error == 0)
+        h->error = error;
+
+    return -1;
+}
 
 struct blkhash *blkhash_new(size_t block_size, const char *md_name)
 {
@@ -172,13 +186,13 @@ static int consume_data(struct blkhash *h, const void *buf, size_t len)
 
         b = block_new(h->block_index, len, buf);
         if (b == NULL)
-            return errno;
+            return set_error(h, errno);
 
         w = &h->workers[h->block_index % WORKERS];
         err = worker_update(w, b);
         if (err) {
             block_free(b);
-            return err;
+            return set_error(h, err);
         }
 
         h->block_index++;
@@ -204,16 +218,13 @@ static int consume_pending(struct blkhash *h)
          * Slow path if pending is partial block, fast path is pending
          * is full block and pending data is zeros.
          */
-        int err;
-
         if (h->pending_zero) {
             /* Convert partial block of zeros to data. */
             memset(h->pending, 0, h->pending_len);
         }
 
-        err = consume_data(h, h->pending, h->pending_len);
-        if (err)
-            return err;
+        if (consume_data(h, h->pending, h->pending_len))
+            return -1;
     }
 
     h->pending_len = 0;
@@ -221,8 +232,11 @@ static int consume_pending(struct blkhash *h)
     return 0;
 }
 
-void blkhash_update(struct blkhash *h, const void *buf, size_t len)
+int blkhash_update(struct blkhash *h, const void *buf, size_t len)
 {
+    if (h->error)
+        return h->error;
+
     h->image_size += len;
 
     /* Try to fill the pending buffer and consume it. */
@@ -231,13 +245,16 @@ void blkhash_update(struct blkhash *h, const void *buf, size_t len)
         buf += n;
         len -= n;
         if (h->pending_len == h->config.block_size) {
-            consume_pending(h);
+            if (consume_pending(h))
+                return h->error;
         }
     }
 
     /* Consume all full blocks in caller buffer. */
     while (len >= h->config.block_size) {
-        consume_data(h, buf, h->config.block_size);
+        if (consume_data(h, buf, h->config.block_size))
+            return h->error;
+
         buf += h->config.block_size;
         len -= h->config.block_size;
     }
@@ -250,17 +267,22 @@ void blkhash_update(struct blkhash *h, const void *buf, size_t len)
     }
 
     assert(len == 0);
+    return 0;
 }
 
-void blkhash_zero(struct blkhash *h, size_t len)
+int blkhash_zero(struct blkhash *h, size_t len)
 {
+    if (h->error)
+        return h->error;
+
     h->image_size += len;
 
     /* Try to fill the pending buffer and consume it. */
     if (h->pending_len > 0) {
         len -= add_pending_zeros(h, len);
         if (h->pending_len == h->config.block_size) {
-            consume_pending(h);
+            if (consume_pending(h))
+                return h->error;
         }
     }
 
@@ -276,42 +298,37 @@ void blkhash_zero(struct blkhash *h, size_t len)
     }
 
     assert(len == 0);
+    return 0;
 }
 
-static int stop_workers(struct blkhash *h, bool want_digest)
+static void stop_workers(struct blkhash *h, bool want_digest)
 {
     unsigned char md[EVP_MAX_MD_SIZE];
     unsigned int len;
-    int err = 0;
-    int rv;
+    int err;
 
     for (unsigned i = 0; i < h->workers_count; i++) {
-        rv = worker_final(&h->workers[i], want_digest ? h->image_size : 0);
-        if (rv && err == 0)
-            err = rv;
+        err = worker_final(&h->workers[i], want_digest ? h->image_size : 0);
+        if (err)
+            set_error(h, err);
     }
 
     for (unsigned i = 0; i < h->workers_count; i++) {
-        rv = worker_digest(&h->workers[i], md, &len);
-        if (rv && err == 0)
-            err = rv;
+        err = worker_digest(&h->workers[i], md, &len);
+        if (err)
+            set_error(h, err);
 
-        if (want_digest && err == 0) {
-            if (!EVP_DigestUpdate(h->root_ctx, md, len)) {
-                if (err == 0)
-                    err = ENOMEM;
-            }
+        if (want_digest && h->error == 0) {
+            if (!EVP_DigestUpdate(h->root_ctx, md, len))
+                set_error(h, ENOMEM);
         }
     }
-
-    return err;
 }
 
 int blkhash_final(struct blkhash *h, unsigned char *md_value,
                   unsigned int *md_len)
 {
-    int err = 0;
-    int rv;
+    bool want_digest = true;
 
     if (h->finalized)
         return EINVAL;
@@ -319,19 +336,17 @@ int blkhash_final(struct blkhash *h, unsigned char *md_value,
     h->finalized = true;
 
     if (h->pending_len > 0)
-        err = consume_pending(h);
+        consume_pending(h);
 
-    rv = stop_workers(h, err == 0);
-    if (rv && err == 0)
-        err = rv;
+    want_digest = h->error == 0;
+    stop_workers(h, want_digest);
 
-    if (err)
-        return err;
+    if (h->error == 0) {
+        if (!EVP_DigestFinal_ex(h->root_ctx, md_value, md_len))
+            set_error(h, ENOMEM);
+    }
 
-    if (!EVP_DigestFinal_ex(h->root_ctx, md_value, md_len))
-        return ENOMEM;
-
-    return 0;
+    return h->error;
 }
 
 void blkhash_free(struct blkhash *h)
@@ -339,8 +354,10 @@ void blkhash_free(struct blkhash *h)
     if (h == NULL)
         return;
 
-    if (!h->finalized)
-        stop_workers(h, false);
+    if (!h->finalized) {
+        bool want_digest = false;
+        stop_workers(h, want_digest);
+    }
 
     for (unsigned i = 0; i < h->workers_count; i++)
         worker_destroy(&h->workers[i]);

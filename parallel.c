@@ -344,10 +344,16 @@ static void finish_command(struct worker *w)
     w->commands_finished++;
 
     if (!io_only) {
-        if (cmd->zero)
-            blkhash_zero(w->h, cmd->length);
-        else
-            blkhash_update(w->h, cmd->buf, cmd->length);
+        int err;
+        if (cmd->zero) {
+            err = blkhash_zero(w->h, cmd->length);
+            if (err)
+                FAIL("blkhash_zero: %s", strerror(err));
+        } else {
+            err = blkhash_update(w->h, cmd->buf, cmd->length);
+            if (err)
+                FAIL("blkhash_update: %s", strerror(err));
+        }
     }
 
     DEBUG("worker %d command %" PRIu64 " finished in %" PRIu64 " usec "
@@ -458,6 +464,7 @@ static void *worker_thread(void *arg)
     struct job *job = w->job;
     struct options *opt = job->opt;
     int64_t offset;
+    int err;
 
     DEBUG("worker %d started", w->id);
 
@@ -482,10 +489,13 @@ static void *worker_thread(void *arg)
             progress_update(job->progress, 1);
     }
 
-    blkhash_final(w->h, job->out, NULL);
+    err = blkhash_final(w->h, job->out, NULL);
 
     blkhash_free(w->h);
     src_close(w->s);
+
+    if (err)
+        FAIL("blkhash_final: %s", strerror(err));
 
     DEBUG("worker %d finished", w->id);
     return NULL;

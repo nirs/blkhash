@@ -12,6 +12,7 @@ void simple_checksum(struct src *s, struct options *opt, unsigned char *out)
 {
     void *buf;
     struct blkhash *h;
+    int err = 0;
 
     buf = malloc(opt->read_size);
     if (buf == NULL)
@@ -26,12 +27,25 @@ void simple_checksum(struct src *s, struct options *opt, unsigned char *out)
         if (count == 0)
             break;
 
-        if (!io_only)
-            blkhash_update(h, buf, count);
+        if (!io_only) {
+            err = blkhash_update(h, buf, count);
+            if (err) {
+                ERROR("blkhash_update: %s", strerror(err));
+                goto out;
+            }
+        }
     }
 
-    blkhash_final(h, out, NULL);
+    if (running()) {
+        err = blkhash_final(h, out, NULL);
+        if (err)
+            ERROR("blkhash_final: %s", strerror(err));
+    }
 
+out:
     blkhash_free(h);
     free(buf);
+
+    if (err)
+        exit(EXIT_FAILURE);
 }
