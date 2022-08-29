@@ -328,6 +328,8 @@ static void stop_workers(struct blkhash *h, bool want_digest)
 int blkhash_final(struct blkhash *h, unsigned char *md_value,
                   unsigned int *md_len)
 {
+    bool want_digest = true;
+
     if (h->finalized)
         return EINVAL;
 
@@ -336,7 +338,8 @@ int blkhash_final(struct blkhash *h, unsigned char *md_value,
     if (h->pending_len > 0)
         consume_pending(h);
 
-    stop_workers(h, h->error == 0);
+    want_digest = h->error == 0;
+    stop_workers(h, want_digest);
 
     if (h->error == 0) {
         if (!EVP_DigestFinal_ex(h->root_ctx, md_value, md_len))
@@ -351,8 +354,10 @@ void blkhash_free(struct blkhash *h)
     if (h == NULL)
         return;
 
-    if (!h->finalized)
-        stop_workers(h, false);
+    if (!h->finalized) {
+        bool want_digest = false;
+        stop_workers(h, want_digest);
+    }
 
     for (unsigned i = 0; i < h->workers_count; i++)
         worker_destroy(&h->workers[i]);
