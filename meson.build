@@ -3,7 +3,7 @@
 
 project(
   'blkhash', 'c',
-  version: '0.4.1',
+  version: '0.5.0',
   license: 'LGPL-2.1-or-later',
   meson_version: '>= 0.54.0',
   default_options: [
