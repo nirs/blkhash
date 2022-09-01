@@ -295,9 +295,9 @@ int blkhash_zero(struct blkhash *h, size_t len)
     }
 
     /* Consume all full zero blocks. */
-    while (len >= h->config.block_size) {
-        consume_zero_blocks(h, 1);
-        len -= h->config.block_size;
+    if (len >= h->config.block_size) {
+        consume_zero_blocks(h, len / h->config.block_size);
+        len %= h->config.block_size;
     }
 
     /* Save the rest in the pending buffer. */
