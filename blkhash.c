@@ -182,7 +182,7 @@ static size_t add_pending_zeros(struct blkhash *h, size_t len)
     return n;
 }
 
-static inline void skip_zero_block(struct blkhash *h)
+static inline void consume_zero_block(struct blkhash *h)
 {
     h->block_index++;
 }
@@ -197,11 +197,11 @@ static inline bool is_zero_block(struct blkhash *h, const void *buf, size_t len)
  * to speed the computation by detecting zeros. Detecting zeros in
  * order of magnitude faster compared with computing a message digest.
  */
-static int consume_data(struct blkhash *h, const void *buf, size_t len)
+static int consume_data_block(struct blkhash *h, const void *buf, size_t len)
 {
     if (is_zero_block(h, buf, len)) {
         /* Fast path. */
-        skip_zero_block(h);
+        consume_zero_block(h);
         return 0;
     } else {
         /* Slow path. */
@@ -220,7 +220,7 @@ static int consume_pending(struct blkhash *h)
 
     if (h->pending_len == h->config.block_size && h->pending_zero) {
         /* Fast path. */
-        skip_zero_block(h);
+        consume_zero_block(h);
     } else {
         /*
          * Slow path if pending is partial block, fast path is pending
@@ -231,7 +231,7 @@ static int consume_pending(struct blkhash *h)
             memset(h->pending, 0, h->pending_len);
         }
 
-        if (consume_data(h, h->pending, h->pending_len))
+        if (consume_data_block(h, h->pending, h->pending_len))
             return -1;
     }
 
@@ -260,7 +260,7 @@ int blkhash_update(struct blkhash *h, const void *buf, size_t len)
 
     /* Consume all full blocks in caller buffer. */
     while (len >= h->config.block_size) {
-        if (consume_data(h, buf, h->config.block_size))
+        if (consume_data_block(h, buf, h->config.block_size))
             return h->error;
 
         buf += h->config.block_size;
@@ -296,7 +296,7 @@ int blkhash_zero(struct blkhash *h, size_t len)
 
     /* Consume all full zero blocks. */
     while (len >= h->config.block_size) {
-        skip_zero_block(h);
+        consume_zero_block(h);
         len -= h->config.block_size;
     }
 
