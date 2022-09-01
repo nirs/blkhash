@@ -107,6 +107,30 @@ error:
 }
 
 /*
+ * Submit one data block to the worker handling this block.
+ */
+static int submit_data_block(struct blkhash *h, const void *buf, size_t len)
+{
+    struct block *b;
+    struct worker *w;
+    int err;
+
+    b = block_new(h->block_index, len, buf);
+    if (b == NULL)
+        return set_error(h, errno);
+
+    w = &h->workers[h->block_index % WORKERS];
+    err = worker_update(w, b);
+    if (err) {
+        block_free(b);
+        return set_error(h, err);
+    }
+
+    h->block_index++;
+    return 0;
+}
+
+/*
  * Add up to block_size bytes of data to the pending buffer, trying to
  * fill the pending buffer. If the buffer kept pending zeros, convert
  * the pending zeros to data.
@@ -178,27 +202,11 @@ static int consume_data(struct blkhash *h, const void *buf, size_t len)
     if (is_zero_block(h, buf, len)) {
         /* Fast path. */
         skip_zero_block(h);
+        return 0;
     } else {
         /* Slow path. */
-        struct block *b;
-        struct worker *w;
-        int err;
-
-        b = block_new(h->block_index, len, buf);
-        if (b == NULL)
-            return set_error(h, errno);
-
-        w = &h->workers[h->block_index % WORKERS];
-        err = worker_update(w, b);
-        if (err) {
-            block_free(b);
-            return set_error(h, err);
-        }
-
-        h->block_index++;
+        return submit_data_block(h, buf, len);
     }
-
-    return 0;
 }
 
 /*
