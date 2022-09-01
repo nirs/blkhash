@@ -182,9 +182,9 @@ static size_t add_pending_zeros(struct blkhash *h, size_t len)
     return n;
 }
 
-static inline void consume_zero_block(struct blkhash *h)
+static inline void consume_zero_blocks(struct blkhash *h, size_t count)
 {
-    h->block_index++;
+    h->block_index += count;
 }
 
 static inline bool is_zero_block(struct blkhash *h, const void *buf, size_t len)
@@ -201,7 +201,7 @@ static int consume_data_block(struct blkhash *h, const void *buf, size_t len)
 {
     if (is_zero_block(h, buf, len)) {
         /* Fast path. */
-        consume_zero_block(h);
+        consume_zero_blocks(h, 1);
         return 0;
     } else {
         /* Slow path. */
@@ -220,7 +220,7 @@ static int consume_pending(struct blkhash *h)
 
     if (h->pending_len == h->config.block_size && h->pending_zero) {
         /* Fast path. */
-        consume_zero_block(h);
+        consume_zero_blocks(h, 1);
     } else {
         /*
          * Slow path if pending is partial block, fast path is pending
@@ -296,7 +296,7 @@ int blkhash_zero(struct blkhash *h, size_t len)
 
     /* Consume all full zero blocks. */
     while (len >= h->config.block_size) {
-        consume_zero_block(h);
+        consume_zero_blocks(h, 1);
         len -= h->config.block_size;
     }
 
