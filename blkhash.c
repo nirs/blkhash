@@ -17,6 +17,10 @@
 
 #define WORKERS 4
 
+/* Number of consecutive zero blocks to consume before submitting zero length
+ * block to all workers. */
+#define ZERO_BLOCKS_BATCH_SIZE (64 * 1024)
+
 struct blkhash {
     struct config config;
     struct worker workers[WORKERS];
@@ -32,6 +36,9 @@ struct blkhash {
 
     /* Current block index, increased when consuming a data or zero block. */
     int64_t block_index;
+
+    /* The index of the last submitted block. */
+    int64_t update_index;
 
     /* Image size, increased when adding data or zero to the hash. */
     int64_t image_size;
@@ -107,6 +114,31 @@ error:
 }
 
 /*
+ * Submit one zero length block to all workers. Every worker will add zero
+ * blocks from the last data block to the submitted block index.
+ */
+static int submit_zero_block(struct blkhash *h)
+{
+    struct block *b;
+    int err;
+
+    for (unsigned i = 0; i < WORKERS; i++) {
+        b = block_new(h->block_index, 0, NULL);
+        if (b == NULL)
+            return set_error(h, errno);
+
+        err = worker_update(&h->workers[i], b);
+        if (err) {
+            block_free(b);
+            return set_error(h, err);
+        }
+    }
+
+    h->update_index = h->block_index;
+    return 0;
+}
+
+/*
  * Submit one data block to the worker handling this block.
  */
 static int submit_data_block(struct blkhash *h, const void *buf, size_t len)
@@ -126,6 +158,7 @@ static int submit_data_block(struct blkhash *h, const void *buf, size_t len)
         return set_error(h, err);
     }
 
+    h->update_index = h->block_index;
     h->block_index++;
     return 0;
 }
@@ -182,9 +215,18 @@ static size_t add_pending_zeros(struct blkhash *h, size_t len)
     return n;
 }
 
-static inline void consume_zero_blocks(struct blkhash *h, size_t count)
+/*
+ * Consume count zero blocks, sending zero length block to all workers if
+ * enough zero blocks were consumed since the last data block.
+ */
+static inline int consume_zero_blocks(struct blkhash *h, size_t count)
 {
     h->block_index += count;
+
+    if (h->block_index - h->update_index >= ZERO_BLOCKS_BATCH_SIZE)
+        return submit_zero_block(h);
+
+    return 0;
 }
 
 static inline bool is_zero_block(struct blkhash *h, const void *buf, size_t len)
@@ -201,8 +243,7 @@ static int consume_data_block(struct blkhash *h, const void *buf, size_t len)
 {
     if (is_zero_block(h, buf, len)) {
         /* Fast path. */
-        consume_zero_blocks(h, 1);
-        return 0;
+        return consume_zero_blocks(h, 1);
     } else {
         /* Slow path. */
         return submit_data_block(h, buf, len);
@@ -220,7 +261,8 @@ static int consume_pending(struct blkhash *h)
 
     if (h->pending_len == h->config.block_size && h->pending_zero) {
         /* Fast path. */
-        consume_zero_blocks(h, 1);
+        if (consume_zero_blocks(h, 1))
+            return -1;
     } else {
         /*
          * Slow path if pending is partial block, fast path is pending
@@ -296,7 +338,9 @@ int blkhash_zero(struct blkhash *h, size_t len)
 
     /* Consume all full zero blocks. */
     if (len >= h->config.block_size) {
-        consume_zero_blocks(h, len / h->config.block_size);
+        if (consume_zero_blocks(h, len / h->config.block_size))
+            return h->error;
+
         len %= h->config.block_size;
     }
 
