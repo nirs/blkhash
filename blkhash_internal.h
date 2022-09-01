@@ -23,6 +23,7 @@ struct block {
     STAILQ_ENTRY(block) entry;
     int64_t index;
     size_t len;
+    bool last;
     unsigned char data[0];
 };
 
