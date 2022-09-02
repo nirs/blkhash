@@ -464,6 +464,7 @@ static void *worker_thread(void *arg)
     struct job *job = w->job;
     struct options *opt = job->opt;
     int64_t offset;
+    uint64_t segment_start = 0;
     int err;
 
     DEBUG("worker %d started", w->id);
@@ -475,8 +476,6 @@ static void *worker_thread(void *arg)
         FAIL_ERRNO("blkhash_new");
 
     for (offset = 0; offset < job->size; offset += opt->segment_size) {
-        uint64_t segment_start;
-
         if (debug)
             segment_start = gettime();
 
