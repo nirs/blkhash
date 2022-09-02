@@ -94,7 +94,7 @@ static int add_zero_blocks_before(struct worker *w, struct block *b)
     index = w->last_index + w->config->workers;
 
     while (index < b->index) {
-        if (!EVP_DigestUpdate(w->root_ctx, w->config->zero_md, w->config->zero_md_len)) {
+        if (!EVP_DigestUpdate(w->root_ctx, w->config->zero_md, w->config->md_len)) {
             set_error(w, ENOMEM);
             return -1;
         }

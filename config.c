@@ -17,7 +17,7 @@ static int compute_zero_md(struct config *c)
         return errno;
 
     /* Returns 1 on success. */
-    if (!EVP_Digest(buf, c->block_size, c->zero_md, &c->zero_md_len, c->md, NULL))
+    if (!EVP_Digest(buf, c->block_size, c->zero_md, &c->md_len, c->md, NULL))
         err = ENOMEM;
 
     free(buf);

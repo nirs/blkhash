@@ -16,7 +16,7 @@ struct config {
     int workers;
     const EVP_MD *md;
     unsigned char zero_md[EVP_MAX_MD_SIZE];
-    unsigned int zero_md_len;
+    unsigned int md_len;
 };
 
 struct block {
