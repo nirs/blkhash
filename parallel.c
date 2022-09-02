@@ -239,7 +239,7 @@ static void init_job(struct job *job, const char *filename,
         / opt->segment_size;
 
     if (opt->progress)
-        job->progress = progress_open(job->segment_count);
+        job->progress = progress_open(job->size);
 }
 
 static void destroy_job(struct job *job)
@@ -493,7 +493,7 @@ static void *worker_thread(void *arg)
         }
 
         if (job->progress)
-            progress_update(job->progress, 1);
+            progress_update(job->progress, opt->segment_size);
     }
 
     err = blkhash_final(w->h, job->out, NULL);

@@ -11,7 +11,7 @@
 
 #define WIDTH 50
 
-struct progress *progress_open(size_t count)
+struct progress *progress_open(int64_t size)
 {
     struct progress *p;
     int err;
@@ -27,13 +27,13 @@ struct progress *progress_open(size_t count)
     if (err)
         FAIL("pthread_mutex_init: %s", strerror(err));
 
-    p->count = count;
+    p->size = size;
     p->value = -1;
 
     return p;
 }
 
-void progress_update(struct progress *p, size_t n)
+void progress_update(struct progress *p, int64_t len)
 {
     int err;
 
@@ -41,7 +41,7 @@ void progress_update(struct progress *p, size_t n)
     if (err)
         FAIL("pthread_mutex_lock: %s", strerror(err));
 
-    p->done += n;
+    p->done += len;
 
     err = pthread_mutex_unlock(&p->mutex);
     if (err)
@@ -63,10 +63,10 @@ static inline int get_value(struct progress *p)
     if (err)
         FAIL("pthread_mutex_unlock: %s", strerror(err));
 
-    if (done > p->count)
-        done = p->count;
+    if (done > p->size)
+        done = p->size;
 
-    return done * 100 / p->count;
+    return (double)done / p->size * 100;
 }
 
 static inline void draw_bar(char *buf, int done, int size)

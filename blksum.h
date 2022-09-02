@@ -88,8 +88,8 @@ struct extent {
 
 struct progress {
     pthread_mutex_t mutex;
-    size_t done;
-    size_t count;
+    int64_t done;
+    int64_t size;
     int value;
 };
 
@@ -170,8 +170,8 @@ void simple_checksum(struct src *s, struct options *opt, unsigned char *out);
 void parallel_checksum(const char *filename, struct options *opt,
                        unsigned char *out);
 
-struct progress *progress_open(size_t count);
-void progress_update(struct progress *p, size_t n);
+struct progress *progress_open(int64_t size);
+void progress_update(struct progress *p, int64_t len);
 bool progress_draw(struct progress *p);
 void progress_close(struct progress *p);
 
