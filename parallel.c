@@ -351,6 +351,9 @@ static void finish_command(struct worker *w)
         }
     }
 
+    if (w->job->opt->progress)
+        progress_update(cmd->length);
+
     DEBUG("worker %d command %" PRIu64 " finished in %" PRIu64 " usec "
           "length=%" PRIu32 " zero=%d",
           w->id, cmd->seq, gettime() - cmd->started, cmd->length, cmd->zero);
@@ -486,9 +489,6 @@ static void *worker_thread(void *arg)
             DEBUG("worker %d aborting", w->id);
             break;
         }
-
-        if (opt->progress)
-            progress_update(opt->segment_size);
     }
 
     err = blkhash_final(w->h, job->out, NULL);
