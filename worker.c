@@ -108,7 +108,6 @@ static int add_zero_blocks_before(struct worker *w, struct block *b)
 static int add_data_block(struct worker *w, struct block *b)
 {
     unsigned char block_md[EVP_MAX_MD_SIZE];
-    unsigned int md_len;
 
     /* Don't modify the hash after errors. */
     if (w->error)
@@ -120,10 +119,10 @@ static int add_data_block(struct worker *w, struct block *b)
     if (!EVP_DigestUpdate(w->block_ctx, b->data, b->len))
         goto error;
 
-    if (!EVP_DigestFinal_ex(w->block_ctx, block_md, &md_len))
+    if (!EVP_DigestFinal_ex(w->block_ctx, block_md, NULL))
         goto error;
 
-    if (!EVP_DigestUpdate(w->root_ctx, block_md, md_len))
+    if (!EVP_DigestUpdate(w->root_ctx, block_md, w->config->md_len))
         goto error;
 
     w->last_index = b->index;
