@@ -1,11 +1,9 @@
 // SPDX-FileCopyrightText: Red Hat Inc
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#include <fcntl.h>
-#include <string.h>
-#include <unistd.h>
-#include <stdlib.h>
 #include <assert.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "blksum.h"
 #include "util.h"
@@ -15,9 +13,6 @@
 struct progress *progress_open(int64_t size)
 {
     struct progress *p;
-
-    if (!isatty(fileno(stdout)))
-        return NULL;
 
     p = calloc(1, sizeof(*p));
     if (p == NULL)
