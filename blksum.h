@@ -86,12 +86,6 @@ struct extent {
     bool zero;
 };
 
-struct progress {
-    int64_t done;
-    int64_t size;
-    int value;
-};
-
 /*
  * Callback invoked when an async command completes.
  */
@@ -169,8 +163,8 @@ void simple_checksum(struct src *s, struct options *opt, unsigned char *out);
 void parallel_checksum(const char *filename, struct options *opt,
                        unsigned char *out);
 
-struct progress *progress_open(int64_t size);
-void progress_update(struct progress *p, int64_t len);
-void progress_close(struct progress *p);
+void progress_init(int64_t size);
+void progress_update(int64_t len);
+void progress_clear();
 
 #endif /* BLKSUM_H */

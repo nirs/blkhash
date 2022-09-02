@@ -24,9 +24,6 @@ struct job {
     /* Set if job started a nbd server to serve filename. */
     struct nbd_server *nbd_server;
 
-    /* Set if progress is enabled. */
-    struct progress *progress;
-
     /* The computed checksum. */
     unsigned char *out;
 };
@@ -239,7 +236,7 @@ static void init_job(struct job *job, const char *filename,
         / opt->segment_size;
 
     if (opt->progress)
-        job->progress = progress_open(job->size);
+        progress_init(job->size);
 }
 
 static void destroy_job(struct job *job)
@@ -255,10 +252,8 @@ static void destroy_job(struct job *job)
     }
 #endif
 
-    if (job->progress) {
-        progress_close(job->progress);
-        job->progress = NULL;
-    }
+    if (job->opt->progress)
+        progress_clear();
 }
 
 static struct command *create_command(int64_t offset, struct extent *extent,
@@ -492,8 +487,8 @@ static void *worker_thread(void *arg)
             break;
         }
 
-        if (job->progress)
-            progress_update(job->progress, opt->segment_size);
+        if (opt->progress)
+            progress_update(opt->segment_size);
     }
 
     err = blkhash_final(w->h, job->out, NULL);
