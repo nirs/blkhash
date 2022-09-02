@@ -12,6 +12,8 @@
 #define GiB (1LL<<30)
 #define TiB (1LL<<40)
 
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
+
 void format_hex(unsigned char *md, unsigned int len, char *s);
 char *humansize(int64_t bytes);
 uint64_t gettime(void);

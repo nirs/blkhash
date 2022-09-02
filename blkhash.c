@@ -13,8 +13,8 @@
 
 #include "blkhash.h"
 #include "blkhash_internal.h"
+#include "util.h"
 
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
 #define WORKERS 4
 
 struct blkhash {
