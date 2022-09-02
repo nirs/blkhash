@@ -87,7 +87,6 @@ struct extent {
 };
 
 struct progress {
-    pthread_mutex_t mutex;
     int64_t done;
     int64_t size;
     int value;

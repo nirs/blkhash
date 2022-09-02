@@ -15,7 +15,6 @@
 struct progress *progress_open(int64_t size)
 {
     struct progress *p;
-    int err;
 
     if (!isatty(fileno(stdout)))
         return NULL;
@@ -23,10 +22,6 @@ struct progress *progress_open(int64_t size)
     p = calloc(1, sizeof(*p));
     if (p == NULL)
         FAIL_ERRNO("calloc");
-
-    err = pthread_mutex_init(&p->mutex, NULL);
-    if (err)
-        FAIL("pthread_mutex_init: %s", strerror(err));
 
     p->size = size;
     p->value = -1;
@@ -55,11 +50,6 @@ static inline void progress_draw(struct progress *p)
 void progress_update(struct progress *p, int64_t len)
 {
     int value;
-    int err;
-
-    err = pthread_mutex_lock(&p->mutex);
-    if (err)
-        FAIL("pthread_mutex_lock: %s", strerror(err));
 
     p->done = MIN(p->done + len, p->size);
 
@@ -69,16 +59,11 @@ void progress_update(struct progress *p, int64_t len)
         p->value = value;
         progress_draw(p);
     }
-
-    err = pthread_mutex_unlock(&p->mutex);
-    if (err)
-        FAIL("pthread_mutex_unlock: %s", strerror(err));
 }
 
 void progress_close(struct progress *p)
 {
     char space[80];
-    int err;
 
     if (p == NULL)
         return;
@@ -88,10 +73,6 @@ void progress_close(struct progress *p)
 
     fprintf(stdout, "%s\r", space);
     fflush(stdout);
-
-    err = pthread_mutex_destroy(&p->mutex);
-    if (err)
-        FAIL("pthread_mutex_destroy: %s", strerror(err));
 
     free(p);
 }
