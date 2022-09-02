@@ -172,7 +172,6 @@ void parallel_checksum(const char *filename, struct options *opt,
 
 struct progress *progress_open(int64_t size);
 void progress_update(struct progress *p, int64_t len);
-bool progress_draw(struct progress *p);
 void progress_close(struct progress *p);
 
 #endif /* BLKSUM_H */

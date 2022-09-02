@@ -524,11 +524,6 @@ void parallel_checksum(const char *filename, struct options *opt,
     if (err)
         FAIL("pthread_create: %s", strerror(err));
 
-    if (job.progress) {
-        while (running() && progress_draw(job.progress))
-            usleep(100000);
-    }
-
     DEBUG("joining worker");
     err = pthread_join(worker.thread, NULL);
     if (err)

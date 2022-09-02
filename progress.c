@@ -8,6 +8,7 @@
 #include <assert.h>
 
 #include "blksum.h"
+#include "util.h"
 
 #define WIDTH 50
 
@@ -33,42 +34,6 @@ struct progress *progress_open(int64_t size)
     return p;
 }
 
-void progress_update(struct progress *p, int64_t len)
-{
-    int err;
-
-    err = pthread_mutex_lock(&p->mutex);
-    if (err)
-        FAIL("pthread_mutex_lock: %s", strerror(err));
-
-    p->done += len;
-
-    err = pthread_mutex_unlock(&p->mutex);
-    if (err)
-        FAIL("pthread_mutex_unlock: %s", strerror(err));
-}
-
-static inline int get_value(struct progress *p)
-{
-    size_t done;
-    int err;
-
-    err = pthread_mutex_lock(&p->mutex);
-    if (err)
-        FAIL("pthread_mutex_lock: %s", strerror(err));
-
-    done = p->done;
-
-    err = pthread_mutex_unlock(&p->mutex);
-    if (err)
-        FAIL("pthread_mutex_unlock: %s", strerror(err));
-
-    if (done > p->size)
-        done = p->size;
-
-    return (double)done / p->size * 100;
-}
-
 static inline void draw_bar(char *buf, int done, int size)
 {
     assert(done <= size);
@@ -78,19 +43,36 @@ static inline void draw_bar(char *buf, int done, int size)
     buf[size] = 0;
 }
 
-bool progress_draw(struct progress *p)
+static inline void progress_draw(struct progress *p)
 {
     char bar[WIDTH + 1];
-    int value = get_value(p);
+
+    draw_bar(bar, p->value * WIDTH / 100, WIDTH);
+    fprintf(stdout, " %3d%% [%s]    \r", p->value, bar);
+    fflush(stdout);
+}
+
+void progress_update(struct progress *p, int64_t len)
+{
+    int value;
+    int err;
+
+    err = pthread_mutex_lock(&p->mutex);
+    if (err)
+        FAIL("pthread_mutex_lock: %s", strerror(err));
+
+    p->done = MIN(p->done + len, p->size);
+
+    value = (double)p->done / p->size * 100;
 
     if (value > p->value) {
         p->value = value;
-        draw_bar(bar, value * WIDTH / 100, WIDTH);
-        fprintf(stdout, " %3d%% [%s]    \r", value, bar);
-        fflush(stdout);
+        progress_draw(p);
     }
 
-    return value < 100;
+    err = pthread_mutex_unlock(&p->mutex);
+    if (err)
+        FAIL("pthread_mutex_unlock: %s", strerror(err));
 }
 
 void progress_close(struct progress *p)
