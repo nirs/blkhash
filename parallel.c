@@ -484,7 +484,7 @@ static void *worker_thread(void *arg)
               w->id, offset);
 
         process_segment(w, offset);
-        
+
         DEBUG("worker %d segment at offset %" PRIi64 " processed in %" PRIu64 " usec",
               w->id, offset, gettime() - segment_start);
 
