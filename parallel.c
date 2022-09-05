@@ -24,9 +24,6 @@ struct job {
     /* Set if job started a nbd server to serve filename. */
     struct nbd_server *nbd_server;
 
-    /* Set if progress is enabled. */
-    struct progress *progress;
-
     /* The computed checksum. */
     unsigned char *out;
 };
@@ -239,7 +236,7 @@ static void init_job(struct job *job, const char *filename,
         / opt->segment_size;
 
     if (opt->progress)
-        job->progress = progress_open(job->segment_count);
+        progress_init(job->size);
 }
 
 static void destroy_job(struct job *job)
@@ -255,10 +252,8 @@ static void destroy_job(struct job *job)
     }
 #endif
 
-    if (job->progress) {
-        progress_close(job->progress);
-        job->progress = NULL;
-    }
+    if (job->opt->progress)
+        progress_clear();
 }
 
 static struct command *create_command(int64_t offset, struct extent *extent,
@@ -355,6 +350,9 @@ static void finish_command(struct worker *w)
                 FAIL("blkhash_update: %s", strerror(err));
         }
     }
+
+    if (w->job->opt->progress)
+        progress_update(cmd->length);
 
     DEBUG("worker %d command %" PRIu64 " finished in %" PRIu64 " usec "
           "length=%" PRIu32 " zero=%d",
@@ -491,9 +489,6 @@ static void *worker_thread(void *arg)
             DEBUG("worker %d aborting", w->id);
             break;
         }
-
-        if (job->progress)
-            progress_update(job->progress, 1);
     }
 
     err = blkhash_final(w->h, job->out, NULL);
@@ -523,11 +518,6 @@ void parallel_checksum(const char *filename, struct options *opt,
     err = pthread_create(&worker.thread, NULL, worker_thread, &worker);
     if (err)
         FAIL("pthread_create: %s", strerror(err));
-
-    if (job.progress) {
-        while (running() && progress_draw(job.progress))
-            usleep(100000);
-    }
 
     DEBUG("joining worker");
     err = pthread_join(worker.thread, NULL);

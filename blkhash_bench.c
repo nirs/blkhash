@@ -12,8 +12,6 @@
 #include "blkhash.h"
 #include "util.h"
 
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
-
 #define READ_SIZE (1 * MiB)
 #define ZERO_SIZE MIN(16 * GiB, SIZE_MAX)
 #define BLOCK_SIZE (64 * KiB)

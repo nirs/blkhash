@@ -145,7 +145,7 @@ static void parse_options(int argc, char *argv[])
             opt.digest_name = optarg;
             break;
         case 'p':
-            opt.progress = true;
+            opt.progress = !!isatty(fileno(stdout));
             break;
         case 'c':
             opt.cache = true;
