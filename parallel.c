@@ -17,7 +17,7 @@
 
 struct job {
     char *uri;
-    uint64_t size;
+    int64_t size;
     struct options *opt;
     size_t segment_count;
 
@@ -47,9 +47,9 @@ struct command {
 
 struct command_queue {
     STAILQ_HEAD(, command) head;
-    int len;    /* Number of items in queue. */
-    int bytes;  /* Total length of non-zero commands. */
-    int size;   /* Maximum length of non-zero commands. */
+    int len;       /* Number of items in queue. */
+    size_t bytes;  /* Total length of non-zero commands. */
+    size_t size;   /* Maximum length of non-zero commands. */
 };
 
 struct worker {
@@ -93,6 +93,7 @@ static inline void queue_push(struct command_queue *q, struct command *cmd)
 static inline struct command *queue_pop(struct command_queue *q)
 {
     struct command *cmd;
+    uint32_t cmd_cost;
 
     cmd = STAILQ_FIRST(&q->head);
     STAILQ_REMOVE_HEAD(&q->head, entry);
@@ -100,8 +101,9 @@ static inline struct command *queue_pop(struct command_queue *q)
     assert(q->len > 0);
     q->len--;
 
-    q->bytes -= cost(cmd->zero, cmd->length);
-    assert(q->bytes >= 0);
+    cmd_cost = cost(cmd->zero, cmd->length);
+    assert(q->bytes >= cmd_cost);
+    q->bytes -= cmd_cost;
 
     return cmd;
 }
