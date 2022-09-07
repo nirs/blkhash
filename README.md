@@ -381,15 +381,16 @@ Example run on Lenovo ThinkPad P1 Gen 3 with Fedora 36:
 
 ```
 $ build/blkhash_bench | grep -v PASS
-update-data (sha256): 2.00 GiB in 1.190 seconds (1.68 GiB/s)
-update-data (sha1): 4.00 GiB in 1.078 seconds (3.71 GiB/s)
-update-zero (sha256): 50.00 GiB in 1.101 seconds (45.42 GiB/s)
-update-zero (sha1): 50.00 GiB in 1.053 seconds (47.50 GiB/s)
-zero (sha256): 2.44 TiB in 0.972 seconds (2.51 TiB/s)
-zero (sha1): 7.32 TiB in 0.965 seconds (7.59 TiB/s)
+update-data (sha256): 2.00 GiB in 1.226 seconds (1.63 GiB/s)
+update-data (sha1): 4.00 GiB in 1.087 seconds (3.68 GiB/s)
+update-zero (sha256): 50.00 GiB in 1.154 seconds (43.33 GiB/s)
+update-zero (sha1): 50.00 GiB in 1.152 seconds (43.40 GiB/s)
+zero (sha256): 2.44 TiB in 0.840 seconds (2.91 TiB/s)
+zero (sha1): 7.32 TiB in 0.802 seconds (9.13 TiB/s)
 ```
 
-Example run on Dell PowerEdge R640 running RHEL 8.6:
+Example run on Dell PowerEdge R640 with RHEL 8.6 running in a CentOS
+Stream 9 container:
 
 ```
 $ build/blkhash_bench | grep -v PASS
