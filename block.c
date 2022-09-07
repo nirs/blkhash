@@ -14,6 +14,7 @@ struct block *block_new(uint64_t index, size_t len, const void *data)
 
     b->index = index;
     b->len = len;
+    b->last = false;
 
     if (len)
         memcpy(b->data, data, len);

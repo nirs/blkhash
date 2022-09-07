@@ -144,7 +144,7 @@ static void *worker_thread(void *arg)
         if (block == NULL)
             break;
 
-        if (block->len == 0)
+        if (block->last)
             w->running = false;
 
         add_zero_blocks_before(w, block);
@@ -292,6 +292,7 @@ int worker_final(struct worker *w, int64_t size)
     if (quit == NULL)
         return errno;
 
+    quit->last = true;
     err = worker_update(w, quit);
     if (err) {
         block_free(quit);

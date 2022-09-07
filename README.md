@@ -393,12 +393,12 @@ Example run on Dell PowerEdge R640 running RHEL 8.6:
 
 ```
 $ build/blkhash_bench | grep -v PASS
-update-data (sha256): 2.00 GiB in 1.179 seconds (1.70 GiB/s)
-update-data (sha1): 4.00 GiB in 1.088 seconds (3.68 GiB/s)
-update-zero (sha256): 50.00 GiB in 1.250 seconds (40.01 GiB/s)
-update-zero (sha1): 50.00 GiB in 1.242 seconds (40.24 GiB/s)
-zero (sha256): 2.44 TiB in 1.095 seconds (2.23 TiB/s)
-zero (sha1): 7.32 TiB in 2.186 seconds (3.35 TiB/s)
+update-data (sha256): 2.00 GiB in 1.217 seconds (1.64 GiB/s)
+update-data (sha1): 4.00 GiB in 1.130 seconds (3.54 GiB/s)
+update-zero (sha256): 50.00 GiB in 1.303 seconds (38.38 GiB/s)
+update-zero (sha1): 50.00 GiB in 1.302 seconds (38.40 GiB/s)
+zero (sha256): 2.44 TiB in 0.910 seconds (2.68 TiB/s)
+zero (sha1): 7.32 TiB in 1.017 seconds (7.21 TiB/s)
 ```
 
 Example run on MacBook Air M1 with macOS 12.5.1:
