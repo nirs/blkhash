@@ -171,6 +171,7 @@ static void parse_options(int argc, char *argv[])
         }
         case ':':
             FAIL("Option %s requires an argument", optname);
+            break;
         case '?':
         default:
             FAIL("Invalid option: %s", optname);
