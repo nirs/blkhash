@@ -158,7 +158,7 @@ static int nbd_ops_aio_run(struct src *s, int timeout)
 {
     struct nbd_src *ns = (struct nbd_src *)s;
     int res;
-    unsigned in_flight;
+    int in_flight;
 
     in_flight = nbd_aio_in_flight(ns->h);
 
