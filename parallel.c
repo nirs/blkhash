@@ -256,8 +256,8 @@ static void destroy_job(struct job *job)
         progress_clear();
 }
 
-static struct command *create_command(int64_t offset, struct extent *extent,
-                                      int wid, uint64_t seq)
+static struct command *create_command(struct extent *extent, int wid,
+                                      uint64_t seq)
 {
     struct command *c;
 
@@ -320,7 +320,7 @@ static void start_command(struct worker *w, int64_t offset, struct extent *exten
           " length=%" PRIu32 " zero=%d",
           w->id, w->commands_started, offset, extent->length, extent->zero);
 
-    cmd = create_command(offset, extent, w->id, w->commands_started);
+    cmd = create_command(extent, w->id, w->commands_started);
     queue_push(&w->queue, cmd);
     w->commands_started++;
 
