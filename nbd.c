@@ -29,7 +29,7 @@ static ssize_t nbd_ops_pread(struct src *s, void *buf, size_t len, int64_t offse
     struct nbd_src *ns = (struct nbd_src *)s;
     int res = -1;
 
-    if (offset + len > s->size)
+    if (offset + (int64_t)len > s->size)
         FAIL("read after end of file offset=%ld len=%ld size=%ld",
              offset, len, s->size);
 
@@ -136,7 +136,7 @@ static int nbd_ops_aio_pread(struct src *s, void *buf, size_t len,
     struct nbd_src *ns = (struct nbd_src *)s;
     int64_t res;
 
-    if (offset + len > s->size)
+    if (offset + (int64_t)len > s->size)
         FAIL("read after end of file offset=%ld len=%ld size=%ld",
              offset, len, s->size);
 
