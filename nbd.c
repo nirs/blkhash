@@ -45,8 +45,8 @@ static ssize_t nbd_ops_pread(struct src *s, void *buf, size_t len, int64_t offse
  * return values are ignored, unlike completion callback.
  */
 static int extent_callback (void *user_data, const char *metacontext,
-                            uint64_t offset, uint32_t *entries,
-                            size_t nr_entries, int *error)
+                            uint64_t offset __attribute__ ((unused)),
+                            uint32_t *entries, size_t nr_entries, int *error)
 {
     struct extent_request *r = user_data;
     size_t count = nr_entries / 2;
