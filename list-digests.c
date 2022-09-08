@@ -41,8 +41,10 @@ static void append(struct digests *d, const char *name)
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
 static void append_digest(EVP_MD *md, void *arg)
 #else
-static void append_digest(const EVP_MD *md, const char *from, const char *to,
-                         void *arg)
+static void append_digest(const EVP_MD *md,
+                          const char *from __attribute__ ((unused)),
+                          const char *to __attribute__ ((unused)),
+                          void *arg)
 #endif
 {
     struct digests *digests = arg;

@@ -29,7 +29,7 @@ static ssize_t nbd_ops_pread(struct src *s, void *buf, size_t len, int64_t offse
     struct nbd_src *ns = (struct nbd_src *)s;
     int res = -1;
 
-    if (offset + len > s->size)
+    if (offset + (int64_t)len > s->size)
         FAIL("read after end of file offset=%ld len=%ld size=%ld",
              offset, len, s->size);
 
@@ -45,8 +45,8 @@ static ssize_t nbd_ops_pread(struct src *s, void *buf, size_t len, int64_t offse
  * return values are ignored, unlike completion callback.
  */
 static int extent_callback (void *user_data, const char *metacontext,
-                            uint64_t offset, uint32_t *entries,
-                            size_t nr_entries, int *error)
+                            uint64_t offset __attribute__ ((unused)),
+                            uint32_t *entries, size_t nr_entries, int *error)
 {
     struct extent_request *r = user_data;
     size_t count = nr_entries / 2;
@@ -136,7 +136,7 @@ static int nbd_ops_aio_pread(struct src *s, void *buf, size_t len,
     struct nbd_src *ns = (struct nbd_src *)s;
     int64_t res;
 
-    if (offset + len > s->size)
+    if (offset + (int64_t)len > s->size)
         FAIL("read after end of file offset=%ld len=%ld size=%ld",
              offset, len, s->size);
 
@@ -158,7 +158,7 @@ static int nbd_ops_aio_run(struct src *s, int timeout)
 {
     struct nbd_src *ns = (struct nbd_src *)s;
     int res;
-    unsigned in_flight;
+    int in_flight;
 
     in_flight = nbd_aio_in_flight(ns->h);
 

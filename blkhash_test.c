@@ -36,7 +36,7 @@ void checksum(struct extent *extents, unsigned int len,
     h = blkhash_new(block_size, digest_name);
     TEST_ASSERT_NOT_NULL_MESSAGE(h, strerror(errno));
 
-    for (int i = 0; i < len; i++) {
+    for (unsigned i = 0; i < len; i++) {
         struct extent *e = &extents[i];
 
         if (e->byte == '-') {

@@ -22,7 +22,7 @@ static ssize_t file_ops_pread(struct src *s, void *buf, size_t len, int64_t offs
     struct file_src *fs = (struct file_src *)s;
     size_t pos = 0;
 
-    if (offset + len > s->size)
+    if (offset + (int64_t)len > s->size)
         FAIL("read after end of file offset=%" PRIi64 " len=%zu size=%" PRIi64,
              offset, len, s->size);
 
@@ -55,7 +55,8 @@ static int file_ops_aio_pread(struct src *s, void *buf, size_t len,
 }
 
 /* Fake async implementaion to keep callers happy. */
-static int file_ops_aio_run(struct src *s, int timeout)
+static int file_ops_aio_run(struct src *s __attribute__ ((unused)),
+                            int timeout __attribute__ ((unused)))
 {
     return 1;
 }
