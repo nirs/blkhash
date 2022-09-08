@@ -302,12 +302,15 @@ int main(int argc, char *argv[])
 
         /* Terminate by termination signal. */
         signal(terminated, SIG_DFL);
+        pthread_mutex_unlock(&lock);
         raise(terminated);
     }
 
-    if (failed)
+    if (failed) {
         /* The failing thread already reported the error. */
+        pthread_mutex_unlock(&lock);
         exit(EXIT_FAILURE);
+    }
 
     pthread_mutex_unlock(&lock);
 
