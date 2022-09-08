@@ -242,13 +242,10 @@ void fail(const char *fmt, ...)
     va_list args;
     va_start(args, fmt);
 
-    /*
-     * Unless we run in debug mode, only the first thread will log the
-     * failure message.
-     */
     pthread_mutex_lock(&lock);
 
-    if (!failed || debug) {
+    /* Ignore the failure if terminated, unless we run in debug mode. */
+    if (!(failed || terminated) || debug) {
         failed = true;
         vfprintf(stderr, fmt, args);
     }
