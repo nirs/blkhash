@@ -295,10 +295,6 @@ int main(int argc, char *argv[])
 
     pthread_mutex_lock(&lock);
 
-    if (failed)
-        /* The failing thread already reported the error. */
-        exit(EXIT_FAILURE);
-
     if (terminated) {
         /* Be quiet if user interrupted. */
         if (terminated != SIGINT)
@@ -308,6 +304,10 @@ int main(int argc, char *argv[])
         signal(terminated, SIG_DFL);
         raise(terminated);
     }
+
+    if (failed)
+        /* The failing thread already reported the error. */
+        exit(EXIT_FAILURE);
 
     pthread_mutex_unlock(&lock);
 
