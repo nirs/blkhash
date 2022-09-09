@@ -12,12 +12,15 @@
 #include <string.h>
 #include <pthread.h>
 
+#include "util.h"
+
 #define PROG "blksum"
 
-#define DEBUG(fmt, ...)                                             \
-    do {                                                            \
-        if (debug)                                                  \
-            fprintf(stderr, PROG ": " fmt "\n", ## __VA_ARGS__);    \
+#define DEBUG(fmt, ...)                                               \
+    do {                                                              \
+        if (debug)                                                    \
+            fprintf(stderr, "[%10.6f] " fmt "\n",                     \
+                    (gettime() - started) * 1e-6, ## __VA_ARGS__);    \
     } while (0)
 
 #define ERROR(fmt, ...) fprintf(stderr, PROG ": " fmt "\n", ## __VA_ARGS__)
@@ -30,6 +33,7 @@ bool running(void);
 
 extern bool debug;
 extern bool io_only;
+extern uint64_t started;
 
 /* Options flags. */
 #define USER_QUEUE_SIZE  (1 << 0)
