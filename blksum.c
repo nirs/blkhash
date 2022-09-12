@@ -16,13 +16,13 @@
 
 #include "blkhash.h"
 #include "blksum.h"
-#include "util.h"
 
 #define MAX_QUEUE_SIZE (8 * 1024 * 1024)
 #define MAX_WORKERS 16
 
 bool debug = false;
 bool io_only = false;
+uint64_t started = 0;
 
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_t main_thread;
@@ -277,6 +277,9 @@ int main(int argc, char *argv[])
 
     debug = getenv("BLKSUM_DEBUG") != NULL;
     io_only = getenv("BLKSUM_IO_ONLY") != NULL;
+
+    if (debug)
+        started = gettime();
 
     parse_options(argc, argv);
 

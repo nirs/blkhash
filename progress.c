@@ -6,7 +6,6 @@
 #include <string.h>
 
 #include "blksum.h"
-#include "util.h"
 
 #define WIDTH 50
 
