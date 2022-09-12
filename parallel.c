@@ -440,6 +440,7 @@ static void process_image(struct worker *w)
 
             start_command(w, offset, &extent);
             offset += extent.length;
+            assert(offset <= job->size);
             extent.length = 0;
         }
 
