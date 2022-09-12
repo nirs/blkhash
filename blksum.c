@@ -242,13 +242,10 @@ void fail(const char *fmt, ...)
     va_list args;
     va_start(args, fmt);
 
-    /*
-     * Unless we run in debug mode, only the first thread will log the
-     * failure message.
-     */
     pthread_mutex_lock(&lock);
 
-    if (!failed || debug) {
+    /* Ignore the failure if terminated, unless we run in debug mode. */
+    if (!(failed || terminated) || debug) {
         failed = true;
         vfprintf(stderr, fmt, args);
     }
@@ -301,10 +298,6 @@ int main(int argc, char *argv[])
 
     pthread_mutex_lock(&lock);
 
-    if (failed)
-        /* The failing thread already reported the error. */
-        exit(EXIT_FAILURE);
-
     if (terminated) {
         /* Be quiet if user interrupted. */
         if (terminated != SIGINT)
@@ -312,7 +305,14 @@ int main(int argc, char *argv[])
 
         /* Terminate by termination signal. */
         signal(terminated, SIG_DFL);
+        pthread_mutex_unlock(&lock);
         raise(terminated);
+    }
+
+    if (failed) {
+        /* The failing thread already reported the error. */
+        pthread_mutex_unlock(&lock);
+        exit(EXIT_FAILURE);
     }
 
     pthread_mutex_unlock(&lock);
