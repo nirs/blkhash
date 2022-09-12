@@ -55,7 +55,7 @@ static struct options opt = {
     .block_size = 64 * 1024,
 
     /* Maximum size for extents call. */
-    .extents_size = 128 * 1024 * 1024,
+    .extents_size = 1024 * 1024 * 1024,
 
     /*
      * Use host page cache. This is may be faster, but is not correct
