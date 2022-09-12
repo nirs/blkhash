@@ -372,14 +372,19 @@ static void clear_extents(struct worker *w)
 
 static void fetch_extents(struct worker *w, int64_t offset, uint32_t length)
 {
+    uint64_t start = 0;
     clear_extents(w);
 
     DEBUG("worker %d get extents offset=%" PRIi64 " length=%" PRIu32,
           w->id, offset, length);
 
+    if (debug)
+        start = gettime();
+
     src_extents(w->s, offset, length, &w->extents.array, &w->extents.count);
 
-    DEBUG("worker %d got %lu extents", w->id, w->extents.count);
+    DEBUG("worker %d got %lu extents in %" PRIu64 " usec",
+          w->id, w->extents.count, gettime() - start);
 }
 
 static inline bool need_extents(struct worker *w)
