@@ -50,7 +50,6 @@ static int extent_callback (void *user_data, const char *metacontext,
 {
     struct extent_request *r = user_data;
     size_t count = nr_entries / 2;
-    int64_t reply_length = 0;
     size_t i;
 
     if (strcmp(metacontext, LIBNBD_CONTEXT_BASE_ALLOCATION) != 0) {
@@ -67,29 +66,15 @@ static int extent_callback (void *user_data, const char *metacontext,
     if (r->extents == NULL)
         FAIL_ERRNO("malloc");
 
-    /*
-     * NBD protocol allows the last request to end after the specified
-     * range. This is bad for our use case so we clip the last extent to
-     * the specified range.
-     *
-     * To be more robust against incompliant servers stop iteration once we
-     * reach the requested range, so we may report less extents.
-     */
-
-    for (i = 0; i < count && reply_length < r->length; i++) {
+    for (i = 0; i < count; i++) {
         uint32_t length = entries[i * 2];
         uint32_t flags = entries[i * 2 + 1];
 
-        if (reply_length + length > r->length) {
-            length = r->length - reply_length;
-        }
-
-        reply_length += length;
         r->extents[i].length = length;
         r->extents[i].zero = (flags & LIBNBD_STATE_ZERO) != 0;
     }
 
-    r->count = i;
+    r->count = count;
 
     return 0;
 }

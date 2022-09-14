@@ -19,7 +19,6 @@ struct job {
     char *uri;
     int64_t size;
     struct options *opt;
-    size_t segment_count;
 
     /* Set if job started a nbd server to serve filename. */
     struct nbd_server *nbd_server;
@@ -234,8 +233,6 @@ static void init_job(struct job *job, const char *filename,
 
     /* Initialize job. */
     job->opt = opt;
-    job->segment_count = (job->size + opt->segment_size - 1)
-        / opt->segment_size;
 
     if (opt->progress)
         progress_init(job->size);
@@ -375,14 +372,19 @@ static void clear_extents(struct worker *w)
 
 static void fetch_extents(struct worker *w, int64_t offset, uint32_t length)
 {
+    uint64_t start = 0;
     clear_extents(w);
 
     DEBUG("worker %d get extents offset=%" PRIi64 " length=%" PRIu32,
           w->id, offset, length);
 
+    if (debug)
+        start = gettime();
+
     src_extents(w->s, offset, length, &w->extents.array, &w->extents.count);
 
-    DEBUG("worker %d got %lu extents", w->id, w->extents.count);
+    DEBUG("worker %d got %lu extents in %" PRIu64 " usec",
+          w->id, w->extents.count, gettime() - start);
 }
 
 static inline bool need_extents(struct worker *w)
@@ -390,14 +392,16 @@ static inline bool need_extents(struct worker *w)
     return w->extents.index == w->extents.count;
 }
 
-static void next_extent(struct worker *w, int64_t offset, uint32_t length,
-        struct extent *extent)
+static void next_extent(struct worker *w, int64_t offset,
+                        struct extent *extent)
 {
     struct options *opt = w->job->opt;
     struct extent *current;
 
-    if (need_extents(w))
+    if (need_extents(w)) {
+        uint32_t length = MIN(opt->extents_size, w->job->size - offset);
         fetch_extents(w, offset, length);
+    }
 
     assert(w->extents.index < w->extents.count);
     current = &w->extents.array[w->extents.index];
@@ -423,29 +427,25 @@ static void next_extent(struct worker *w, int64_t offset, uint32_t length,
         w->extents.index++;
 }
 
-static void process_segment(struct worker *w, int64_t offset)
+static void process_image(struct worker *w)
 {
     struct job *job = w->job;
-    struct options *opt = job->opt;
-    int64_t end;
+    int64_t offset = 0;
     struct extent extent = {0};
 
-    end = offset + opt->segment_size;
-    if (end > job->size)
-        end = job->size;
+    while (has_commands(w) || offset < job->size) {
 
-    while (has_commands(w) || offset < end) {
-
-        while (offset < end) {
+        while (offset < job->size) {
 
             if (extent.length == 0)
-                next_extent(w, offset, end - offset, &extent);
+                next_extent(w, offset, &extent);
 
             if (!can_process(w, &extent))
                 break;
 
             start_command(w, offset, &extent);
             offset += extent.length;
+            assert(offset <= job->size);
             extent.length = 0;
         }
 
@@ -453,6 +453,11 @@ static void process_segment(struct worker *w, int64_t offset)
 
         while (has_ready_command(w))
             finish_command(w);
+
+        if (!running()) {
+            DEBUG("worker %d aborting", w->id);
+            break;
+        }
     }
 
     clear_extents(w);
@@ -463,9 +468,7 @@ static void *worker_thread(void *arg)
     struct worker *w = (struct worker *)arg;
     struct job *job = w->job;
     struct options *opt = job->opt;
-    int64_t offset;
-    uint64_t segment_start = 0;
-    int err;
+    int err = 0;
 
     DEBUG("worker %d started", w->id);
 
@@ -475,25 +478,10 @@ static void *worker_thread(void *arg)
     if (w->h == NULL)
         FAIL_ERRNO("blkhash_new");
 
-    for (offset = 0; offset < job->size; offset += opt->segment_size) {
-        if (debug)
-            segment_start = gettime();
+    process_image(w);
 
-        DEBUG("worker %d processing segment at offset %" PRIi64,
-              w->id, offset);
-
-        process_segment(w, offset);
-
-        DEBUG("worker %d segment at offset %" PRIi64 " processed in %" PRIu64 " usec",
-              w->id, offset, gettime() - segment_start);
-
-        if (!running()) {
-            DEBUG("worker %d aborting", w->id);
-            break;
-        }
-    }
-
-    err = blkhash_final(w->h, job->out, NULL);
+    if (running())
+        err = blkhash_final(w->h, job->out, NULL);
 
     blkhash_free(w->h);
     src_close(w->s);
