@@ -219,7 +219,7 @@ def test_term_signal_nbd(tmpdir, term, signo, error):
 def test_term_signal_pipe(term, signo, error):
     with open(term) as f:
         bs = Blksum(stdin=f)
-        time.sleep(0.2)
+        time.sleep(0.3)
         bs.send_signal(signo)
         bs.wait()
 
