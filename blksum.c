@@ -248,6 +248,7 @@ void fail(const char *fmt, ...)
     if (!(failed || terminated) || debug) {
         failed = true;
         vfprintf(stderr, fmt, args);
+        fflush(stderr);
     }
 
     pthread_mutex_unlock(&lock);
@@ -300,8 +301,10 @@ int main(int argc, char *argv[])
 
     if (terminated) {
         /* Be quiet if user interrupted. */
-        if (terminated != SIGINT)
+        if (terminated != SIGINT) {
             ERROR("Terminated by signal %d", terminated);
+            fflush(stderr);
+        }
 
         /* Terminate by termination signal. */
         signal(terminated, SIG_DFL);
