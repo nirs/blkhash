@@ -55,7 +55,7 @@ class Blkhash:
 
     Compute root hash for N streams:
 
-        H( H(stream 0) + H(stream 1) ... H(stream N-1)) )
+        H( H(stream 0) || H(stream 1) ... H(stream N-1) )
 
     Blocks are handled by the stream matching:
 
@@ -63,10 +63,11 @@ class Blkhash:
 
     Example with 16 blocks image and 4 streams:
 
-        H(stream 0) = H( H(block 0) + H(block 4) + H(block 8) + H(block 12) )
-        H(stream 1) = H( H(block 1) + H(block 5) + H(block 9) + H(block 13) )
-        H(stream 2) = H( H(block 2) + H(block 6) + H(block 10) + H(block 14) )
-        H(stream 3) = H( H(block 3) + H(block 7) + H(block 11) + H(block 15) )
+        H(stream 0) = H( H(block 0) || H(block 4) || H(block 8)  || H(block 12) )
+        H(stream 1) = H( H(block 1) || H(block 5) || H(block 9)  || H(block 13) )
+        H(stream 2) = H( H(block 2) || H(block 6) || H(block 10) || H(block 14) )
+        H(stream 3) = H( H(block 3) || H(block 7) || H(block 11) || H(block 15) )
+
     """
 
     def __init__(self, digest_name, block_size=BLOCK_SIZE, streams=STREAMS):
