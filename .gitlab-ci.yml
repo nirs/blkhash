@@ -39,6 +39,10 @@ fedora-37:
   extends: .test
   image: quay.io/nirsof/blkhash-fedora-37
 
+fedora-38:
+  extends: .test
+  image: quay.io/nirsof/blkhash-fedora-38
+
 centos-8:
   extends: .test
   image: quay.io/nirsof/blkhash-centos-8
