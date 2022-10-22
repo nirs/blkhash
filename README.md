@@ -444,6 +444,7 @@ Only some variants have CI on gitlab. Most variants are tested only in
 | Fedora 35         | x86_64    | gitlab | yes    |
 | Fedora 36         | x86_64    | gitlab | yes    |
 | Fedora 37         | x86_64    | gitlab | yes    |
+| Fedora 38         | x86_64    | gitlab | yes    |
 | CentOS Stream 8   | x86_64    | gitlab | yes    |
 | CentOS Stream 9   | x86_64    | gitlab | yes    |
 | Fedora 35         | aarch64   | copr   | yes    |
@@ -458,6 +459,10 @@ Only some variants have CI on gitlab. Most variants are tested only in
 | Fedora 37         | ppc64le   | copr   | yes    |
 | Fedora 37         | s390x     | copr   | yes    |
 | Fedora 37         | x86_64    | copr   | yes    |
+| Fedora 38         | aarch64   | copr   | yes    |
+| Fedora 38         | ppc64le   | copr   | yes    |
+| Fedora 38         | s390x     | copr   | yes    |
+| Fedora 38         | x86_64    | copr   | yes    |
 | CentOS Stream 8   | aarch64   | copr   | yes    |
 | CentOS Stream 8   | ppc64le   | copr   | yes    |
 | CentOS Stream 8   | x86_64    | copr   | yes    |
