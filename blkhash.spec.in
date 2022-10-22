@@ -4,7 +4,7 @@
 Name: blkhash
 Version: @VERSION@
 Release: @RELEASE@%{?dist}
-Summary: Block based hash optimized for disk images
+Summary: Compute disk image checksum
 
 License: LGPLv2+
 URL: https://gitlab.com/nirs/blkhash
@@ -28,20 +28,22 @@ BuildRequires: qemu-img
 Requires: qemu-img
 
 %description
-%{summary}.
+This package provides the blksum command line tool and the %{name}
+library for computing disk image checksum.
 
 %package libs
 Summary: Libraries for %{name}
 
 %description libs
-%{summary}.
+This package provides the %{name} library for computing disk image
+checksum.
 
 %package devel
 Summary: Header files for %{name}
 Requires: %{name}-libs = %{version}-%{release}
 
 %description devel
-%{summary}.
+This package provides the development headers for the %{name} library.
 
 %prep
 %autosetup
@@ -72,5 +74,5 @@ Requires: %{name}-libs = %{version}-%{release}
 %{_mandir}/man3/%{name}_*.3*
 
 %changelog
-* Sat Jun 25 2022 Nir Soffer <nsoffer@redhat.com> - @VERSION@-@RELEASE@
-- Development build
+* Sat Oct 22 2022 Nir Soffer <nsoffer@redhat.com> - @VERSION@-@RELEASE@
+- This is a copr build from git
