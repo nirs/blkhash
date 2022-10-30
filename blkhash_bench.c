@@ -6,8 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <openssl/evp.h>
-
 #include "unity.h"
 #include "blkhash.h"
 #include "util.h"
@@ -27,9 +25,9 @@ void bench(const char *name, const char *digest, uint64_t size, bool is_zero,
            const char *r, const char *q)
 {
     struct blkhash *h;
-    unsigned char md[EVP_MAX_MD_SIZE];
+    unsigned char md[BLKHASH_MAX_MD_SIZE];
     unsigned int len;
-    char hex[EVP_MAX_MD_SIZE * 2 + 1];
+    char hex[BLKHASH_MAX_MD_SIZE * 2 + 1];
     int64_t start, elapsed;
     double seconds;
     char *hsize, *hrate;

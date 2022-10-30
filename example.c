@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
-#include <openssl/evp.h>
 #include <blkhash.h>
 
 #define BLOCK_SIZE (64 * 1024)
@@ -16,7 +15,7 @@ int main()
 {
     struct blkhash *h = NULL;
     unsigned char *buf = NULL;
-    unsigned char md[EVP_MAX_MD_SIZE];
+    unsigned char md[BLKHASH_MAX_MD_SIZE];
     unsigned int md_len, i;
     int err;
 

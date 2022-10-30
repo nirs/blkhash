@@ -4,6 +4,11 @@
 #ifndef BLKHASH_H
 #define BLKHASH_H
 
+#include <openssl/evp.h> /* For EVP_* */
+
+/* Maxmum length of md_value buffer for any digest name. */
+#define BLKHASH_MAX_MD_SIZE EVP_MAX_MD_SIZE
+
 struct blkhash;
 
 /*
@@ -48,8 +53,10 @@ int blkhash_update(struct blkhash *h, const void *buf, size_t len);
 int blkhash_zero(struct blkhash *h, size_t len);
 
 /*
- * Finalize a hash and store the message digest in md_value. If md_len
- * is not NULL, store the length of the digest in md_len.
+ * Finalize a hash and store the message digest in md_value.  At most
+ * BLKHASH_MAX_MD_SIZE bytes will be written.
+ *
+ * If md_len is not NULL, store the length of the digest in md_len.
  *
  * Return 0 on success and errno value on error. The contents of
  * md_value and md_len are undefined on error.
