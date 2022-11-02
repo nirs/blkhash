@@ -79,8 +79,10 @@ after the first error.
 blkhash_final()
 ~~~~~~~~~~~~~~~
 
-Finalize a hash and store the message digest in md_value. If md_len is
-not NULL, store the length of the digest in md_len.
+Finalize a hash and store the message digest in md_value.  At most
+*BLKHASH_MAX_MD_SIZE* bytes will be written.
+
+If md_len is not NULL, store the length of the digest in md_len.
 
 Return 0 on success and errno value on error. The contents of md_value
 and md_len are undefined on error.

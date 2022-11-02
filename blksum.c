@@ -268,8 +268,8 @@ void fail(const char *fmt, ...)
 int main(int argc, char *argv[])
 {
     const EVP_MD *md;
-    unsigned char md_value[EVP_MAX_MD_SIZE];
-    char md_hex[EVP_MAX_MD_SIZE * 2 + 1];
+    unsigned char md_value[BLKHASH_MAX_MD_SIZE];
+    char md_hex[BLKHASH_MAX_MD_SIZE * 2 + 1];
 
     main_thread = pthread_self();
 
