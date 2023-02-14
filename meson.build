@@ -119,7 +119,10 @@ blkhash_test = executable(
     'util.c',
   ],
   link_with: blkhash_lib,
-  dependencies: unity_dep,
+  dependencies: [
+    openssl,
+    unity_dep,
+  ],
 )
 
 zero_bench = executable(
