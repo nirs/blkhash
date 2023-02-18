@@ -56,7 +56,7 @@ This package provides the development headers for the %{name} library.
 %meson_test
 
 %install
-%meson_install
+%meson_install --skip-subprojects
 
 %files
 %license LICENSES/LGPL-2.1-or-later.txt
