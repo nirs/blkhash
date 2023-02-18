@@ -21,16 +21,31 @@ static bool quick;
 void setUp() {}
 void tearDown() {}
 
-void bench(const char *name, const char *digest, uint64_t size, bool is_zero,
-           const char *r, const char *q)
+static void print_stats(const char *name, const char *digest, uint64_t size,
+                        int64_t elapsed)
+{
+    char *hsize, *hrate;
+    double seconds;
+
+    seconds = elapsed / 1e6;
+    hsize = humansize(size);
+    hrate = humansize(size / seconds);
+
+    printf("%s (%s): %s in %.3f seconds (%s/s)\n",
+           name, digest, hsize, seconds, hrate);
+
+    free(hsize);
+    free(hrate);
+}
+
+static void bench(const char *name, const char *digest, uint64_t size, bool
+                  is_zero, const char *r, const char *q)
 {
     struct blkhash *h;
     unsigned char md[BLKHASH_MAX_MD_SIZE];
     unsigned int len;
     char hex[BLKHASH_MAX_MD_SIZE * 2 + 1];
     int64_t start, elapsed;
-    double seconds;
-    char *hsize, *hrate;
     size_t chunk;
     uint64_t todo;
     int err = 0;
@@ -82,15 +97,61 @@ out:
     else
         TEST_ASSERT_EQUAL_STRING(r, hex);
 
-    seconds = elapsed / 1e6;
-    hsize = humansize(size);
-    hrate = humansize(size / seconds);
+    print_stats(name, digest, size, elapsed);
+}
 
-    printf("%s (%s): %s in %.3f seconds (%s/s)\n",
-           name, digest, hsize, seconds, hrate);
+static void reference(const char *name, const char *digest, uint64_t size,
+                      const char *r, const char *q)
+{
+    const EVP_MD *md;
+    EVP_MD_CTX *ctx;
+    unsigned char res[EVP_MAX_MD_SIZE];
+    unsigned int len;
+    char hex[EVP_MAX_MD_SIZE * 2 + 1];
+    int64_t start, elapsed;
+    int ok;
 
-    free(hsize);
-    free(hrate);
+    if (quick)
+        size = READ_SIZE * 2;
+
+    /* Simplify update loop by requiring aligned size. */
+    TEST_ASSERT(size % READ_SIZE == 0);
+
+    start = gettime();
+
+    ctx = EVP_MD_CTX_new();
+    TEST_ASSERT_NOT_NULL(ctx);
+
+    md = EVP_get_digestbyname(digest);
+    TEST_ASSERT_NOT_NULL(md);
+
+    ok = EVP_DigestInit_ex(ctx, md, NULL);
+    TEST_ASSERT(ok);
+
+    for (uint64_t i = 0; i < size; i += READ_SIZE) {
+        ok = EVP_DigestUpdate(ctx, buf, READ_SIZE);
+        if (!ok)
+            goto out;
+    }
+
+    ok = EVP_DigestFinal_ex(ctx, res, &len);
+
+out:
+    EVP_MD_CTX_free(ctx);
+
+    if (!ok)
+        TEST_FAIL_MESSAGE("Error computing checksum");
+
+    elapsed = gettime() - start;
+
+    format_hex(res, len, hex);
+
+    if (quick)
+        TEST_ASSERT_EQUAL_STRING(q, hex);
+    else
+        TEST_ASSERT_EQUAL_STRING(r, hex);
+
+    print_stats(name, digest, size, elapsed);
 }
 
 void bench_update_data_sha256()
@@ -138,6 +199,22 @@ void bench_zero_sha1()
           "a9eeed333040ffe0ab284018c5b39f7b5ae390c1");
 }
 
+void bench_sha256()
+{
+    memset(buf, 0x55, READ_SIZE);
+    reference("reference", "sha256", 512 * MiB,
+              "b51dfe2b75f17ee394307f878b9b161d58f04a9d142411952f97e68b32bc9131",
+              "aa5b27f5e2dad9c8a5a6d04320887656484d917c085a4435a919dc2aadc35ec0");
+}
+
+void bench_sha1()
+{
+    memset(buf, 0x55, READ_SIZE);
+    reference("reference", "sha1", 1 * GiB,
+              "a414a6962c6f87477df2c010ae3627e5f19f0eed",
+              "a8f7ffdea89d223c491bc21441c6219be5d1f433");
+}
+
 int main(int argc, char *argv[])
 {
     /* Minimal test for CI and build machines. */
@@ -151,6 +228,9 @@ int main(int argc, char *argv[])
     RUN_TEST(bench_update_zero_sha1);
     RUN_TEST(bench_zero_sha256);
     RUN_TEST(bench_zero_sha1);
+
+    RUN_TEST(bench_sha256);
+    RUN_TEST(bench_sha1);
 
     return UNITY_END();
 }
