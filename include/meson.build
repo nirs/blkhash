@@ -1,0 +1,4 @@
+# SPDX-FileCopyrightText: Red Hat Inc
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+install_headers('blkhash.h')
