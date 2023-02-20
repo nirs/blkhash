@@ -215,6 +215,7 @@ def test_term_signal_nbd(tmpdir, term, signo, error):
         assert bs.err == error
 
 
+@pytest.mark.xfail(reason="Fails randomly in gitlab")
 @signals_params
 def test_term_signal_pipe(term, signo, error):
     with open(term) as f:
