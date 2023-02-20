@@ -380,7 +380,7 @@ with different kinds of input.
 Example run on Lenovo ThinkPad P1 Gen 3 with Fedora 36:
 
 ```
-$ build/blkhash_bench | grep -v PASS
+$ build/test/blkhash_bench | grep -v PASS
 update-data (sha256): 2.00 GiB in 1.226 seconds (1.63 GiB/s)
 update-data (sha1): 4.00 GiB in 1.087 seconds (3.68 GiB/s)
 update-zero (sha256): 50.00 GiB in 1.154 seconds (43.33 GiB/s)
@@ -393,7 +393,7 @@ Example run on Dell PowerEdge R640 with RHEL 8.6 running in a CentOS
 Stream 9 container:
 
 ```
-$ build/blkhash_bench | grep -v PASS
+$ build/test/blkhash_bench | grep -v PASS
 update-data (sha256): 2.00 GiB in 1.217 seconds (1.64 GiB/s)
 update-data (sha1): 4.00 GiB in 1.130 seconds (3.54 GiB/s)
 update-zero (sha256): 50.00 GiB in 1.303 seconds (38.38 GiB/s)
@@ -405,7 +405,7 @@ zero (sha1): 7.32 TiB in 1.017 seconds (7.21 TiB/s)
 Example run on MacBook Air M1 with macOS 12.5.1:
 
 ```
-% build/blkhash_bench | grep -v PASS
+% build/test/blkhash_bench | grep -v PASS
 update-data (sha256): 2.00 GiB in 0.286 seconds (6.99 GiB/s)
 update-data (sha1): 4.00 GiB in 0.519 seconds (7.71 GiB/s)
 update-zero (sha256): 50.00 GiB in 1.389 seconds (36.01 GiB/s)
@@ -654,7 +654,7 @@ executable in the environment:
 To run only `blkhash` tests:
 
    meson compile -C build
-   build/blkhash_test
+   build/test/blkhash_test
 
 
 ## Related projects
