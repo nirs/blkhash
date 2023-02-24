@@ -6,6 +6,9 @@ variables:
 
 workflow:
   rules:
+    # To enable this workflow, add a variable in Settings > CI/CD > Variables.
+    - if: $CI_ENABLED != "yes"
+      when: never
     # See https://docs.gitlab.com/ee/ci/jobs/job_control.html#common-if-clauses-for-rules
     # https://docs.gitlab.com/ee/ci/yaml/workflow.html#switch-between-branch-pipelines-and-merge-request-pipelines
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"

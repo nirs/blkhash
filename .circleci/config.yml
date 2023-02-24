@@ -1,0 +1,26 @@
+version: 2.1
+
+jobs:
+  test:
+    parameters:
+      distro:
+        type: string
+    docker:
+      - image: quay.io/nirsof/blkhash-<< parameters.distro >>
+    steps:
+      - checkout
+      - run: meson setup build -Dwerror=true
+      - run: meson compile -C build
+      - run: meson test -C build -v
+      - run: ./build-rpms
+      - run: mkdir rpms
+      - run: mv build/rpm/RPMS/*/*.rpm rpms
+      - run: dnf install -y rpms/*.rpm
+
+workflows:
+  ci:
+    jobs:
+      - test:
+          matrix:
+            parameters:
+              distro: [fedora-37, fedora-38, centos-8, centos-9]
