@@ -172,6 +172,13 @@ def test_default_digest(tmpdir):
     assert blksum_file(path) == blksum_file(path, md="sha256")
 
 
+def test_null_digest(tmpdir):
+    path = tmpdir.join("empty.raw")
+    create_image(path, "1m:-")
+    # The special "null" digest does nothing and return empty checksum.
+    assert blksum_file(path, md="null") == ["", path]
+
+
 signals_params = pytest.mark.parametrize("signo,error", [
     pytest.param(signal.SIGINT, "", id="sigint"),
     pytest.param(

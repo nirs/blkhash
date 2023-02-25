@@ -281,7 +281,7 @@ int main(int argc, char *argv[])
 
     parse_options(argc, argv);
 
-    md = EVP_get_digestbyname(opt.digest_name);
+    md = lookup_digest(opt.digest_name);
     if (md == NULL)
         FAIL("Unknown digest '%s'", opt.digest_name);
 
