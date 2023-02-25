@@ -15,7 +15,7 @@ import pytest
 import blkhash
 
 DIGEST_NAMES = ["sha1", "blake2b512"]
-BLKSUM = os.environ.get("BLKSUM", "build/blksum")
+BLKSUM = os.environ.get("BLKSUM", "build/bin/blksum")
 HAVE_NBD = bool(os.environ.get("HAVE_NBD"))
 
 Image = namedtuple("Image", "filename,md,checksum")
