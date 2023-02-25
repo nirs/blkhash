@@ -9,3 +9,6 @@ build/
 
 # meson subprojects directory
 subprojects/
+
+# cscope output
+cscope.out
