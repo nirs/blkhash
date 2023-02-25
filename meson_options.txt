@@ -2,3 +2,4 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 option('nbd', type: 'feature', value: 'auto', description: 'Support NBD URL')
+option('doc', type: 'feature', value: 'auto', description: 'Create manual pages')
