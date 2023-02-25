@@ -352,20 +352,20 @@ def remove_tempdirs():
 def blksum_nbd(nbd_url, md=None):
     bs = Blksum(filename=nbd_url, digest=md)
     bs.wait(check=True)
-    return bs.out.strip().split("  ")
+    return bs.out.rstrip().split("  ")
 
 
 def blksum_file(image, md=None, cache=True):
     bs = Blksum(filename=image, digest=md, cache=cache)
     bs.wait(check=True)
-    return bs.out.strip().split("  ")
+    return bs.out.rstrip().split("  ")
 
 
 def blksum_pipe(image, md=None):
     with open(image) as f:
         bs = Blksum(digest=md, stdin=f)
         bs.wait(check=True)
-    return bs.out.strip().split("  ")
+    return bs.out.rstrip().split("  ")
 
 
 @contextmanager
