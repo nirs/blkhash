@@ -169,6 +169,12 @@ void bench_update_data_sha1()
           "1b4fc3ff10af06488b65af9c18909db166111078");
 }
 
+void bench_update_data_null()
+{
+    memset(buf, 0x55, READ_SIZE);
+    bench("update-data", "null", 23 * GiB, false, "", "");
+}
+
 void bench_update_zero_sha256()
 {
     memset(buf, 0, READ_SIZE);
@@ -185,6 +191,12 @@ void bench_update_zero_sha1()
           "c15314c3dab3307d6b518ca24c3f15275c03b819");
 }
 
+void bench_update_zero_null()
+{
+    memset(buf, 0, READ_SIZE);
+    bench("update-zero", "null", 50 * GiB, false, "", "");
+}
+
 void bench_zero_sha256()
 {
     bench("zero", "sha256", 2500 * GiB, true,
@@ -197,6 +209,11 @@ void bench_zero_sha1()
     bench("zero", "sha1", 7500 * GiB, true,
           "cd807d9fa89a6efc66a0ce46408f0689b316d9ee",
           "a9eeed333040ffe0ab284018c5b39f7b5ae390c1");
+}
+
+void bench_zero_null()
+{
+    bench("zero", "null", 110 * TiB, true, "", "");
 }
 
 void bench_sha256()
@@ -224,10 +241,15 @@ int main(int argc, char *argv[])
 
     RUN_TEST(bench_update_data_sha256);
     RUN_TEST(bench_update_data_sha1);
+    RUN_TEST(bench_update_data_null);
+
     RUN_TEST(bench_update_zero_sha256);
     RUN_TEST(bench_update_zero_sha1);
+    RUN_TEST(bench_update_zero_null);
+
     RUN_TEST(bench_zero_sha256);
     RUN_TEST(bench_zero_sha1);
+    RUN_TEST(bench_zero_null);
 
     RUN_TEST(bench_sha256);
     RUN_TEST(bench_sha1);
