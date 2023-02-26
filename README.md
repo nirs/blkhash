@@ -649,7 +649,7 @@ executable in the environment:
 
     meson setup release --buildtype=release
     meson compile -C release
-    BLKSUM=release/blksum pytest
+    BLKSUM=release/bin/blksum pytest
 
 To run only `blkhash` tests:
 
