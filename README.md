@@ -13,7 +13,7 @@ Disk images are typically sparse, containing unallocated areas read as
 zeros by the guest. The `blkhash` hash algorithm is optimized for
 computing checksums of sparse disk images.
 
-This project provides the `blksum` command and the `blkahsh` C library.
+This project provides the `blksum` command and the `blkhash` C library.
 
 ## Installing
 
@@ -131,10 +131,10 @@ The `blksum` command will compute the same checksum for the logical volume:
     $ sudo blksum /dev/data/test
     6e5c00c995056319d52395f8d91c7f84725ae3da69ffcba4de4c7d22cff713a5  /dev/data/test
 
-The `blksum` command can also use a NBD URI, accessing an image exported
-by NBD server such as `qemu-nbd`.
+The `blksum` command can also use a `NBD` URI, accessing an image exported
+by `NBD` server such as `qemu-nbd`.
 
-For example we can export an image using `qemu-nbd` using a unix socket:
+For example we can export an image using *qemu-nbd* using a unix socket:
 
     $ qemu-nbd --read-only --persistent --shared 8 --socket /tmp/nbd.sock \
         --format qcow2 fedora-35.qcow2 &
@@ -142,14 +142,14 @@ For example we can export an image using `qemu-nbd` using a unix socket:
     $ blksum nbd+unix:///?socket=/tmp/nbd.sock
     6e5c00c995056319d52395f8d91c7f84725ae3da69ffcba4de4c7d22cff713a5  nbd+unix:///?socket=/tmp/nbd.sock
 
-We can also access an image on a remote host using NBD TCP URI:
+We can also access an image on a remote host using `NBD` TCP URI:
 
     $ qemu-nbd --read-only --persistent --shared 8 --format qcow2 fedora-35.qcow2 &
 
     $ blksum nbd://localhost
     6e5c00c995056319d52395f8d91c7f84725ae3da69ffcba4de4c7d22cff713a5  nbd://localhost
 
-The `blksum` command does not support yet secure NBD connections, so its
+The `blksum` command does not support yet secure `NBD` connections, so its
 use for accessing images on remote hosts is limited.
 
 Finally, we can also compute a checksum for data written to a pipe:
@@ -162,7 +162,7 @@ much less efficient.
 
 ### blksum performance
 
-The `blksum` command uses `qemu-nbd` to get guest data from various
+The `blksum` command uses *qemu-nbd* to get guest data from various
 image formats and detect image sparseness, and use the `blkhash` library
 to compute image checksum.
 
@@ -429,10 +429,10 @@ should be portable to any platform where openssl is available. Some
 optimizations are implemented only for Linux.
 
 The `blksum` command requires
-[libnbd](https://libguestfs.org/libnbd.3.html) for NBD support, and
+[libnbd](https://libguestfs.org/libnbd.3.html) for `NBD` support, and
 [qemu-nbd](https://www.qemu.org/docs/master/tools/qemu-nbd.html) for
 `qcow2` format support. If `libnbd` is not available, `blksum` is built
-without NBD support and can be used only with `raw` images.
+without `NBD` support and can be used only with `raw` images.
 
 ### Testing status
 
@@ -562,7 +562,7 @@ Create a build directory with default options:
 
 The default options:
 
-- nbd=auto - Support NBD if libnbd is available.
+- nbd=auto - Support `NBD` if `libnbd` is available.
 
 To configure build directory for release installing in /usr:
 
@@ -629,18 +629,18 @@ To see verbose test output use:
 
     meson test -C build -v
 
-To run specific `blksum` tests, use pytest directly:
+To run specific `blksum` tests, use `pytest` directly:
 
     meson compile -C build
     pytest -k sha1-sparse
 
-If `blksum` is built with NBD support, enable the NBD tests:
+If `blksum` is built with `NBD` support, enable the `NBD` tests:
 
     HAVE_NBD=1 pytest -k sha1-sparse
 
-pytest uses the "build" directory by default. If you want to use another
-directory name, or installed `blksum` executable, specify the path to the
-executable in the environment:
+`pytest` uses the `build` directory by default. If you want to use
+another directory name, or installed `blksum` executable, specify the
+path to the executable in the environment:
 
     meson setup release --buildtype=release
     meson compile -C release
@@ -658,10 +658,10 @@ To run only `blkhash` tests:
   [ovirt-imageio](https://github.com/oVirt/ovirt-imageio)
   [blkhash module](https://github.com/oVirt/ovirt-imageio/blob/master/ovirt_imageio/_internal/blkhash.py).
 
-- The `blksum` command NBD support is powered by the
+- The `blksum` command `NBD` support is powered by the
   [libnbd](https://gitlab.com/nbdkit/libnbd/) library.
 
 ## License
 
-blkhash is licensed under the GNU Lesser General Public License version
+`blkhash`is licensed under the GNU Lesser General Public License version
 2.1 or later. See the file `LICENSES/LGPL-2.1-or-later.txt` for details.
