@@ -496,7 +496,9 @@ the tests and debug.
 
 ### Setting up development environment
 
-Fedora:
+#### Fedora
+
+Install required packages:
 
     dnf install \
         asciidoc \
@@ -512,7 +514,9 @@ Fedora:
         rpm-build \
         rpmlint
 
-FreeBSD:
+#### FreeBSD
+
+Install required packages:
 
     pkg install \
         asciidoc \
@@ -523,42 +527,118 @@ FreeBSD:
         python3 \
         qemu-utils
 
-macOS 11 Big Sur:
+Install pytest and reuse via pip. See the section "Creating python
+virtual environment" bellow.
 
-    # Requires macport from https://www.macports.org/install.php
-    port install pkgconfig openssl asciidoc meson
-    port select --set python3 python39
+#### macOS
 
-Get the source:
+The recommended way to get the required packages is the
+[Homebrew](https://brew.sh/).
+You can use [MacPorts](https://www.macports.org/), but more work is
+needed and there are some issues.
 
-    git clone https://gitlab.com/nirs/blkhash.git
+These instructions were tested on *macOS Ventura 13.1*.
 
-If `python3-pytest` or `reuse` are not avaialble on your distro, you can
-installed them using pip in a virtual environment:
+##### Using Homebrew
 
-    python3 -m venv ~/venv/blkhash
-    source ~/venv/blkhash/bin/activate
+Install required packages:
+
+    brew install \
+        asciidoc \
+        docbook-xsl \
+        meson \
+        openssl \
+        pkg-config \
+        qemu
+
+Add these vars to `~/.zprofile`:
+
+    # Allow pkg-config to find homebew openssl config
+    export PKG_CONFIG_PATH="/opt/homebrew/opt/openssl@3/lib/pkgconfig"
+
+    # Allow xmllint to find homebrew catalogs
+    export XML_CATALOG_FILES=/opt/homebrew/etc/xml/catalog
+
+Open a new shell to apply the changes.
+
+Install pytest and resuse via pip. See the section "Creating virtual
+environment" bellow.
+
+##### Using MacPorts
+
+Install require packages:
+
+    port install \
+        asciidoc \
+        meson \
+        openssl \
+        pkgconfig \
+        py311-certifi \
+        py311-pytest \
+        qemu \
+        reuse
+
+Select python3 and pytest versions:
+
+    port select --set python3 python311
+    port select --set pytest pytest311
+
+Find certifi ca file:
+
+    % certifi_ca=$(python3 -c 'import certifi; print(certifi.where())')
+
+Find ssl openssl_cafile location:
+
+    % ssl_ca=$(python3 -c 'import ssl; print(ssl.get_default_verify_paths().openssl_cafile)')
+
+Backup ssl ca file:
+
+    mv $ssl_ca $ssl_ca.bak
+
+Link to certifi ca file to ssl ca file:
+
+    ln -s $certifi_ca $ssl_ca
+
+Install pytest and reuse via pip. See the section "Creating python
+virtual environment" bellow.
+
+#### Creating python virtual environment
+
+If `pytest` or *reuse* are not available using your package manager, you
+can install them using pip in a virtual environment:
+
+    python3 -m venv ~/.venv/blkhash
+    source ~/.venv/blkhash/bin/activate
     pip install pytest reuse
     deactivate
 
-On FreeBSD using the default shell (sh), use "." instead of "source":
+On FreeBSD using the default shell (sh), use `.` instead of `source`:
 
-    . ~/venv/blkhash/bin/activate
+    . ~/.venv/blkhash/bin/activate
 
-### Configuring
-
-If you installed some python3 packages using a virtual enviroment enter
-it before setting up meson:
+To use the virtual environment for configuring, building or running the
+tests, activate it:
 
     source ~/venv/blkhash/bin/activate
 
-When you are done, you can exit from the virtual environment:
+When you are done, you can deactivate the virtual environment:
 
     deactivate
+
+### Get the source
+
+    git clone https://gitlab.com/nirs/blkhash.git
+
+### Configuring
 
 Create a build directory with default options:
 
     meson setup build
+
+When building on *macOS* via *MacPorts*, you need to skip building the
+manual pages:
+
+    meson setup build -Ddoc=disabled
 
 The default options:
 
