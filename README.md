@@ -17,8 +17,8 @@ This project provides the `blksum` command and the `blkhash` C library.
 
 ## Installing
 
-You can install the `blkhash` package on Fedora, Centos Stream, and RHEL
-from the
+You can install the `blkhash` package on *Fedora*, *Centos Stream*, and
+*RHEL* from the
 [blkhash copr repo](https://copr.fedorainfracloud.org/coprs/nsoffer/blkhash/):
 
     dnf copr enable nsoffer/blkhash
@@ -296,13 +296,13 @@ Summary
 
 ### blksum --queue-size option
 
-The `--queue-size` option limit the total size of in-flight NBD
+The `--queue-size` option limit the total size of in-flight `NBD`
 requests. Testing shows that it can change the throughput by 10%,
 depending on the machine. The default value (2097152) works well on on
 tested machines.
 
-Example run on Lenovo ThinkPad P1 Gen 3 (i7-10850H CPU @ 2.70GHz) with
-Fedora 36:
+Example run on *Lenovo ThinkPad P1 Gen 3* (i7-10850H CPU @ 2.70GHz) with
+*Fedora 36*:
 
 ```
 $ hyperfine -p "sleep 3" -L q 1048576,2097152,4194304,8388608 "blksum --queue-size {q} 50p.raw"
@@ -329,8 +329,8 @@ Summary
     1.09 ± 0.06 times faster than 'blksum --queue-size 8388608 50p.raw'
 ```
 
-Example run on Dell PowerEdge R640 (Xeon(R) Gold 5218R CPU @ 2.10GHz)
-with RHEL 8.5:
+Example run on *Dell PowerEdge R640* (Xeon(R) Gold 5218R CPU @ 2.10GHz)
+with *RHEL 8.5*:
 
 ```
 # hyperfine -w1 -L q 1048576,2097152,4194304,8388608 "blksum --queue-size {q} 50p.raw"
@@ -377,7 +377,7 @@ See [blkhash(3)](blkhash.3.adoc) for complete documentation.
 You can use the `blkhash_bench` program to measure `blkhash` throughput
 with different kinds of input.
 
-Example run on Lenovo ThinkPad P1 Gen 3 with Fedora 36:
+Example run on *Lenovo ThinkPad P1 Gen 3* with *Fedora 36*:
 
 ```
 $ build/test/blkhash_bench | grep -v PASS
@@ -389,8 +389,8 @@ zero (sha256): 2.44 TiB in 0.840 seconds (2.91 TiB/s)
 zero (sha1): 7.32 TiB in 0.802 seconds (9.13 TiB/s)
 ```
 
-Example run on Dell PowerEdge R640 with RHEL 8.6 running in a CentOS
-Stream 9 container:
+Example run on *Dell PowerEdge R640* with *RHEL 8.6* running in a
+*CentOS Stream 9* container:
 
 ```
 $ build/test/blkhash_bench | grep -v PASS
@@ -402,7 +402,7 @@ zero (sha256): 2.44 TiB in 0.910 seconds (2.68 TiB/s)
 zero (sha1): 7.32 TiB in 1.017 seconds (7.21 TiB/s)
 ```
 
-Example run on MacBook Air M1 with macOS 12.5.1:
+Example run on *MacBook Air M1* with *macOS 12.5.1*:
 
 ```
 % build/test/blkhash_bench | grep -v PASS
