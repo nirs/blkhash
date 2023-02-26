@@ -579,11 +579,6 @@ To build run:
 
     meson compile -C build
 
-If "meson compile" does not work, you probably have old meson (< 0.55)
-and need to run:
-
-    ninja-build -C build
-
 Instead of specifying the directory, you can run the command inside the
 build directory:
 
