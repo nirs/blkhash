@@ -13,12 +13,12 @@ Disk images are typically sparse, containing unallocated areas read as
 zeros by the guest. The `blkhash` hash algorithm is optimized for
 computing checksums of sparse disk images.
 
-This project provides the `blksum` command and the `blkahsh` C library.
+This project provides the `blksum` command and the `blkhash` C library.
 
 ## Installing
 
-You can install the `blkhash` package on Fedora, Centos Stream, and RHEL
-from the
+You can install the `blkhash` package on *Fedora*, *Centos Stream*, and
+*RHEL* from the
 [blkhash copr repo](https://copr.fedorainfracloud.org/coprs/nsoffer/blkhash/):
 
     dnf copr enable nsoffer/blkhash
@@ -131,10 +131,10 @@ The `blksum` command will compute the same checksum for the logical volume:
     $ sudo blksum /dev/data/test
     6e5c00c995056319d52395f8d91c7f84725ae3da69ffcba4de4c7d22cff713a5  /dev/data/test
 
-The `blksum` command can also use a NBD URI, accessing an image exported
-by NBD server such as `qemu-nbd`.
+The `blksum` command can also use a `NBD` URI, accessing an image exported
+by `NBD` server such as `qemu-nbd`.
 
-For example we can export an image using `qemu-nbd` using a unix socket:
+For example we can export an image using *qemu-nbd* using a unix socket:
 
     $ qemu-nbd --read-only --persistent --shared 8 --socket /tmp/nbd.sock \
         --format qcow2 fedora-35.qcow2 &
@@ -142,14 +142,14 @@ For example we can export an image using `qemu-nbd` using a unix socket:
     $ blksum nbd+unix:///?socket=/tmp/nbd.sock
     6e5c00c995056319d52395f8d91c7f84725ae3da69ffcba4de4c7d22cff713a5  nbd+unix:///?socket=/tmp/nbd.sock
 
-We can also access an image on a remote host using NBD TCP URI:
+We can also access an image on a remote host using `NBD` TCP URI:
 
     $ qemu-nbd --read-only --persistent --shared 8 --format qcow2 fedora-35.qcow2 &
 
     $ blksum nbd://localhost
     6e5c00c995056319d52395f8d91c7f84725ae3da69ffcba4de4c7d22cff713a5  nbd://localhost
 
-The `blksum` command does not support yet secure NBD connections, so its
+The `blksum` command does not support yet secure `NBD` connections, so its
 use for accessing images on remote hosts is limited.
 
 Finally, we can also compute a checksum for data written to a pipe:
@@ -162,7 +162,7 @@ much less efficient.
 
 ### blksum performance
 
-The `blksum` command uses `qemu-nbd` to get guest data from various
+The `blksum` command uses *qemu-nbd* to get guest data from various
 image formats and detect image sparseness, and use the `blkhash` library
 to compute image checksum.
 
@@ -296,13 +296,13 @@ Summary
 
 ### blksum --queue-size option
 
-The `--queue-size` option limit the total size of in-flight NBD
+The `--queue-size` option limit the total size of in-flight `NBD`
 requests. Testing shows that it can change the throughput by 10%,
 depending on the machine. The default value (2097152) works well on on
 tested machines.
 
-Example run on Lenovo ThinkPad P1 Gen 3 (i7-10850H CPU @ 2.70GHz) with
-Fedora 36:
+Example run on *Lenovo ThinkPad P1 Gen 3* (i7-10850H CPU @ 2.70GHz) with
+*Fedora 36*:
 
 ```
 $ hyperfine -p "sleep 3" -L q 1048576,2097152,4194304,8388608 "blksum --queue-size {q} 50p.raw"
@@ -329,8 +329,8 @@ Summary
     1.09 ± 0.06 times faster than 'blksum --queue-size 8388608 50p.raw'
 ```
 
-Example run on Dell PowerEdge R640 (Xeon(R) Gold 5218R CPU @ 2.10GHz)
-with RHEL 8.5:
+Example run on *Dell PowerEdge R640* (Xeon(R) Gold 5218R CPU @ 2.10GHz)
+with *RHEL 8.5*:
 
 ```
 # hyperfine -w1 -L q 1048576,2097152,4194304,8388608 "blksum --queue-size {q} 50p.raw"
@@ -377,7 +377,7 @@ See [blkhash(3)](blkhash.3.adoc) for complete documentation.
 You can use the `blkhash_bench` program to measure `blkhash` throughput
 with different kinds of input.
 
-Example run on Lenovo ThinkPad P1 Gen 3 with Fedora 36:
+Example run on *Lenovo ThinkPad P1 Gen 3* with *Fedora 36*:
 
 ```
 $ build/test/blkhash_bench | grep -v PASS
@@ -389,8 +389,8 @@ zero (sha256): 2.44 TiB in 0.840 seconds (2.91 TiB/s)
 zero (sha1): 7.32 TiB in 0.802 seconds (9.13 TiB/s)
 ```
 
-Example run on Dell PowerEdge R640 with RHEL 8.6 running in a CentOS
-Stream 9 container:
+Example run on *Dell PowerEdge R640* with *RHEL 8.6* running in a
+*CentOS Stream 9* container:
 
 ```
 $ build/test/blkhash_bench | grep -v PASS
@@ -402,7 +402,7 @@ zero (sha256): 2.44 TiB in 0.910 seconds (2.68 TiB/s)
 zero (sha1): 7.32 TiB in 1.017 seconds (7.21 TiB/s)
 ```
 
-Example run on MacBook Air M1 with macOS 12.5.1:
+Example run on *MacBook Air M1* with *macOS 12.5.1*:
 
 ```
 % build/test/blkhash_bench | grep -v PASS
@@ -429,52 +429,52 @@ should be portable to any platform where openssl is available. Some
 optimizations are implemented only for Linux.
 
 The `blksum` command requires
-[libnbd](https://libguestfs.org/libnbd.3.html) for NBD support, and
+[libnbd](https://libguestfs.org/libnbd.3.html) for `NBD` support, and
 [qemu-nbd](https://www.qemu.org/docs/master/tools/qemu-nbd.html) for
 `qcow2` format support. If `libnbd` is not available, `blksum` is built
-without NBD support and can be used only with `raw` images.
+without `NBD` support and can be used only with `raw` images.
 
 ### Testing status
 
-Only some variants have CI on gitlab. Most variants are tested only in
-`copr` build system or have no automated testing.
+Only some variants have CI. Most variants are tested only in `copr`
+build system or have no automated testing.
 
-| OS                | Arch      | CI     | libnbd |
-|-------------------|-----------|--------|--------|
-| Fedora 37         | x86_64    | gitlab | yes    |
-| Fedora 38         | x86_64    | gitlab | yes    |
-| CentOS Stream 8   | x86_64    | gitlab | yes    |
-| CentOS Stream 9   | x86_64    | gitlab | yes    |
-| Fedora 36         | aarch64   | copr   | yes    |
-| Fedora 36         | ppc64le   | copr   | yes    |
-| Fedora 36         | s390x     | copr   | yes    |
-| Fedora 36         | x86_64    | copr   | yes    |
-| Fedora 37         | aarch64   | copr   | yes    |
-| Fedora 37         | ppc64le   | copr   | yes    |
-| Fedora 37         | s390x     | copr   | yes    |
-| Fedora 37         | x86_64    | copr   | yes    |
-| Fedora 38         | aarch64   | copr   | yes    |
-| Fedora 38         | ppc64le   | copr   | yes    |
-| Fedora 38         | s390x     | copr   | yes    |
-| Fedora 38         | x86_64    | copr   | yes    |
-| CentOS Stream 8   | aarch64   | copr   | yes    |
-| CentOS Stream 8   | ppc64le   | copr   | yes    |
-| CentOS Stream 8   | x86_64    | copr   | yes    |
-| CentOS Stream 9   | aarch64   | copr   | yes    |
-| CentOS Stream 9   | ppc64le   | copr   | yes    |
-| CentOS Stream 9   | s390x     | copr   | yes    |
-| CentOS Stream 9   | x86_64    | copr   | yes    |
-| EPEL 8            | aarch64   | copr   | yes    |
-| EPEL 8            | ppc64le   | copr   | yes    |
-| EPEL 8            | s390x     | copr   | yes    |
-| EPEL 8            | x86_64    | copr   | yes    |
-| EPEL 9            | aarch64   | copr   | yes    |
-| EPEL 9            | ppc64le   | copr   | yes    |
-| EPEL 9            | s390x     | copr   | yes    |
-| EPEL 9            | x86_64    | copr   | yes    |
-| RHEL 8.6          | x86_64    | no     | yes    |
-| FreeBSD 13        | x86_64    | no     | no     |
-| macOS 11 Big Sur  | Apple M1  | no     | no     |
+| OS                | Arch          | CI                | libnbd |
+|-------------------|---------------|-------------------|--------|
+| Fedora 37         | x86_64        | gitlab, circleci  | yes    |
+| Fedora 38         | x86_64        | gitlab, circleci  | yes    |
+| CentOS Stream 8   | x86_64        | gitlab, circleci  | yes    |
+| CentOS Stream 9   | x86_64        | gitlab, circleci  | yes    |
+| Fedora 36         | aarch64       | copr              | yes    |
+| Fedora 36         | ppc64le       | copr              | yes    |
+| Fedora 36         | s390x         | copr              | yes    |
+| Fedora 36         | x86_64        | copr              | yes    |
+| Fedora 37         | aarch64       | copr              | yes    |
+| Fedora 37         | ppc64le       | copr              | yes    |
+| Fedora 37         | s390x         | copr              | yes    |
+| Fedora 37         | x86_64        | copr              | yes    |
+| Fedora 38         | aarch64       | copr              | yes    |
+| Fedora 38         | ppc64le       | copr              | yes    |
+| Fedora 38         | s390x         | copr              | yes    |
+| Fedora 38         | x86_64        | copr              | yes    |
+| CentOS Stream 8   | aarch64       | copr              | yes    |
+| CentOS Stream 8   | ppc64le       | copr              | yes    |
+| CentOS Stream 8   | x86_64        | copr              | yes    |
+| CentOS Stream 9   | aarch64       | copr              | yes    |
+| CentOS Stream 9   | ppc64le       | copr              | yes    |
+| CentOS Stream 9   | s390x         | copr              | yes    |
+| CentOS Stream 9   | x86_64        | copr              | yes    |
+| EPEL 8            | aarch64       | copr              | yes    |
+| EPEL 8            | ppc64le       | copr              | yes    |
+| EPEL 8            | s390x         | copr              | yes    |
+| EPEL 8            | x86_64        | copr              | yes    |
+| EPEL 9            | aarch64       | copr              | yes    |
+| EPEL 9            | ppc64le       | copr              | yes    |
+| EPEL 9            | s390x         | copr              | yes    |
+| EPEL 9            | x86_64        | copr              | yes    |
+| RHEL 8.6          | x86_64        | no                | yes    |
+| FreeBSD 13        | x86_64        | no                | no     |
+| macOS 13 Ventura  | Apple Silicon | no                | no     |
 
 ## Contributing
 
@@ -496,7 +496,9 @@ the tests and debug.
 
 ### Setting up development environment
 
-Fedora:
+#### Fedora
+
+Install required packages:
 
     dnf install \
         asciidoc \
@@ -512,7 +514,9 @@ Fedora:
         rpm-build \
         rpmlint
 
-FreeBSD:
+#### FreeBSD
+
+Install required packages:
 
     pkg install \
         asciidoc \
@@ -523,46 +527,122 @@ FreeBSD:
         python3 \
         qemu-utils
 
-macOS 11 Big Sur:
+Install pytest and reuse via pip. See the section "Creating python
+virtual environment" bellow.
 
-    # Requires macport from https://www.macports.org/install.php
-    port install pkgconfig openssl asciidoc meson
-    port select --set python3 python39
+#### macOS
 
-Get the source:
+The recommended way to get the required packages is the
+[Homebrew](https://brew.sh/).
+You can use [MacPorts](https://www.macports.org/), but more work is
+needed and there are some issues.
 
-    git clone https://gitlab.com/nirs/blkhash.git
+These instructions were tested on *macOS Ventura 13.1*.
 
-If `python3-pytest` or `reuse` are not avaialble on your distro, you can
-installed them using pip in a virtual environment:
+##### Using Homebrew
 
-    python3 -m venv ~/venv/blkhash
-    source ~/venv/blkhash/bin/activate
+Install required packages:
+
+    brew install \
+        asciidoc \
+        docbook-xsl \
+        meson \
+        openssl \
+        pkg-config \
+        qemu
+
+Add these vars to `~/.zprofile`:
+
+    # Allow pkg-config to find homebew openssl config
+    export PKG_CONFIG_PATH="/opt/homebrew/opt/openssl@3/lib/pkgconfig"
+
+    # Allow xmllint to find homebrew catalogs
+    export XML_CATALOG_FILES=/opt/homebrew/etc/xml/catalog
+
+Open a new shell to apply the changes.
+
+Install pytest and resuse via pip. See the section "Creating virtual
+environment" bellow.
+
+##### Using MacPorts
+
+Install require packages:
+
+    port install \
+        asciidoc \
+        meson \
+        openssl \
+        pkgconfig \
+        py311-certifi \
+        py311-pytest \
+        qemu \
+        reuse
+
+Select python3 and pytest versions:
+
+    port select --set python3 python311
+    port select --set pytest pytest311
+
+Find certifi ca file:
+
+    % certifi_ca=$(python3 -c 'import certifi; print(certifi.where())')
+
+Find ssl openssl_cafile location:
+
+    % ssl_ca=$(python3 -c 'import ssl; print(ssl.get_default_verify_paths().openssl_cafile)')
+
+Backup ssl ca file:
+
+    mv $ssl_ca $ssl_ca.bak
+
+Link to certifi ca file to ssl ca file:
+
+    ln -s $certifi_ca $ssl_ca
+
+Install pytest and reuse via pip. See the section "Creating python
+virtual environment" bellow.
+
+#### Creating python virtual environment
+
+If `pytest` or *reuse* are not available using your package manager, you
+can install them using pip in a virtual environment:
+
+    python3 -m venv ~/.venv/blkhash
+    source ~/.venv/blkhash/bin/activate
     pip install pytest reuse
     deactivate
 
-On FreeBSD using the default shell (sh), use "." instead of "source":
+On FreeBSD using the default shell (sh), use `.` instead of `source`:
 
-    . ~/venv/blkhash/bin/activate
+    . ~/.venv/blkhash/bin/activate
 
-### Configuring
-
-If you installed some python3 packages using a virtual enviroment enter
-it before setting up meson:
+To use the virtual environment for configuring, building or running the
+tests, activate it:
 
     source ~/venv/blkhash/bin/activate
 
-When you are done, you can exit from the virtual environment:
+When you are done, you can deactivate the virtual environment:
 
     deactivate
+
+### Get the source
+
+    git clone https://gitlab.com/nirs/blkhash.git
+
+### Configuring
 
 Create a build directory with default options:
 
     meson setup build
 
+When building on *macOS* via *MacPorts*, you need to skip building the
+manual pages:
+
+    meson setup build -Ddoc=disabled
+
 The default options:
 
-- nbd=auto - Support NBD if libnbd is available.
+- nbd=auto - Support `NBD` if `libnbd` is available.
 
 To configure build directory for release installing in /usr:
 
@@ -578,11 +658,6 @@ setup):
 To build run:
 
     meson compile -C build
-
-If "meson compile" does not work, you probably have old meson (< 0.55)
-and need to run:
-
-    ninja-build -C build
 
 Instead of specifying the directory, you can run the command inside the
 build directory:
@@ -634,22 +709,22 @@ To see verbose test output use:
 
     meson test -C build -v
 
-To run specific `blksum` tests, use pytest directly:
+To run specific `blksum` tests, use `pytest` directly:
 
     meson compile -C build
     pytest -k sha1-sparse
 
-If `blksum` is built with NBD support, enable the NBD tests:
+If `blksum` is built with `NBD` support, enable the `NBD` tests:
 
     HAVE_NBD=1 pytest -k sha1-sparse
 
-pytest uses the "build" directory by default. If you want to use another
-directory name, or installed `blksum` executable, specify the path to the
-executable in the environment:
+`pytest` uses the `build` directory by default. If you want to use
+another directory name, or installed `blksum` executable, specify the
+path to the executable in the environment:
 
     meson setup release --buildtype=release
     meson compile -C release
-    BLKSUM=release/blksum pytest
+    BLKSUM=release/bin/blksum pytest
 
 To run only `blkhash` tests:
 
@@ -663,10 +738,10 @@ To run only `blkhash` tests:
   [ovirt-imageio](https://github.com/oVirt/ovirt-imageio)
   [blkhash module](https://github.com/oVirt/ovirt-imageio/blob/master/ovirt_imageio/_internal/blkhash.py).
 
-- The `blksum` command NBD support is powered by the
+- The `blksum` command `NBD` support is powered by the
   [libnbd](https://gitlab.com/nbdkit/libnbd/) library.
 
 ## License
 
-blkhash is licensed under the GNU Lesser General Public License version
+`blkhash`is licensed under the GNU Lesser General Public License version
 2.1 or later. See the file `LICENSES/LGPL-2.1-or-later.txt` for details.
