@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
@@ -65,4 +66,12 @@ bool supports_direct_io(const char *filename)
 #else
     return false;
 #endif
+}
+
+const EVP_MD *lookup_digest(const char *name)
+{
+    if (strcmp(name, "null") == 0)
+        return EVP_md_null();
+
+    return EVP_get_digestbyname(name);
 }

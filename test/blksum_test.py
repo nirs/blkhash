@@ -15,7 +15,7 @@ import pytest
 import blkhash
 
 DIGEST_NAMES = ["sha1", "blake2b512"]
-BLKSUM = os.environ.get("BLKSUM", "build/blksum")
+BLKSUM = os.environ.get("BLKSUM", "build/bin/blksum")
 HAVE_NBD = bool(os.environ.get("HAVE_NBD"))
 
 Image = namedtuple("Image", "filename,md,checksum")
@@ -170,6 +170,13 @@ def test_default_digest(tmpdir):
     path = tmpdir.join("empty.raw")
     create_image(path, "1m:-")
     assert blksum_file(path) == blksum_file(path, md="sha256")
+
+
+def test_null_digest(tmpdir):
+    path = tmpdir.join("empty.raw")
+    create_image(path, "1m:-")
+    # The special "null" digest does nothing and return empty checksum.
+    assert blksum_file(path, md="null") == ["", path]
 
 
 signals_params = pytest.mark.parametrize("signo,error", [
@@ -352,20 +359,20 @@ def remove_tempdirs():
 def blksum_nbd(nbd_url, md=None):
     bs = Blksum(filename=nbd_url, digest=md)
     bs.wait(check=True)
-    return bs.out.strip().split("  ")
+    return bs.out.rstrip().split("  ")
 
 
 def blksum_file(image, md=None, cache=True):
     bs = Blksum(filename=image, digest=md, cache=cache)
     bs.wait(check=True)
-    return bs.out.strip().split("  ")
+    return bs.out.rstrip().split("  ")
 
 
 def blksum_pipe(image, md=None):
     with open(image) as f:
         bs = Blksum(digest=md, stdin=f)
         bs.wait(check=True)
-    return bs.out.strip().split("  ")
+    return bs.out.rstrip().split("  ")
 
 
 @contextmanager

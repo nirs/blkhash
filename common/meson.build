@@ -5,4 +5,7 @@ common_lib = static_library(
   'common',
   'util.c',
   include_directories : include,
+  dependencies: [
+    openssl,
+  ],
 )

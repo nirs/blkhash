@@ -6,6 +6,7 @@
 #include <stdlib.h>
 
 #include "blkhash_internal.h"
+#include "util.h"
 
 static int compute_zero_md(struct config *c)
 {
@@ -28,7 +29,7 @@ int config_init(struct config *c, const char *digest_name, size_t block_size, in
 {
     assert(workers > 0);
 
-    c->md = EVP_get_digestbyname(digest_name);
+    c->md = lookup_digest(digest_name);
     if (c->md == NULL)
         return EINVAL;
 
