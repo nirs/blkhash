@@ -8,7 +8,7 @@
 #include "blksum.h"
 #include "util.h"
 
-void simple_checksum(struct src *s, struct options *opt, unsigned char *out)
+void checksum(struct src *s, struct options *opt, unsigned char *out)
 {
     void *buf;
     struct blkhash *h;

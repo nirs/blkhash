@@ -493,8 +493,8 @@ static void *worker_thread(void *arg)
     return NULL;
 }
 
-void parallel_checksum(const char *filename, struct options *opt,
-                       unsigned char *out)
+void aio_checksum(const char *filename, struct options *opt,
+                  unsigned char *out)
 {
     struct job job = {0};
     struct worker worker = {.job=&job};

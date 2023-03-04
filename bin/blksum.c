@@ -289,11 +289,11 @@ int main(int argc, char *argv[])
 
     if (opt.filename) {
         /* TODO: remove filename parameter */
-        parallel_checksum(opt.filename, &opt, md_value);
+        aio_checksum(opt.filename, &opt, md_value);
     } else {
         struct src *s;
         s = open_pipe(STDIN_FILENO);
-        simple_checksum(s, &opt, md_value);
+        checksum(s, &opt, md_value);
         src_close(s);
     }
 
