@@ -13,7 +13,6 @@
 #define READ_SIZE (1 * MiB)
 #define ZERO_SIZE MIN(16 * GiB, SIZE_MAX)
 #define BLOCK_SIZE (64 * KiB)
-#define THREADS 4
 #define DIGEST_NAME "sha256"
 
 static unsigned char buf[READ_SIZE];
@@ -22,8 +21,8 @@ static bool quick;
 void setUp() {}
 void tearDown() {}
 
-static void print_stats(const char *name, const char *digest, uint64_t size,
-                        int64_t elapsed)
+static void print_stats(const char *name, const char *digest, unsigned threads,
+                        uint64_t size, int64_t elapsed)
 {
     char *hsize, *hrate;
     double seconds;
@@ -32,15 +31,15 @@ static void print_stats(const char *name, const char *digest, uint64_t size,
     hsize = humansize(size);
     hrate = humansize(size / seconds);
 
-    printf("%s (%s): %s in %.3f seconds (%s/s)\n",
-           name, digest, hsize, seconds, hrate);
+    printf("%s (digest=%s, threads=%d): %s in %.3f seconds (%s/s)\n",
+           name, digest, threads, hsize, seconds, hrate);
 
     free(hsize);
     free(hrate);
 }
 
-static void bench(const char *name, const char *digest, uint64_t size,
-                  bool is_zero)
+static void bench(const char *name, const char *digest, unsigned threads,
+                  uint64_t size, bool is_zero)
 {
     struct blkhash *h;
     unsigned char md[BLKHASH_MAX_MD_SIZE];
@@ -58,7 +57,7 @@ static void bench(const char *name, const char *digest, uint64_t size,
 
     start = gettime();
 
-    h = blkhash_new(digest, BLOCK_SIZE, THREADS);
+    h = blkhash_new(digest, BLOCK_SIZE, threads);
     TEST_ASSERT_NOT_NULL_MESSAGE(h, strerror(errno));
 
     while (todo >= chunk) {
@@ -90,7 +89,7 @@ out:
 
     elapsed = gettime() - start;
 
-    print_stats(name, digest, size, elapsed);
+    print_stats(name, digest, threads, size, elapsed);
 }
 
 static void reference(const char *name, const char *digest, uint64_t size)
@@ -135,58 +134,58 @@ out:
 
     elapsed = gettime() - start;
 
-    print_stats(name, digest, size, elapsed);
+    print_stats(name, digest, 1, size, elapsed);
 }
 
 void bench_update_data_sha256()
 {
     memset(buf, 0x55, READ_SIZE);
-    bench("update-data", "sha256", 2 * GiB, false);
+    bench("update-data", "sha256", 4, 2 * GiB, false);
 }
 
 void bench_update_data_sha1()
 {
     memset(buf, 0x55, READ_SIZE);
-    bench("update-data", "sha1", 4 * GiB, false);
+    bench("update-data", "sha1", 4, 4 * GiB, false);
 }
 
 void bench_update_data_null()
 {
     memset(buf, 0x55, READ_SIZE);
-    bench("update-data", "null", 23 * GiB, false);
+    bench("update-data", "null", 4, 23 * GiB, false);
 }
 
 void bench_update_zero_sha256()
 {
     memset(buf, 0, READ_SIZE);
-    bench("update-zero", "sha256", 50 * GiB, false);
+    bench("update-zero", "sha256", 4, 50 * GiB, false);
 }
 
 void bench_update_zero_sha1()
 {
     memset(buf, 0, READ_SIZE);
-    bench("update-zero", "sha1", 50 * GiB, false);
+    bench("update-zero", "sha1", 4, 50 * GiB, false);
 }
 
 void bench_update_zero_null()
 {
     memset(buf, 0, READ_SIZE);
-    bench("update-zero", "null", 50 * GiB, false);
+    bench("update-zero", "null", 4, 50 * GiB, false);
 }
 
 void bench_zero_sha256()
 {
-    bench("zero", "sha256", 2500 * GiB, true);
+    bench("zero", "sha256", 4, 2500 * GiB, true);
 }
 
 void bench_zero_sha1()
 {
-    bench("zero", "sha1", 7500 * GiB, true);
+    bench("zero", "sha1", 4, 7500 * GiB, true);
 }
 
 void bench_zero_null()
 {
-    bench("zero", "null", 110 * TiB, true);
+    bench("zero", "null", 4, 110 * TiB, true);
 }
 
 void bench_sha256()
