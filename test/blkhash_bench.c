@@ -13,6 +13,7 @@
 #define READ_SIZE (1 * MiB)
 #define ZERO_SIZE MIN(16 * GiB, SIZE_MAX)
 #define BLOCK_SIZE (64 * KiB)
+#define THREADS 4
 #define DIGEST_NAME "sha256"
 
 static unsigned char buf[READ_SIZE];
@@ -57,7 +58,7 @@ static void bench(const char *name, const char *digest, uint64_t size,
 
     start = gettime();
 
-    h = blkhash_new(BLOCK_SIZE, digest);
+    h = blkhash_new(digest, BLOCK_SIZE, THREADS);
     TEST_ASSERT_NOT_NULL_MESSAGE(h, strerror(errno));
 
     while (todo >= chunk) {

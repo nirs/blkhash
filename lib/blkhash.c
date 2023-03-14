@@ -15,15 +15,12 @@
 #include "blkhash_internal.h"
 #include "util.h"
 
-#define WORKERS 4
-
 /* Number of consecutive zero blocks to consume before submitting zero length
  * block to all workers. */
 #define ZERO_BLOCKS_BATCH_SIZE (64 * 1024)
 
 struct blkhash {
     struct config config;
-    struct worker workers[WORKERS];
 
     /* For computing root digest. */
     EVP_MD_CTX *root_ctx;
@@ -43,15 +40,15 @@ struct blkhash {
     /* Image size, increased when adding data or zero to the hash. */
     int64_t image_size;
 
-    /* Number of workers started. */
-    unsigned workers_count;
-
     /* The first error. Once set, any operation will fail quickly with this
      * error. */
     int error;
 
     /* Set when hash is finalized. */
     bool finalized;
+
+    unsigned workers_count;
+    struct worker workers[0];
 };
 
 /* Set the error and return -1. All intenral errors should be handled with
@@ -64,16 +61,16 @@ static inline int set_error(struct blkhash *h, int error)
     return -1;
 }
 
-struct blkhash *blkhash_new(size_t block_size, const char *md_name)
+struct blkhash *blkhash_new(const char *md_name, size_t block_size, unsigned threads)
 {
     struct blkhash *h;
     int err;
 
-    h = calloc(1, sizeof(*h));
+    h = calloc(1, sizeof(*h) + sizeof(h->workers[0]) * threads);
     if (h == NULL)
         return NULL;
 
-    err = config_init(&h->config, md_name, block_size, WORKERS);
+    err = config_init(&h->config, md_name, block_size, threads);
     if (err)
         goto error;
 
@@ -96,7 +93,7 @@ struct blkhash *blkhash_new(size_t block_size, const char *md_name)
         goto error;
     }
 
-    for (unsigned i = 0; i < WORKERS; i++) {
+    for (unsigned i = 0; i < threads; i++) {
         err = worker_init(&h->workers[i], i, &h->config);
         if (err)
             goto error;
@@ -122,7 +119,7 @@ static int submit_zero_block(struct blkhash *h)
     struct block *b;
     int err;
 
-    for (unsigned i = 0; i < WORKERS; i++) {
+    for (int i = 0; i < h->config.workers; i++) {
         b = block_new(h->block_index, 0, NULL);
         if (b == NULL)
             return set_error(h, errno);
@@ -151,7 +148,7 @@ static int submit_data_block(struct blkhash *h, const void *buf, size_t len)
     if (b == NULL)
         return set_error(h, errno);
 
-    w = &h->workers[h->block_index % WORKERS];
+    w = &h->workers[h->block_index % h->config.workers];
     err = worker_update(w, b);
     if (err) {
         block_free(b);

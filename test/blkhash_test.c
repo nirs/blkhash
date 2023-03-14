@@ -26,14 +26,15 @@ struct extent {
 };
 
 void checksum(struct extent *extents, unsigned int len,
-              size_t block_size, const char *digest_name, char *hexdigest)
+              const char *digest_name, size_t block_size, unsigned threads,
+              char *hexdigest)
 {
     unsigned char md[digest_len];
     unsigned int md_len = digest_len;
     struct blkhash *h;
     int err = 0;
 
-    h = blkhash_new(block_size, digest_name);
+    h = blkhash_new(digest_name, block_size, threads);
     TEST_ASSERT_NOT_NULL_MESSAGE(h, strerror(errno));
 
     for (unsigned i = 0; i < len; i++) {
@@ -79,7 +80,7 @@ void test_block_data()
         {'A', block_size},
     };
     char hexdigest[hexdigest_len];
-    checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
+    checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, 4, hexdigest);
     TEST_ASSERT_EQUAL_STRING(
         "b1a37d57301efe26db0ae98c681fb33bc7718e2d7eaa6d14bef667fdb0ce4153",
         hexdigest);
@@ -91,7 +92,7 @@ void test_block_data_zero()
         {'\0', block_size},
     };
     char hexdigest[hexdigest_len];
-    checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
+    checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, 4, hexdigest);
     TEST_ASSERT_EQUAL_STRING(
         "e3464a69bf8aa32beb68088f07a797b61edba57b87bcccb19e4b093ded09d2c3",
         hexdigest);
@@ -103,7 +104,7 @@ void test_block_zero()
         {'-', block_size},
     };
     char hexdigest[hexdigest_len];
-    checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
+    checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, 4, hexdigest);
     TEST_ASSERT_EQUAL_STRING(
         "e3464a69bf8aa32beb68088f07a797b61edba57b87bcccb19e4b093ded09d2c3",
         hexdigest);
@@ -115,7 +116,7 @@ void test_partial_block_data()
         {'A', block_size / 2},
     };
     char hexdigest[hexdigest_len];
-    checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
+    checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, 4, hexdigest);
     TEST_ASSERT_EQUAL_STRING(
         "9882fe93f0340c4414833acadae9c0dcf1c988e2cf1da67902e6863f069c2617",
         hexdigest);
@@ -127,7 +128,7 @@ void test_partial_block_data_zero()
         {'\0', block_size / 2},
     };
     char hexdigest[hexdigest_len];
-    checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
+    checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, 4, hexdigest);
     TEST_ASSERT_EQUAL_STRING(
         "982e8f30451ead173a4da1df76e3b8849a3d0a5126f03e09b54e7c107c429b01",
         hexdigest);
@@ -139,7 +140,7 @@ void test_partial_block_zero()
         {'-', block_size / 2},
     };
     char hexdigest[hexdigest_len];
-    checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
+    checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, 4, hexdigest);
     TEST_ASSERT_EQUAL_STRING(
         "982e8f30451ead173a4da1df76e3b8849a3d0a5126f03e09b54e7c107c429b01",
         hexdigest);
@@ -151,7 +152,7 @@ void test_sparse()
         {'-', block_size * 8},
     };
     char hexdigest[hexdigest_len];
-    checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
+    checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, 4, hexdigest);
     TEST_ASSERT_EQUAL_STRING(
         "823d6ac7d26b7768abfbd2051a6bb167937043e884bac39ea8da31bae7bf5ace",
         hexdigest);
@@ -163,7 +164,7 @@ void test_sparse_large()
         {'-', 1024 * 1024 * 1024},
     };
     char hexdigest[hexdigest_len];
-    checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
+    checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, 4, hexdigest);
     TEST_ASSERT_EQUAL_STRING(
         "9b3d2f329b8e1a3a10ac623efa163c12e953dbb5192825b4772dcf0f8905e1b1",
         hexdigest);
@@ -176,7 +177,7 @@ void test_sparse_unaligned()
         {'-', block_size / 2},
     };
     char hexdigest[hexdigest_len];
-    checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
+    checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, 4, hexdigest);
     TEST_ASSERT_EQUAL_STRING(
         "d28c351b1e0d8293aace1032ccee33579fbaf3075e0d5e868226bf9d898cc476",
         hexdigest);
@@ -188,7 +189,7 @@ void test_zero()
         {'\0', block_size * 8},
     };
     char hexdigest[hexdigest_len];
-    checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
+    checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, 4, hexdigest);
     TEST_ASSERT_EQUAL_STRING(
         "823d6ac7d26b7768abfbd2051a6bb167937043e884bac39ea8da31bae7bf5ace",
         hexdigest);
@@ -201,7 +202,7 @@ void test_zero_unaligned()
         {'\0', block_size / 2},
     };
     char hexdigest[hexdigest_len];
-    checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
+    checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, 4, hexdigest);
     TEST_ASSERT_EQUAL_STRING(
         "d28c351b1e0d8293aace1032ccee33579fbaf3075e0d5e868226bf9d898cc476",
         hexdigest);
@@ -218,7 +219,7 @@ void test_full()
         {'F', block_size / 2},
     };
     char hexdigest[hexdigest_len];
-    checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
+    checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, 4, hexdigest);
     TEST_ASSERT_EQUAL_STRING(
         "658d47f67ee57ce66c71fccc5ebf7768f5720c9c37139409874d8afe354a9571",
         hexdigest);
@@ -234,7 +235,7 @@ void test_full_unaligned()
         {'E', block_size / 2},
     };
     char hexdigest[hexdigest_len];
-    checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
+    checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, 4, hexdigest);
     TEST_ASSERT_EQUAL_STRING(
         "d08e319cba087440b6f42120df4a8830b2475463edf2967cc61f3cd6ccaa84c6",
         hexdigest);
@@ -261,7 +262,7 @@ void test_mix()
         {'\0', block_size / 2},
     };
     char hexdigest[hexdigest_len];
-    checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
+    checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, 4, hexdigest);
     TEST_ASSERT_EQUAL_STRING(
         "fe6ed2020798c76a9a28e98c4a575f12a29710f41ec88f1055fa5b407361085a",
         hexdigest);
@@ -287,7 +288,7 @@ void test_mix_unaligned()
         /* Consume pending zeros. */
     };
     char hexdigest[hexdigest_len];
-    checksum(extents, ARRAY_SIZE(extents), block_size, digest_name, hexdigest);
+    checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, 4, hexdigest);
     TEST_ASSERT_EQUAL_STRING(
         "8b4034f448346b3feeb89b08d15a07feeba8de3baaeda47ecc15d3dd16d8c4ca",
         hexdigest);
@@ -298,7 +299,7 @@ void test_abort_quickly()
     struct blkhash *h;
     int err;
 
-    h = blkhash_new(block_size, digest_name);
+    h = blkhash_new(digest_name, block_size, 4);
     TEST_ASSERT_NOT_NULL_MESSAGE(h, strerror(errno));
 
     for (int i = 0; i < 10; i++) {

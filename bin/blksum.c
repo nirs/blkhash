@@ -54,6 +54,12 @@ static struct options opt = {
      */
     .block_size = 64 * 1024,
 
+    /*
+     * Number of blkhash threads. Changing this value changes the algorithm so
+     * it should not be user configurable.
+     */
+    .threads = 4,
+
     /* Maximum size for extents call. */
     .extents_size = 1024 * 1024 * 1024,
 

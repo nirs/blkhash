@@ -474,7 +474,7 @@ static void *worker_thread(void *arg)
 
     w->s = open_src(job->uri);
 
-    w->h = blkhash_new(opt->block_size, opt->digest_name);
+    w->h = blkhash_new(opt->digest_name, opt->block_size, opt->threads);
     if (w->h == NULL)
         FAIL_ERRNO("blkhash_new");
 
