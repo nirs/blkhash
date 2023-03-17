@@ -10,8 +10,6 @@
 #include "blkhash.h"
 #include "util.h"
 
-#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
-
 static const size_t block_size = 64 * 1024;
 static const char * digest_name = "sha256";
 static const unsigned int digest_len = 32;
