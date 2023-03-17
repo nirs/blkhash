@@ -145,6 +145,7 @@ void bench_update_data_sha256()
 
 void bench_update_data_sha1()
 {
+    memset(buf, 0x55, READ_SIZE);
     bench("update-data", "sha1", 4 * GiB, false);
 }
 
