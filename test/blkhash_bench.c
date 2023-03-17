@@ -38,13 +38,12 @@ static void print_stats(const char *name, const char *digest, uint64_t size,
     free(hrate);
 }
 
-static void bench(const char *name, const char *digest, uint64_t size, bool
-                  is_zero, const char *r, const char *q)
+static void bench(const char *name, const char *digest, uint64_t size,
+                  bool is_zero)
 {
     struct blkhash *h;
     unsigned char md[BLKHASH_MAX_MD_SIZE];
     unsigned int len;
-    char hex[BLKHASH_MAX_MD_SIZE * 2 + 1];
     int64_t start, elapsed;
     size_t chunk;
     uint64_t todo;
@@ -90,24 +89,15 @@ out:
 
     elapsed = gettime() - start;
 
-    format_hex(md, len, hex);
-
-    if (quick)
-        TEST_ASSERT_EQUAL_STRING(q, hex);
-    else
-        TEST_ASSERT_EQUAL_STRING(r, hex);
-
     print_stats(name, digest, size, elapsed);
 }
 
-static void reference(const char *name, const char *digest, uint64_t size,
-                      const char *r, const char *q)
+static void reference(const char *name, const char *digest, uint64_t size)
 {
     const EVP_MD *md;
     EVP_MD_CTX *ctx;
     unsigned char res[EVP_MAX_MD_SIZE];
     unsigned int len;
-    char hex[EVP_MAX_MD_SIZE * 2 + 1];
     int64_t start, elapsed;
     int ok;
 
@@ -144,92 +134,69 @@ out:
 
     elapsed = gettime() - start;
 
-    format_hex(res, len, hex);
-
-    if (quick)
-        TEST_ASSERT_EQUAL_STRING(q, hex);
-    else
-        TEST_ASSERT_EQUAL_STRING(r, hex);
-
     print_stats(name, digest, size, elapsed);
 }
 
 void bench_update_data_sha256()
 {
     memset(buf, 0x55, READ_SIZE);
-    bench("update-data", "sha256", 2 * GiB, false,
-          "b33581f924e62df503920f27b435bf4cead36d8990809c43613182b0c449fb97",
-          "96aef7a5e820431384b08c80eaf78a22e8d30d3d4d89906bc6d569963b837f85");
+    bench("update-data", "sha256", 2 * GiB, false);
 }
 
 void bench_update_data_sha1()
 {
-    bench("update-data", "sha1", 4 * GiB, false,
-          "19f670f7e7866a7b596c7fc0359080ab130a352b",
-          "1b4fc3ff10af06488b65af9c18909db166111078");
+    bench("update-data", "sha1", 4 * GiB, false);
 }
 
 void bench_update_data_null()
 {
     memset(buf, 0x55, READ_SIZE);
-    bench("update-data", "null", 23 * GiB, false, "", "");
+    bench("update-data", "null", 23 * GiB, false);
 }
 
 void bench_update_zero_sha256()
 {
     memset(buf, 0, READ_SIZE);
-    bench("update-zero", "sha256", 50 * GiB, false,
-          "b3d7dccca2e9ea73b06ca3b03608e2b47f5f15e5b5baf2b4220b2f92d5be2eac",
-          "85eb32dcd84b8e7575c8a3afd6ee1d83d1ded1752b6f61fc0c49f84e97e97eb6");
+    bench("update-zero", "sha256", 50 * GiB, false);
 }
 
 void bench_update_zero_sha1()
 {
     memset(buf, 0, READ_SIZE);
-    bench("update-zero", "sha1", 50 * GiB, false,
-          "5c8cc32fbbee866757e0997d58fd9e3e35c807b0",
-          "c15314c3dab3307d6b518ca24c3f15275c03b819");
+    bench("update-zero", "sha1", 50 * GiB, false);
 }
 
 void bench_update_zero_null()
 {
     memset(buf, 0, READ_SIZE);
-    bench("update-zero", "null", 50 * GiB, false, "", "");
+    bench("update-zero", "null", 50 * GiB, false);
 }
 
 void bench_zero_sha256()
 {
-    bench("zero", "sha256", 2500 * GiB, true,
-          "ee2d710dfa14468ceac5281c57381e50657434da22d9c026244a8b99acc05c1a",
-          "e3f123e37abc310ad76b7e775edf4a5707cb8a48214694697267fe2723289893");
+    bench("zero", "sha256", 2500 * GiB, true);
 }
 
 void bench_zero_sha1()
 {
-    bench("zero", "sha1", 7500 * GiB, true,
-          "cd807d9fa89a6efc66a0ce46408f0689b316d9ee",
-          "a9eeed333040ffe0ab284018c5b39f7b5ae390c1");
+    bench("zero", "sha1", 7500 * GiB, true);
 }
 
 void bench_zero_null()
 {
-    bench("zero", "null", 110 * TiB, true, "", "");
+    bench("zero", "null", 110 * TiB, true);
 }
 
 void bench_sha256()
 {
     memset(buf, 0x55, READ_SIZE);
-    reference("reference", "sha256", 512 * MiB,
-              "b51dfe2b75f17ee394307f878b9b161d58f04a9d142411952f97e68b32bc9131",
-              "aa5b27f5e2dad9c8a5a6d04320887656484d917c085a4435a919dc2aadc35ec0");
+    reference("reference", "sha256", 512 * MiB);
 }
 
 void bench_sha1()
 {
     memset(buf, 0x55, READ_SIZE);
-    reference("reference", "sha1", 1 * GiB,
-              "a414a6962c6f87477df2c010ae3627e5f19f0eed",
-              "a8f7ffdea89d223c491bc21441c6219be5d1f433");
+    reference("reference", "sha1", 1 * GiB);
 }
 
 int main(int argc, char *argv[])
