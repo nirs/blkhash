@@ -158,20 +158,20 @@ static void parse_options(int argc, char *argv[])
             opt.flags |= USER_CACHE;
             break;
         case QUEUE_SIZE: {
-            char *end;
-            opt.queue_size = strtol(optarg, &end, 10);
-            if (*end != '\0' || end == optarg)
+            int value = parse_humansize(optarg);
+            if (value == -EINVAL)
                 FAIL("Invalid value for option %s: '%s'", optname, optarg);
 
+            opt.queue_size = value;
             opt.flags |= USER_QUEUE_SIZE;
             break;
         }
         case READ_SIZE: {
-            char *end;
-            opt.read_size = strtol(optarg, &end, 10);
-            if (*end != '\0' || end == optarg)
+            int value = parse_humansize(optarg);
+            if (value == -EINVAL)
                 FAIL("Invalid value for option %s: '%s'", optname, optarg);
 
+            opt.read_size = value;
             opt.flags |= USER_READ_SIZE;
             break;
         }
