@@ -21,6 +21,7 @@
 
 void format_hex(unsigned char *md, unsigned int len, char *s);
 char *humansize(int64_t bytes);
+int64_t parse_humansize(const char *s);
 uint64_t gettime(void);
 bool supports_direct_io(const char *filename);
 const EVP_MD *lookup_digest(const char *name);
