@@ -13,12 +13,15 @@ struct blkhash;
 
 /*
  * Allocates and initialize a block hash for creating one message
- * digest. The hash buffers block_size bytes for zero detection. The
- * message digest is created using the provided message digest name.
+ * digest.  The message digest is created using the provided message
+ * digest name.  The hash buffers block_size bytes for zero detection.
+ * The hash uses the specified number of threads to compute block hashes
+ * in parallel.
  *
  * Return NULL and set errno on error.
  */
-struct blkhash *blkhash_new(size_t block_size, const char *md_name);
+struct blkhash *blkhash_new(const char *md_name, size_t block_size,
+                            unsigned threads);
 
 /*
  * Hashes len bytes of data at buf into the hash h. This function can be

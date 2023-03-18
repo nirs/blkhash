@@ -17,6 +17,7 @@
 /* May be defined in sys/param.h. */
 #undef MIN
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
 void format_hex(unsigned char *md, unsigned int len, char *s);
 char *humansize(int64_t bytes);

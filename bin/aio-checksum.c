@@ -474,7 +474,7 @@ static void *worker_thread(void *arg)
 
     w->s = open_src(job->uri);
 
-    w->h = blkhash_new(opt->block_size, opt->digest_name);
+    w->h = blkhash_new(opt->digest_name, opt->block_size, opt->threads);
     if (w->h == NULL)
         FAIL_ERRNO("blkhash_new");
 
@@ -493,8 +493,8 @@ static void *worker_thread(void *arg)
     return NULL;
 }
 
-void parallel_checksum(const char *filename, struct options *opt,
-                       unsigned char *out)
+void aio_checksum(const char *filename, struct options *opt,
+                  unsigned char *out)
 {
     struct job job = {0};
     struct worker worker = {.job=&job};

@@ -8,7 +8,7 @@
 #include "blksum.h"
 #include "util.h"
 
-void simple_checksum(struct src *s, struct options *opt, unsigned char *out)
+void checksum(struct src *s, struct options *opt, unsigned char *out)
 {
     void *buf;
     struct blkhash *h;
@@ -18,7 +18,7 @@ void simple_checksum(struct src *s, struct options *opt, unsigned char *out)
     if (buf == NULL)
         FAIL_ERRNO("malloc");
 
-    h = blkhash_new(opt->block_size, opt->digest_name);
+    h = blkhash_new(opt->digest_name, opt->block_size, opt->threads);
     if (h == NULL)
         FAIL_ERRNO("blkhash_new");
 

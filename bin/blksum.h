@@ -46,6 +46,7 @@ struct options {
     size_t read_size;
     size_t queue_size;
     size_t block_size;
+    unsigned threads;
     int64_t extents_size;
     const char *aio;
     bool cache;
@@ -164,9 +165,9 @@ int src_aio_pread(struct src *s, void *buf, size_t len, int64_t offset,
 int src_aio_run(struct src *s, int timeout);
 void src_close(struct src *s);
 
-void simple_checksum(struct src *s, struct options *opt, unsigned char *out);
-void parallel_checksum(const char *filename, struct options *opt,
-                       unsigned char *out);
+void checksum(struct src *s, struct options *opt, unsigned char *out);
+void aio_checksum(const char *filename, struct options *opt,
+                  unsigned char *out);
 
 void progress_init(int64_t size);
 void progress_update(int64_t len);

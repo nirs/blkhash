@@ -54,6 +54,12 @@ static struct options opt = {
      */
     .block_size = 64 * 1024,
 
+    /*
+     * Number of blkhash threads. Changing this value changes the algorithm so
+     * it should not be user configurable.
+     */
+    .threads = 4,
+
     /* Maximum size for extents call. */
     .extents_size = 1024 * 1024 * 1024,
 
@@ -289,11 +295,11 @@ int main(int argc, char *argv[])
 
     if (opt.filename) {
         /* TODO: remove filename parameter */
-        parallel_checksum(opt.filename, &opt, md_value);
+        aio_checksum(opt.filename, &opt, md_value);
     } else {
         struct src *s;
         s = open_pipe(STDIN_FILENO);
-        simple_checksum(s, &opt, md_value);
+        checksum(s, &opt, md_value);
         src_close(s);
     }
 
