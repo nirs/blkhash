@@ -41,13 +41,11 @@ blkhash_bench = executable(
   ],
   dependencies: [
     openssl,
-    unity_dep,
   ],
 )
 
 test('blkhash-test', blkhash_test)
 test('zero-bench', zero_bench, args: ['quick'])
-test('blkhash-bench', blkhash_bench, args: ['quick'])
 
 # On Centos Stream 8 pytest is installed as pytest-3
 pytest = find_program('pytest', '/usr/bin/pytest-3', required: false)
