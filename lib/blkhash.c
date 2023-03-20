@@ -15,9 +15,9 @@
 #include "blkhash-internal.h"
 #include "util.h"
 
-/* Number of consecutive zero blocks to consume before submitting zero length
- * block to all workers. */
-#define ZERO_BLOCKS_BATCH_SIZE (64 * 1024)
+/* Number of consecutive zero blocks per worker to consume before submitting
+ * zero length block to all workers. */
+#define WORKER_ZERO_BATCH_SIZE (16 * 1024)
 
 struct blkhash {
     struct config config;
@@ -226,9 +226,11 @@ static size_t add_pending_zeros(struct blkhash *h, size_t len)
  */
 static inline int consume_zero_blocks(struct blkhash *h, size_t count)
 {
+    const int64_t batch_size = WORKER_ZERO_BATCH_SIZE * h->config.workers;
+
     h->block_index += count;
 
-    if (h->block_index - h->update_index >= ZERO_BLOCKS_BATCH_SIZE)
+    if (h->block_index - h->update_index >= batch_size)
         return submit_zero_block(h);
 
     return 0;
