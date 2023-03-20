@@ -12,7 +12,7 @@
 #include <openssl/evp.h>
 
 #include "blkhash.h"
-#include "blkhash_internal.h"
+#include "blkhash-internal.h"
 #include "util.h"
 
 /* Number of consecutive zero blocks to consume before submitting zero length

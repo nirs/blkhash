@@ -3,7 +3,7 @@
 
 #include <errno.h>
 
-#include "blkhash_internal.h"
+#include "blkhash-internal.h"
 
 /* Maximum number of blocks to queue per worker. */
 #define MAX_BLOCKS 16

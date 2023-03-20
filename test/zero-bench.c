@@ -6,7 +6,7 @@
 #include <string.h>
 
 #include "unity.h"
-#include "blkhash_internal.h"
+#include "blkhash-internal.h"
 #include "util.h"
 
 #define BLOCK_SIZE (64 * KiB)

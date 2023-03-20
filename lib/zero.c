@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <string.h>
 
-#include "blkhash_internal.h"
+#include "blkhash-internal.h"
 
 /*
  * Based on Rusty Russell's memeqzero.

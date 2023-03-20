@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "blkhash_internal.h"
+#include "blkhash-internal.h"
 
 struct block *block_new(uint64_t index, size_t len, const void *data)
 {

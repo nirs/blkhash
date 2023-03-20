@@ -5,7 +5,7 @@
 #include <errno.h>
 #include <stdlib.h>
 
-#include "blkhash_internal.h"
+#include "blkhash-internal.h"
 #include "util.h"
 
 static int compute_zero_md(struct config *c)
