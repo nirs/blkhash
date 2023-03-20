@@ -104,6 +104,7 @@ int main(int argc, char *argv[])
     const EVP_MD *md;
     EVP_MD_CTX *ctx;
     unsigned char res[EVP_MAX_MD_SIZE];
+    char res_hex[EVP_MAX_MD_SIZE * 2 + 1];
     unsigned int len;
     double seconds;
     int64_t throughput;
@@ -153,6 +154,8 @@ int main(int argc, char *argv[])
     seconds = elapsed / 1e6;
     throughput = input_size / seconds;
 
+    format_hex(res, len, res_hex);
+
     printf("{\n");
     printf("  \"input-type\": \"data\",\n");
     printf("  \"input-size\": %" PRIi64 ",\n", input_size);
@@ -160,6 +163,7 @@ int main(int argc, char *argv[])
     printf("  \"read-size\": %d,\n", read_size);
     printf("  \"threads\": 1,\n");
     printf("  \"elapsed\": %.3f,\n", seconds);
-    printf("  \"throughput\": %" PRIi64 "\n", throughput);
+    printf("  \"throughput\": %" PRIi64 ",\n", throughput);
+    printf("  \"checksum\": \"%s\"\n", res_hex);
     printf("}\n");
 }

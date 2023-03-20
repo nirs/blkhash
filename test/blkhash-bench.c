@@ -156,6 +156,7 @@ int main(int argc, char *argv[])
     int64_t start, elapsed;
     struct blkhash *h;
     unsigned char md[BLKHASH_MAX_MD_SIZE];
+    char md_hex[BLKHASH_MAX_MD_SIZE * 2 + 1];
     unsigned int len;
     double seconds;
     int64_t throughput;
@@ -207,6 +208,8 @@ int main(int argc, char *argv[])
     seconds = elapsed / 1e6;
     throughput = input_size / seconds;
 
+    format_hex(md, len, md_hex);
+
     printf("{\n");
     printf("  \"input-type\": \"%s\",\n", type_name(input_type));
     printf("  \"input-size\": %" PRIi64 ",\n", input_size);
@@ -216,6 +219,7 @@ int main(int argc, char *argv[])
     printf("  \"hole-size\": %" PRIi64 ",\n", hole_size);
     printf("  \"threads\": %d,\n", threads);
     printf("  \"elapsed\": %.3f,\n", seconds);
-    printf("  \"throughput\": %" PRIi64 "\n", throughput);
+    printf("  \"throughput\": %" PRIi64 ",\n", throughput);
+    printf("  \"checksum\": \"%s\"\n", md_hex);
     printf("}\n");
 }

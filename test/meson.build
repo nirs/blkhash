@@ -64,10 +64,24 @@ pytest = find_program('pytest', '/usr/bin/pytest-3', required: false)
 
 if pytest.found()
   env = environment()
+  env.set('BUILD_DIR', meson.current_build_dir())
   env.set('BLKSUM', blksum.full_path())
   env.set('HAVE_NBD', libnbd.found() ? '1' : '')
+
   test(
-    'blksum',
+    'bench-test',
+    pytest,
+    args: ['bench_test.py'],
+    depends: [
+      blkhash_bench,
+      openssl_bench,
+    ],
+    env: env,
+    workdir: meson.current_source_dir(),
+  )
+
+  test(
+    'blksum-test',
     pytest,
     args: ['blksum_test.py'],
     depends: blksum,
