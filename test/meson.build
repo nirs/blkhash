@@ -44,6 +44,18 @@ blkhash_bench = executable(
   ],
 )
 
+openssl_bench = executable(
+  'openssl-bench',
+  'openssl-bench.c',
+  include_directories : include,
+  link_with: [
+    common_lib,
+  ],
+  dependencies: [
+    openssl,
+  ],
+)
+
 test('blkhash-test', blkhash_test)
 test('zero-bench', zero_bench, args: ['quick'])
 

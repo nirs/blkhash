@@ -83,6 +83,32 @@ profile blkhash with `sha256` digest, hashing 4 TiB hole.
                             --0.95%--add_zero_blocks_before (inlined)
     ...
 
+## The openssl-bench program
+
+Similar to `blkhash-bench` with the relevant options. It is used to
+compare blkhash to digest functions provided by openssl.
+
+    $ build/test/openssl-bench -h
+
+    Benchmark openssl
+
+        openssl-bench [-s N|--input-size N]
+                      [-d DIGEST|--digest-name=DIGEST]
+                      [-r N|--read-size N] [-h|--help]
+
+Example run:
+
+    $ build/test/openssl-bench -s 550m -d sha256
+    {
+      "input-type": "data",
+      "input-size": 576716800,
+      "digest-name": "sha256",
+      "read-size": 1048576,
+      "threads": 1,
+      "elapsed": 0.975,
+      "throughput": 591693752
+    }
+
 ## The blkhash-bench.py script
 
 This script runs many scenarios using the `blkhash-bench` program.
