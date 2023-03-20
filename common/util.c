@@ -3,6 +3,7 @@
 
 #define _GNU_SOURCE     /* For O_DIRECT */
 
+#include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
 #include <stdio.h>
@@ -41,6 +42,33 @@ char* humansize(int64_t bytes)
         r = asprintf(&s, "%.2f TiB", bytes / (double)TiB);
 
     return r != -1 ? s : NULL;
+}
+
+int64_t parse_humansize(const char *s)
+{
+    char *end;
+    double value;
+
+    value = strtod(s, &end);
+
+    if (value < 0)
+        return -EINVAL; /* size must be positive. */
+
+    if (end == s)
+        return -EINVAL; /* nothing was parsed. */
+
+    if (*end == '\0')
+        return value; /* no prefix, value in bytes. */
+    else if (strcmp(end, "k") == 0)
+        return value * KiB;
+    else if (strcmp(end, "m") == 0)
+        return value * MiB;
+    else if (strcmp(end, "g") == 0)
+        return value * GiB;
+    else if (strcmp(end, "t") == 0)
+        return value * TiB;
+    else
+        return -EINVAL; /* Unknown suffix. */
 }
 
 uint64_t gettime(void)
