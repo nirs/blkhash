@@ -22,6 +22,10 @@
 struct blkhash {
     struct config config;
 
+    /* Workers processing blocks. */
+    struct worker *workers;
+    unsigned workers_count;
+
     /* For computing root digest. */
     EVP_MD_CTX *root_ctx;
 
@@ -46,9 +50,6 @@ struct blkhash {
 
     /* Set when hash is finalized. */
     bool finalized;
-
-    unsigned workers_count;
-    struct worker workers[0];
 };
 
 /* Set the error and return -1. All intenral errors should be handled with
@@ -66,13 +67,28 @@ struct blkhash *blkhash_new(const char *md_name, size_t block_size, unsigned thr
     struct blkhash *h;
     int err;
 
-    h = calloc(1, sizeof(*h) + sizeof(h->workers[0]) * threads);
+    h = calloc(1, sizeof(*h));
     if (h == NULL)
         return NULL;
 
     err = config_init(&h->config, md_name, block_size, threads);
     if (err)
         goto error;
+
+    h->workers = calloc(h->config.workers, sizeof(*h->workers));
+    if (h->workers == NULL) {
+        err = errno;
+        goto error;
+    }
+
+    while (h->workers_count < h->config.workers) {
+        err = worker_init(&h->workers[h->workers_count], h->workers_count,
+                          &h->config);
+        if (err)
+            goto error;
+
+        h->workers_count++;
+    }
 
     h->root_ctx = EVP_MD_CTX_new();
     if (h->root_ctx == NULL) {
@@ -91,14 +107,6 @@ struct blkhash *blkhash_new(const char *md_name, size_t block_size, unsigned thr
     if (!EVP_DigestInit_ex(h->root_ctx, h->config.md, NULL)) {
         err = ENOMEM;
         goto error;
-    }
-
-    for (unsigned i = 0; i < threads; i++) {
-        err = worker_init(&h->workers[i], i, &h->config);
-        if (err)
-            goto error;
-
-        h->workers_count++;
     }
 
     return h;
@@ -411,8 +419,9 @@ void blkhash_free(struct blkhash *h)
     for (unsigned i = 0; i < h->workers_count; i++)
         worker_destroy(&h->workers[i]);
 
-    EVP_MD_CTX_free(h->root_ctx);
     free(h->pending);
+    EVP_MD_CTX_free(h->root_ctx);
+    free(h->workers);
 
     free(h);
 }
