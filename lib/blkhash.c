@@ -349,10 +349,8 @@ int blkhash_zero(struct blkhash *h, size_t len)
     return 0;
 }
 
-static void stop_workers(struct blkhash *h, bool want_digest)
+static void stop_workers(struct blkhash *h)
 {
-    unsigned char md[EVP_MAX_MD_SIZE];
-    unsigned int len;
     int err;
 
     for (unsigned i = 0; i < h->workers_count; i++) {
@@ -362,22 +360,36 @@ static void stop_workers(struct blkhash *h, bool want_digest)
     }
 
     for (unsigned i = 0; i < h->workers_count; i++) {
-        err = worker_digest(&h->workers[i], md, &len);
+        err = worker_join(&h->workers[i]);
         if (err)
             set_error(h, err);
-
-        if (want_digest && h->error == 0) {
-            if (!EVP_DigestUpdate(h->root_ctx, md, len))
-                set_error(h, ENOMEM);
-        }
     }
+}
+
+static int compute_root_hash(struct blkhash *h, unsigned char *md, unsigned int *len)
+{
+    unsigned char worker_md[EVP_MAX_MD_SIZE];
+    unsigned int worker_len;
+    int err;
+
+    for (unsigned i = 0; i < h->workers_count; i++) {
+        err = worker_final(&h->workers[i], worker_md, &worker_len);
+        if (err)
+            return set_error(h, err);
+
+        if (!EVP_DigestUpdate(h->root_ctx, worker_md, worker_len))
+            return set_error(h, ENOMEM);
+    }
+
+    if (!EVP_DigestFinal_ex(h->root_ctx, md, len))
+        return set_error(h, ENOMEM);
+
+    return 0;
 }
 
 int blkhash_final(struct blkhash *h, unsigned char *md_value,
                   unsigned int *md_len)
 {
-    bool want_digest = true;
-
     if (h->finalized)
         return EINVAL;
 
@@ -389,13 +401,10 @@ int blkhash_final(struct blkhash *h, unsigned char *md_value,
     if (h->error == 0)
         submit_zero_block(h);
 
-    want_digest = h->error == 0;
-    stop_workers(h, want_digest);
+    stop_workers(h);
 
-    if (h->error == 0) {
-        if (!EVP_DigestFinal_ex(h->root_ctx, md_value, md_len))
-            set_error(h, ENOMEM);
-    }
+    if (h->error == 0)
+        compute_root_hash(h, md_value, md_len);
 
     return h->error;
 }
@@ -405,10 +414,8 @@ void blkhash_free(struct blkhash *h)
     if (h == NULL)
         return;
 
-    if (!h->finalized) {
-        bool want_digest = false;
-        stop_workers(h, want_digest);
-    }
+    if (!h->finalized)
+        stop_workers(h);
 
     for (unsigned i = 0; i < h->workers_count; i++)
         worker_destroy(&h->workers[i]);

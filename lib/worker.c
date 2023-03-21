@@ -307,7 +307,7 @@ int worker_stop(struct worker *w)
     return worker_update(w, b);
 }
 
-int worker_digest(struct worker *w, unsigned char *md, unsigned int *len)
+int worker_join(struct worker *w)
 {
     int err;
 
@@ -315,6 +315,11 @@ int worker_digest(struct worker *w, unsigned char *md, unsigned int *len)
     if (err)
         return err;
 
+    return w->error;
+}
+
+int worker_final(struct worker *w, unsigned char *md, unsigned int *len)
+{
     if (w->error)
         return w->error;
 

@@ -62,10 +62,11 @@ struct block *block_new(uint64_t index, size_t len, const void *data);
 void block_free(struct block *b);
 
 int worker_init(struct worker *w, int id, const struct config *config);
-void worker_destroy(struct worker *w);
 int worker_update(struct worker *w, struct block *b);
 int worker_stop(struct worker *w);
-int worker_digest(struct worker *w, unsigned char *md, unsigned int *len);
+int worker_join(struct worker *w);
+int worker_final(struct worker *w, unsigned char *md, unsigned int *len);
+void worker_destroy(struct worker *w);
 
 bool is_zero(const void *buf, size_t len);
 
