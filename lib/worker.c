@@ -243,19 +243,19 @@ int worker_update(struct worker *w, struct block *b)
     int err = 0;
     int rv;
 
+    err = pthread_mutex_lock(&w->mutex);
+    if (err)
+        goto out;
+
     if (w->finalized) {
         err = EPERM;
-        goto out;
+        goto unlock;
     }
 
     if (b->len > 0 && (b->index % w->config->workers) != w->id) {
         err = EINVAL;
-        goto out;
+        goto unlock;
     }
-
-    err = pthread_mutex_lock(&w->mutex);
-    if (err)
-        goto out;
 
     /* The block will leak if the worker failed. */
     if (w->error) {
@@ -270,6 +270,10 @@ int worker_update(struct worker *w, struct block *b)
     }
 
     STAILQ_INSERT_TAIL(&w->queue, b, entry);
+
+    /* Ensure that nothing is submitted after the last block. */
+    if (b->last)
+        w->finalized = true;
 
     /* The block is owned by the queue now. */
     b = NULL;
@@ -294,9 +298,6 @@ int worker_final(struct worker *w, int64_t size)
 {
     int err;
 
-    if (w->finalized)
-        return EPERM;
-
     /* A sentinel zero length block at the end of the image. */
     int64_t end_index = size / w->config->block_size;
 
@@ -309,7 +310,6 @@ int worker_final(struct worker *w, int64_t size)
     if (err)
         return err;
 
-    w->finalized = true;
     return 0;
 }
 
