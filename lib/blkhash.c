@@ -356,7 +356,7 @@ static void stop_workers(struct blkhash *h, bool want_digest)
     int err;
 
     for (unsigned i = 0; i < h->workers_count; i++) {
-        err = worker_final(&h->workers[i]);
+        err = worker_stop(&h->workers[i]);
         if (err)
             set_error(h, err);
     }

@@ -170,7 +170,7 @@ int worker_init(struct worker *w, int id, const struct config *config)
     w->queue_len = 0;
     w->error = 0;
     w->running = true;
-    w->finalized = false;
+    w->stopped = false;
 
     w->root_ctx = NULL;
     w->block_ctx = NULL;
@@ -247,7 +247,7 @@ int worker_update(struct worker *w, struct block *b)
     if (err)
         goto out;
 
-    if (w->finalized) {
+    if (w->stopped) {
         err = EPERM;
         goto unlock;
     }
@@ -273,7 +273,7 @@ int worker_update(struct worker *w, struct block *b)
 
     /* Ensure that nothing is submitted after the last block. */
     if (b->last)
-        w->finalized = true;
+        w->stopped = true;
 
     /* The block is owned by the queue now. */
     b = NULL;
@@ -294,10 +294,9 @@ out:
     return err;
 }
 
-int worker_final(struct worker *w)
+int worker_stop(struct worker *w)
 {
     struct block *b;
-    int err;
 
     b = block_new(0, 0, NULL);
     if (b == NULL)
@@ -305,11 +304,7 @@ int worker_final(struct worker *w)
 
     b->last = true;
 
-    err = worker_update(w, b);
-    if (err)
-        return err;
-
-    return 0;
+    return worker_update(w, b);
 }
 
 int worker_digest(struct worker *w, unsigned char *md, unsigned int *len)
