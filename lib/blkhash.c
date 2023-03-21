@@ -133,10 +133,8 @@ static int submit_zero_block(struct blkhash *h)
             return set_error(h, errno);
 
         err = worker_update(&h->workers[i], b);
-        if (err) {
-            block_free(b);
+        if (err)
             return set_error(h, err);
-        }
     }
 
     h->update_index = h->block_index;
@@ -158,10 +156,8 @@ static int submit_data_block(struct blkhash *h, const void *buf, size_t len)
 
     w = &h->workers[h->block_index % h->config.workers];
     err = worker_update(w, b);
-    if (err) {
-        block_free(b);
+    if (err)
         return set_error(h, err);
-    }
 
     h->update_index = h->block_index;
     h->block_index++;

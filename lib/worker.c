@@ -243,37 +243,49 @@ int worker_update(struct worker *w, struct block *b)
     int err = 0;
     int rv;
 
-    if (w->finalized)
-        return EPERM;
+    if (w->finalized) {
+        err = EPERM;
+        goto out;
+    }
 
-    if (b->len > 0 && (b->index % w->config->workers) != w->id)
-        return EINVAL;
+    if (b->len > 0 && (b->index % w->config->workers) != w->id) {
+        err = EINVAL;
+        goto out;
+    }
 
     err = pthread_mutex_lock(&w->mutex);
     if (err)
-        return err;
+        goto out;
 
     /* The block will leak if the worker failed. */
     if (w->error) {
         err = w->error;
-        goto out;
+        goto unlock;
     }
 
     while (w->queue_len >= MAX_BLOCKS) {
         err = pthread_cond_wait(&w->not_full, &w->mutex);
         if (err)
-            goto out;
+            goto unlock;
     }
 
     STAILQ_INSERT_TAIL(&w->queue, b, entry);
 
+    /* The block is owned by the queue now. */
+    b = NULL;
+
     w->queue_len++;
     if (w->queue_len == 1)
         err = pthread_cond_signal(&w->not_empty);
-out:
+
+unlock:
     rv = pthread_mutex_unlock(&w->mutex);
     if (rv && !err)
         err = rv;
+
+out:
+    if (b)
+        block_free(b);
 
     return err;
 }
@@ -294,10 +306,8 @@ int worker_final(struct worker *w, int64_t size)
 
     quit->last = true;
     err = worker_update(w, quit);
-    if (err) {
-        block_free(quit);
+    if (err)
         return err;
-    }
 
     w->finalized = true;
     return 0;
