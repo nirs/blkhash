@@ -64,7 +64,7 @@ void block_free(struct block *b);
 int worker_init(struct worker *w, int id, const struct config *config);
 void worker_destroy(struct worker *w);
 int worker_update(struct worker *w, struct block *b);
-int worker_final(struct worker *w, int64_t size);
+int worker_final(struct worker *w);
 int worker_digest(struct worker *w, unsigned char *md, unsigned int *len);
 
 bool is_zero(const void *buf, size_t len);

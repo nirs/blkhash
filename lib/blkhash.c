@@ -41,9 +41,6 @@ struct blkhash {
     /* The index of the last submitted block. */
     int64_t update_index;
 
-    /* Image size, increased when adding data or zero to the hash. */
-    int64_t image_size;
-
     /* The first error. Once set, any operation will fail quickly with this
      * error. */
     int error;
@@ -290,8 +287,6 @@ int blkhash_update(struct blkhash *h, const void *buf, size_t len)
     if (h->error)
         return h->error;
 
-    h->image_size += len;
-
     /* Try to fill the pending buffer and consume it. */
     if (h->pending_len > 0) {
         size_t n = add_pending_data(h, buf, len);
@@ -328,8 +323,6 @@ int blkhash_zero(struct blkhash *h, size_t len)
     if (h->error)
         return h->error;
 
-    h->image_size += len;
-
     /* Try to fill the pending buffer and consume it. */
     if (h->pending_len > 0) {
         len -= add_pending_zeros(h, len);
@@ -363,7 +356,7 @@ static void stop_workers(struct blkhash *h, bool want_digest)
     int err;
 
     for (unsigned i = 0; i < h->workers_count; i++) {
-        err = worker_final(&h->workers[i], want_digest ? h->image_size : 0);
+        err = worker_final(&h->workers[i]);
         if (err)
             set_error(h, err);
     }
@@ -392,6 +385,9 @@ int blkhash_final(struct blkhash *h, unsigned char *md_value,
 
     if (h->pending_len > 0)
         consume_pending(h);
+
+    if (h->error == 0)
+        submit_zero_block(h);
 
     want_digest = h->error == 0;
     stop_workers(h, want_digest);

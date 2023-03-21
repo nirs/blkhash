@@ -294,19 +294,18 @@ out:
     return err;
 }
 
-int worker_final(struct worker *w, int64_t size)
+int worker_final(struct worker *w)
 {
+    struct block *b;
     int err;
 
-    /* A sentinel zero length block at the end of the image. */
-    int64_t end_index = size / w->config->block_size;
-
-    struct block *quit = block_new(end_index, 0, NULL);
-    if (quit == NULL)
+    b = block_new(0, 0, NULL);
+    if (b == NULL)
         return errno;
 
-    quit->last = true;
-    err = worker_update(w, quit);
+    b->last = true;
+
+    err = worker_update(w, b);
     if (err)
         return err;
 
