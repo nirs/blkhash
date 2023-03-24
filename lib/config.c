@@ -25,9 +25,14 @@ static int compute_zero_md(struct config *c)
     return err;
 }
 
-int config_init(struct config *c, const char *digest_name, size_t block_size, unsigned workers)
+int config_init(struct config *c, const char *digest_name, size_t block_size,
+                unsigned workers, unsigned streams)
 {
-    assert(workers > 0);
+    if (workers < 1)
+        return EINVAL;
+
+    if (streams < workers)
+        return EINVAL;
 
     c->md = lookup_digest(digest_name);
     if (c->md == NULL)
@@ -35,6 +40,7 @@ int config_init(struct config *c, const char *digest_name, size_t block_size, un
 
     c->block_size = block_size;
     c->workers = workers;
+    c->streams = streams;
 
     return compute_zero_md(c);
 }
