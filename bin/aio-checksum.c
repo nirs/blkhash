@@ -481,6 +481,9 @@ static void *worker_thread(void *arg)
     if (blkhash_opts_set_block_size(ho, opt->block_size))
         FAIL("Invalid block size value: %zu", opt->block_size);
 
+    if (blkhash_opts_set_streams(ho, opt->streams))
+        FAIL("Invalid streams value: %zu", opt->streams);
+
     if (blkhash_opts_set_threads(ho, opt->threads))
         FAIL("Invalid threads value: %zu", opt->threads);
 

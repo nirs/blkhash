@@ -33,7 +33,7 @@ int config_init(struct config *c, const struct blkhash_opts *opts)
 
     c->block_size = opts->block_size;
     c->workers = opts->threads;
-    c->streams = opts->threads;
+    c->streams = opts->streams;
 
     return compute_zero_md(c);
 }
