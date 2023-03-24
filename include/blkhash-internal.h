@@ -11,6 +11,9 @@
 
 #include <openssl/evp.h>
 
+/* We can get this via sysconf, maybe it should be set by meson? */
+#define CACHE_LINE_SIZE 64
+
 struct config {
     size_t block_size;
     unsigned streams;
@@ -38,7 +41,9 @@ struct stream {
     /* If non-zero, the stream has failed. The value is the first error that
      * caused the failure. */
     int error;
-};
+
+    /* Align to avoid false sharing between workers. */
+} __attribute__ ((aligned (CACHE_LINE_SIZE)));
 
 struct block {
     /* Entry in the worker queue handling this block stream. */
