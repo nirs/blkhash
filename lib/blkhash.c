@@ -119,7 +119,7 @@ static int submit_zero_block(struct blkhash *h)
     struct block *b;
     int err;
 
-    for (int i = 0; i < h->config.workers; i++) {
+    for (unsigned i = 0; i < h->config.workers; i++) {
         b = block_new(h->block_index, 0, NULL);
         if (b == NULL)
             return set_error(h, errno);

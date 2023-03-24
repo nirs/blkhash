@@ -166,7 +166,7 @@ int worker_init(struct worker *w, int id, const struct config *config)
 
     w->id = id;
     w->config = config;
-    w->last_index = id - config->workers;
+    w->last_index = id - (int)config->workers;
     w->queue_len = 0;
     w->error = 0;
     w->running = true;

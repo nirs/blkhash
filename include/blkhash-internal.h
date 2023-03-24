@@ -13,7 +13,7 @@
 
 struct config {
     size_t block_size;
-    int workers;
+    unsigned workers;
     const EVP_MD *md;
     unsigned char zero_md[EVP_MAX_MD_SIZE];
     unsigned int md_len;
@@ -56,7 +56,7 @@ struct worker {
     bool finalized;
 };
 
-int config_init(struct config *c, const char *digest_name, size_t block_size, int workers);
+int config_init(struct config *c, const char *digest_name, size_t block_size, unsigned workers);
 
 struct block *block_new(uint64_t index, size_t len, const void *data);
 void block_free(struct block *b);

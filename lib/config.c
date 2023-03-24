@@ -25,7 +25,7 @@ static int compute_zero_md(struct config *c)
     return err;
 }
 
-int config_init(struct config *c, const char *digest_name, size_t block_size, int workers)
+int config_init(struct config *c, const char *digest_name, size_t block_size, unsigned workers)
 {
     assert(workers > 0);
 
