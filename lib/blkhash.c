@@ -15,14 +15,22 @@
 #include "blkhash-internal.h"
 #include "util.h"
 
-/* Number of consecutive zero blocks to consume before submitting zero length
- * block to all workers. */
-#define ZERO_BLOCKS_BATCH_SIZE (64 * 1024)
+/* Number of consecutive zero blocks per stream to consume before submitting
+ * zero length block to all streams. */
+#define STREAM_ZERO_BATCH_SIZE (16 * 1024)
 
 struct blkhash {
     struct config config;
 
-    /* For computing root digest. */
+    /* The streams computing internal hashes. */
+    struct stream *streams;
+    unsigned streams_count;
+
+    /* Workers processing streams. */
+    struct worker *workers;
+    unsigned workers_count;
+
+    /* For computing root digest from the streams hashes. */
     EVP_MD_CTX *root_ctx;
 
     /* For keeping partial blocks when user call blkhash_update() with buffer
@@ -37,18 +45,12 @@ struct blkhash {
     /* The index of the last submitted block. */
     int64_t update_index;
 
-    /* Image size, increased when adding data or zero to the hash. */
-    int64_t image_size;
-
     /* The first error. Once set, any operation will fail quickly with this
      * error. */
     int error;
 
     /* Set when hash is finalized. */
     bool finalized;
-
-    unsigned workers_count;
-    struct worker workers[0];
 };
 
 /* Set the error and return -1. All intenral errors should be handled with
@@ -61,21 +63,55 @@ static inline int set_error(struct blkhash *h, int error)
     return -1;
 }
 
-struct blkhash *blkhash_new(const char *md_name, size_t block_size, unsigned threads)
+struct blkhash *blkhash_new(const char *md_name, size_t block_size,
+                            unsigned threads)
 {
     struct blkhash *h;
     int err;
 
-    h = calloc(1, sizeof(*h) + sizeof(h->workers[0]) * threads);
+    h = calloc(1, sizeof(*h));
     if (h == NULL)
         return NULL;
 
-    err = config_init(&h->config, md_name, block_size, threads);
+    err = config_init(&h->config, md_name, block_size, threads, threads);
     if (err)
         goto error;
 
+    h->streams = calloc(h->config.streams, sizeof(*h->streams));
+    if (h->streams == NULL) {
+        err = errno;
+        goto error;
+    }
+
+    while (h->streams_count < h->config.streams) {
+        err = stream_init(&h->streams[h->streams_count], h->streams_count, &h->config);
+        if (err)
+            goto error;
+
+        h->streams_count++;
+    }
+
+    h->workers = calloc(h->config.workers, sizeof(*h->workers));
+    if (h->workers == NULL) {
+        err = errno;
+        goto error;
+    }
+
+    while (h->workers_count < h->config.workers) {
+        err = worker_init(&h->workers[h->workers_count]);
+        if (err)
+            goto error;
+
+        h->workers_count++;
+    }
+
     h->root_ctx = EVP_MD_CTX_new();
     if (h->root_ctx == NULL) {
+        err = ENOMEM;
+        goto error;
+    }
+
+    if (!EVP_DigestInit_ex(h->root_ctx, h->config.md, NULL)) {
         err = ENOMEM;
         goto error;
     }
@@ -84,21 +120,6 @@ struct blkhash *blkhash_new(const char *md_name, size_t block_size, unsigned thr
     if (h->pending == NULL) {
         err = errno;
         goto error;
-    }
-
-    h->pending_len = 0;
-
-    if (!EVP_DigestInit_ex(h->root_ctx, h->config.md, NULL)) {
-        err = ENOMEM;
-        goto error;
-    }
-
-    for (unsigned i = 0; i < threads; i++) {
-        err = worker_init(&h->workers[i], i, &h->config);
-        if (err)
-            goto error;
-
-        h->workers_count++;
     }
 
     return h;
@@ -110,25 +131,37 @@ error:
     return NULL;
 }
 
+static inline struct stream *stream_for_block(struct blkhash *h, int64_t block_index)
+{
+    int stream_index = block_index % h->config.streams;
+    return &h->streams[stream_index];
+}
+
+static inline struct worker *worker_for_stream(struct blkhash *h, int stream_index)
+{
+    int worker_index = stream_index % h->config.workers;
+    return &h->workers[worker_index];
+}
+
 /*
- * Submit one zero length block to all workers. Every worker will add zero
+ * Submit one zero length block to all streams. Every stream will add zero
  * blocks from the last data block to the submitted block index.
  */
 static int submit_zero_block(struct blkhash *h)
 {
     struct block *b;
+    struct worker *w;
     int err;
 
-    for (int i = 0; i < h->config.workers; i++) {
-        b = block_new(h->block_index, 0, NULL);
+    for (unsigned i = 0; i < h->config.streams; i++) {
+        b = block_new(&h->streams[i], h->block_index, 0, NULL);
         if (b == NULL)
             return set_error(h, errno);
 
-        err = worker_update(&h->workers[i], b);
-        if (err) {
-            block_free(b);
+        w = worker_for_stream(h, i);
+        err = worker_submit(w, b);
+        if (err)
             return set_error(h, err);
-        }
     }
 
     h->update_index = h->block_index;
@@ -140,20 +173,21 @@ static int submit_zero_block(struct blkhash *h)
  */
 static int submit_data_block(struct blkhash *h, const void *buf, size_t len)
 {
-    struct block *b;
+    struct stream *s;
     struct worker *w;
+    struct block *b;
     int err;
 
-    b = block_new(h->block_index, len, buf);
+    s = stream_for_block(h, h->block_index);
+    w = worker_for_stream(h, s->id);
+
+    b = block_new(s, h->block_index, len, buf);
     if (b == NULL)
         return set_error(h, errno);
 
-    w = &h->workers[h->block_index % h->config.workers];
-    err = worker_update(w, b);
-    if (err) {
-        block_free(b);
+    err = worker_submit(w, b);
+    if (err)
         return set_error(h, err);
-    }
 
     h->update_index = h->block_index;
     h->block_index++;
@@ -218,9 +252,11 @@ static size_t add_pending_zeros(struct blkhash *h, size_t len)
  */
 static inline int consume_zero_blocks(struct blkhash *h, size_t count)
 {
+    const int64_t batch_size = STREAM_ZERO_BATCH_SIZE * h->config.streams;
+
     h->block_index += count;
 
-    if (h->block_index - h->update_index >= ZERO_BLOCKS_BATCH_SIZE)
+    if (h->block_index - h->update_index >= batch_size)
         return submit_zero_block(h);
 
     return 0;
@@ -284,8 +320,6 @@ int blkhash_update(struct blkhash *h, const void *buf, size_t len)
     if (h->error)
         return h->error;
 
-    h->image_size += len;
-
     /* Try to fill the pending buffer and consume it. */
     if (h->pending_len > 0) {
         size_t n = add_pending_data(h, buf, len);
@@ -322,8 +356,6 @@ int blkhash_zero(struct blkhash *h, size_t len)
     if (h->error)
         return h->error;
 
-    h->image_size += len;
-
     /* Try to fill the pending buffer and consume it. */
     if (h->pending_len > 0) {
         len -= add_pending_zeros(h, len);
@@ -350,35 +382,50 @@ int blkhash_zero(struct blkhash *h, size_t len)
     return 0;
 }
 
-static void stop_workers(struct blkhash *h, bool want_digest)
+static void stop_workers(struct blkhash *h)
 {
-    unsigned char md[EVP_MAX_MD_SIZE];
-    unsigned int len;
     int err;
 
+    /* Must use workers_count in case blkhash_new failed. */
+
     for (unsigned i = 0; i < h->workers_count; i++) {
-        err = worker_final(&h->workers[i], want_digest ? h->image_size : 0);
+        err = worker_stop(&h->workers[i]);
         if (err)
             set_error(h, err);
     }
 
     for (unsigned i = 0; i < h->workers_count; i++) {
-        err = worker_digest(&h->workers[i], md, &len);
+        err = worker_join(&h->workers[i]);
         if (err)
             set_error(h, err);
-
-        if (want_digest && h->error == 0) {
-            if (!EVP_DigestUpdate(h->root_ctx, md, len))
-                set_error(h, ENOMEM);
-        }
     }
+}
+
+static int compute_root_hash(struct blkhash *h, unsigned char *md,
+                             unsigned int *len)
+{
+    unsigned char stream_md[EVP_MAX_MD_SIZE];
+    unsigned int stream_len;
+    int err;
+
+    for (unsigned i = 0; i < h->config.streams; i++) {
+        err = stream_final(&h->streams[i], stream_md, &stream_len);
+        if (err)
+            return set_error(h, err);
+
+        if (!EVP_DigestUpdate(h->root_ctx, stream_md, stream_len))
+            return set_error(h, ENOMEM);
+    }
+
+    if (!EVP_DigestFinal_ex(h->root_ctx, md, len))
+        return set_error(h, ENOMEM);
+
+    return 0;
 }
 
 int blkhash_final(struct blkhash *h, unsigned char *md_value,
                   unsigned int *md_len)
 {
-    bool want_digest = true;
-
     if (h->finalized)
         return EINVAL;
 
@@ -387,13 +434,13 @@ int blkhash_final(struct blkhash *h, unsigned char *md_value,
     if (h->pending_len > 0)
         consume_pending(h);
 
-    want_digest = h->error == 0;
-    stop_workers(h, want_digest);
+    if (h->error == 0)
+        submit_zero_block(h);
 
-    if (h->error == 0) {
-        if (!EVP_DigestFinal_ex(h->root_ctx, md_value, md_len))
-            set_error(h, ENOMEM);
-    }
+    stop_workers(h);
+
+    if (h->error == 0)
+        compute_root_hash(h, md_value, md_len);
 
     return h->error;
 }
@@ -403,16 +450,21 @@ void blkhash_free(struct blkhash *h)
     if (h == NULL)
         return;
 
-    if (!h->finalized) {
-        bool want_digest = false;
-        stop_workers(h, want_digest);
-    }
+    if (!h->finalized)
+        stop_workers(h);
 
+    /* Must use workers_count in case blkhash_new failed. */
     for (unsigned i = 0; i < h->workers_count; i++)
         worker_destroy(&h->workers[i]);
 
-    EVP_MD_CTX_free(h->root_ctx);
+    /* Must use streams_count in case blkhash_new failed. */
+    for (unsigned i = 0; i < h->streams_count; i++)
+        stream_destroy(&h->streams[i]);
+
     free(h->pending);
+    EVP_MD_CTX_free(h->root_ctx);
+    free(h->workers);
+    free(h->streams);
 
     free(h);
 }

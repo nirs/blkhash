@@ -11,19 +11,54 @@
 
 #include <openssl/evp.h>
 
+/* We can get this via sysconf, maybe it should be set by meson? */
+#define CACHE_LINE_SIZE 64
+
 struct config {
     size_t block_size;
-    int workers;
+    unsigned streams;
+    unsigned workers;
     const EVP_MD *md;
     unsigned char zero_md[EVP_MAX_MD_SIZE];
     unsigned int md_len;
 };
 
+struct stream {
+    const struct config *config;
+
+    /* The stream hash context consuming block digests. */
+    EVP_MD_CTX *root_ctx;
+
+    /* For computing block digest. */
+    EVP_MD_CTX *block_ctx;
+
+    /* Last consumed block index. */
+    int64_t last_index;
+
+    /* Used to fill in zero blocks. */
+    int id;
+
+    /* If non-zero, the stream has failed. The value is the first error that
+     * caused the failure. */
+    int error;
+
+    /* Align to avoid false sharing between workers. */
+} __attribute__ ((aligned (CACHE_LINE_SIZE)));
+
 struct block {
+    /* Entry in the worker queue handling this block stream. */
     STAILQ_ENTRY(block) entry;
+
+    /* The stream handling this block. */
+    struct stream *stream;
+
     int64_t index;
     size_t len;
+
+    /* If true, the worker should terminate. */
     bool last;
+
+    /* If len > 0, the block data. */
     unsigned char data[0];
 };
 
@@ -34,15 +69,7 @@ struct worker {
     pthread_cond_t not_empty;
     pthread_cond_t not_full;
 
-    const struct config *config;
-    int id;
     unsigned int queue_len;
-
-    EVP_MD_CTX *block_ctx;
-    EVP_MD_CTX *root_ctx;
-
-    /* Last consumed block. */
-    int64_t last_index;
 
     /* If non-zero, the worker has failed. The value is the first error that
      * caused the failure. */
@@ -52,24 +79,27 @@ struct worker {
      * when a worker fails. */
     bool running;
 
-    /* Set when finalizing the worker. No updates are allowed after this. */
-    bool finalized;
+    /* Set when stopping the worker. No updates are allowed after this. */
+    bool stopped;
 };
 
-int config_init(struct config *c, const char *digest_name, size_t block_size, int workers);
+int config_init(struct config *c, const char *digest_name, size_t block_size,
+                unsigned workers, unsigned streams);
 
-struct block *block_new(uint64_t index, size_t len, const void *data);
+struct block *block_new(struct stream *stream, uint64_t index, size_t len,
+                        const void *data);
 void block_free(struct block *b);
 
-int worker_init(struct worker *w, int id, const struct config *config);
+int stream_init(struct stream *s, int id, const struct config *config);
+int stream_update(struct stream *s, struct block *b);
+int stream_final(struct stream *s, unsigned char *md, unsigned int *len);
+void stream_destroy(struct stream *s);
+
+int worker_init(struct worker *w);
+int worker_submit(struct worker *w, struct block *b);
+int worker_stop(struct worker *w);
+int worker_join(struct worker *w);
 void worker_destroy(struct worker *w);
-
-/* If call is successful the worker will free the block. On error the caller
- * need to free the block. */
-int worker_update(struct worker *w, struct block *b);
-
-int worker_final(struct worker *w, int64_t size);
-int worker_digest(struct worker *w, unsigned char *md, unsigned int *len);
 
 bool is_zero(const void *buf, size_t len);
 

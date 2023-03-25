@@ -5,9 +5,11 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "unity.h"
 #include "blkhash.h"
+#include "blkhash-internal.h"
 #include "util.h"
 
 static const size_t block_size = 64 * 1024;
@@ -312,6 +314,25 @@ void test_abort_quickly()
     TEST_ASSERT_EQUAL_INT_MESSAGE(0, err, strerror(err));
 }
 
+static void check_false_sharing(const char *name, size_t type_size)
+{
+    size_t cache_line_size = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
+
+    if (type_size % cache_line_size != 0) {
+        size_t padding = cache_line_size - (type_size % cache_line_size);
+
+        printf("WARNING: %s is not aligned to cache line size\n", name);
+        printf("  type size: %ld\n", type_size);
+        printf("  cache line size: %ld\n", cache_line_size);
+        printf("  needs padding: %ld\n", padding);
+    }
+}
+
+void test_false_sharing()
+{
+    check_false_sharing("struct stream", sizeof(struct stream));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -338,6 +359,8 @@ int main(void)
     RUN_TEST(test_mix_unaligned);
 
     RUN_TEST(test_abort_quickly);
+
+    RUN_TEST(test_false_sharing);
 
     return UNITY_END();
 }

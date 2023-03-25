@@ -83,56 +83,6 @@ static void drain_queue(struct worker *w)
     pthread_mutex_unlock(&w->mutex);
 }
 
-static int add_zero_blocks_before(struct worker *w, struct block *b)
-{
-    int64_t index;
-
-    /* Don't modify the hash after errors. */
-    if (w->error)
-        return -1;
-
-    index = w->last_index + w->config->workers;
-
-    while (index < b->index) {
-        if (!EVP_DigestUpdate(w->root_ctx, w->config->zero_md, w->config->md_len)) {
-            set_error(w, ENOMEM);
-            return -1;
-        }
-        w->last_index = index;
-        index += w->config->workers;
-    }
-
-    return 0;
-}
-
-static int add_data_block(struct worker *w, struct block *b)
-{
-    unsigned char block_md[EVP_MAX_MD_SIZE];
-
-    /* Don't modify the hash after errors. */
-    if (w->error)
-        return -1;
-
-    if (!EVP_DigestInit_ex(w->block_ctx, w->config->md, NULL))
-        goto error;
-
-    if (!EVP_DigestUpdate(w->block_ctx, b->data, b->len))
-        goto error;
-
-    if (!EVP_DigestFinal_ex(w->block_ctx, block_md, NULL))
-        goto error;
-
-    if (!EVP_DigestUpdate(w->root_ctx, block_md, w->config->md_len))
-        goto error;
-
-    w->last_index = b->index;
-    return 0;
-
-error:
-    set_error(w, ENOMEM);
-    return -1;
-}
-
 static void *worker_thread(void *arg)
 {
     struct worker *w = arg;
@@ -147,10 +97,11 @@ static void *worker_thread(void *arg)
         if (block->last)
             w->running = false;
 
-        add_zero_blocks_before(w, block);
-
-        if (block->len)
-            add_data_block(w, block);
+        if (block->stream) {
+            int err = stream_update(block->stream, block);
+            if (err)
+                set_error(w, err);
+        }
 
         block_free(block);
     }
@@ -160,43 +111,20 @@ static void *worker_thread(void *arg)
     return NULL;
 }
 
-int worker_init(struct worker *w, int id, const struct config *config)
+int worker_init(struct worker *w)
 {
     int err;
 
-    w->id = id;
-    w->config = config;
-    w->last_index = id - config->workers;
     w->queue_len = 0;
     w->error = 0;
     w->running = true;
-    w->finalized = false;
-
-    w->root_ctx = NULL;
-    w->block_ctx = NULL;
+    w->stopped = false;
 
     STAILQ_INIT(&w->queue);
 
-    w->root_ctx = EVP_MD_CTX_new();
-    if (w->root_ctx == NULL) {
-        err = ENOMEM;
-        goto fail;
-    }
-
-    if (!EVP_DigestInit_ex(w->root_ctx, w->config->md, NULL)) {
-        err = ENOMEM;
-        goto fail;
-    }
-
-    w->block_ctx = EVP_MD_CTX_new();
-    if (w->block_ctx == NULL) {
-        err = ENOMEM;
-        goto fail;
-    }
-
     err = pthread_mutex_init(&w->mutex, NULL);
     if (err)
-        goto fail;
+        return err;
 
     err = pthread_cond_init(&w->not_empty, NULL);
     if (err)
@@ -218,9 +146,6 @@ fail_not_full:
     pthread_cond_destroy(&w->not_empty);
 fail_not_empty:
     pthread_mutex_destroy(&w->mutex);
-fail:
-    EVP_MD_CTX_free(w->block_ctx);
-    EVP_MD_CTX_free(w->root_ctx);
 
     return err;
 }
@@ -230,80 +155,79 @@ void worker_destroy(struct worker *w)
     pthread_cond_destroy(&w->not_full);
     pthread_cond_destroy(&w->not_empty);
     pthread_mutex_destroy(&w->mutex);
-
-    EVP_MD_CTX_free(w->block_ctx);
-    w->block_ctx = NULL;
-
-    EVP_MD_CTX_free(w->root_ctx);
-    w->root_ctx = NULL;
 }
 
-int worker_update(struct worker *w, struct block *b)
+int worker_submit(struct worker *w, struct block *b)
 {
     int err = 0;
     int rv;
 
-    if (w->finalized)
-        return EPERM;
-
-    if (b->len > 0 && (b->index % w->config->workers) != w->id)
-        return EINVAL;
-
     err = pthread_mutex_lock(&w->mutex);
     if (err)
-        return err;
+        goto out;
+
+    if (w->stopped) {
+        err = EPERM;
+        goto unlock;
+    }
+
+    /* Nothing will be submitted after a worker was stopped. */
+    if (w->stopped) {
+        err = EPERM;
+        goto out;
+    }
 
     /* The block will leak if the worker failed. */
     if (w->error) {
         err = w->error;
-        goto out;
+        goto unlock;
     }
 
     while (w->queue_len >= MAX_BLOCKS) {
         err = pthread_cond_wait(&w->not_full, &w->mutex);
         if (err)
-            goto out;
+            goto unlock;
     }
 
     STAILQ_INSERT_TAIL(&w->queue, b, entry);
 
+    /* Ensure that nothing is submitted after the last block. */
+    if (b->last)
+        w->stopped = true;
+
+    /* The block is owned by the queue now. */
+    b = NULL;
+
     w->queue_len++;
     if (w->queue_len == 1)
         err = pthread_cond_signal(&w->not_empty);
-out:
+
+unlock:
     rv = pthread_mutex_unlock(&w->mutex);
     if (rv && !err)
         err = rv;
 
+out:
+    if (b)
+        block_free(b);
+
     return err;
 }
 
-int worker_final(struct worker *w, int64_t size)
+int worker_stop(struct worker *w)
 {
-    int err;
+    struct block *b;
 
-    if (w->finalized)
-        return EPERM;
-
-    /* A sentinel zero length block at the end of the image. */
-    int64_t end_index = size / w->config->block_size;
-
-    struct block *quit = block_new(end_index, 0, NULL);
-    if (quit == NULL)
+    b = block_new(NULL, 0, 0, NULL);
+    if (b == NULL)
         return errno;
 
-    quit->last = true;
-    err = worker_update(w, quit);
-    if (err) {
-        block_free(quit);
-        return err;
-    }
+    b->last = true;
 
-    w->finalized = true;
-    return 0;
+    return worker_submit(w, b);
 }
 
-int worker_digest(struct worker *w, unsigned char *md, unsigned int *len)
+int worker_join(struct worker *w)
 {
     int err;
 
@@ -311,11 +235,5 @@ int worker_digest(struct worker *w, unsigned char *md, unsigned int *len)
     if (err)
         return err;
 
-    if (w->error)
-        return w->error;
-
-    if (!EVP_DigestFinal_ex(w->root_ctx, md, len))
-        return ENOMEM;
-
-    return 0;
+    return w->error;
 }
