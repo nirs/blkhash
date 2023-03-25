@@ -25,22 +25,15 @@ static int compute_zero_md(struct config *c)
     return err;
 }
 
-int config_init(struct config *c, const char *digest_name, size_t block_size,
-                unsigned workers, unsigned streams)
+int config_init(struct config *c, const struct blkhash_opts *opts)
 {
-    if (workers < 1)
-        return EINVAL;
-
-    if (streams < workers)
-        return EINVAL;
-
-    c->md = lookup_digest(digest_name);
+    c->md = lookup_digest(opts->digest_name);
     if (c->md == NULL)
         return EINVAL;
 
-    c->block_size = block_size;
-    c->workers = workers;
-    c->streams = streams;
+    c->block_size = opts->block_size;
+    c->workers = opts->threads;
+    c->streams = opts->threads;
 
     return compute_zero_md(c);
 }

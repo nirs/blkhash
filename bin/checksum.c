@@ -12,13 +12,25 @@ void checksum(struct src *s, struct options *opt, unsigned char *out)
 {
     void *buf;
     struct blkhash *h;
+    struct blkhash_opts *ho;
     int err = 0;
 
     buf = malloc(opt->read_size);
     if (buf == NULL)
         FAIL_ERRNO("malloc");
 
-    h = blkhash_new(opt->digest_name, opt->block_size, opt->threads);
+    ho = blkhash_opts_new(opt->digest_name);
+    if (ho == NULL)
+        FAIL_ERRNO("blkhash_opts_new");
+
+    if (blkhash_opts_set_block_size(ho, opt->block_size))
+        FAIL("Invalid block size value: %zu", opt->block_size);
+
+    if (blkhash_opts_set_threads(ho, opt->threads))
+        FAIL("Invalid threads value: %zu", opt->threads);
+
+    h = blkhash_new_opts(ho);
+    blkhash_opts_free(ho);
     if (h == NULL)
         FAIL_ERRNO("blkhash_new");
 

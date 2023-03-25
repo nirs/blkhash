@@ -8,8 +8,6 @@
 #include <string.h>
 #include <blkhash.h>
 
-#define BLOCK_SIZE (64 * 1024)
-#define THREADS 4
 #define BUF_SIZE (2 * 1024 * 1024)
 
 int main()
@@ -20,7 +18,7 @@ int main()
     unsigned int md_len, i;
     int err;
 
-    h = blkhash_new("sha1", BLOCK_SIZE, THREADS);
+    h = blkhash_new();
     if (h == NULL) {
         err = errno;
         goto out;
