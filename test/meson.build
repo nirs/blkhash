@@ -6,7 +6,10 @@ unity_dep = dependency('unity', fallback : ['unity', 'unity_dep'])
 blkhash_test = executable(
   'blkhash-test',
   'blkhash-test.c',
-  include_directories : include,
+  include_directories : [
+    config_inc,
+    include,
+  ],
   link_with: [
     blkhash_lib,
     common_lib,
@@ -20,7 +23,10 @@ blkhash_test = executable(
 zero_bench = executable(
   'zero-bench',
   'zero-bench.c',
-  include_directories : include,
+  include_directories : [
+    config_inc,
+    include,
+  ],
   link_with: [
     blkhash_lib,
     common_lib,

@@ -26,6 +26,53 @@ endif
 include = include_directories('include')
 openssl = dependency('openssl')
 
+conf_data = configuration_data()
+
+compiler = meson.get_compiler('c')
+
+detect_cache_line_size = '''
+#include <stdio.h>
+
+#if defined(linux)
+  #include <unistd.h>
+#endif
+#if defined(__APPLE__)
+  #include <sys/types.h>
+  #include <sys/sysctl.h>
+#endif
+
+int main()
+{
+  size_t cache_line_size;
+#ifdef _SC_LEVEL1_DCACHE_LINESIZE
+  cache_line_size = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
+#endif
+#if defined(__APPLE__)
+  size_t size = sizeof(cache_line_size);
+  sysctlbyname("hw.cachelinesize", &cache_line_size, &size, 0, 0);
+#endif
+  printf("%ld\n", cache_line_size);
+}
+'''
+
+result = compiler.run(
+  detect_cache_line_size,
+  name: 'detect cache line size',
+)
+if result.returncode() == 0
+  conf_data.set('CACHE_LINE_SIZE', result.stdout().strip())
+endif
+
+summary_info = {'cache line size': conf_data.get('CACHE_LINE_SIZE')}
+summary(summary_info, bool_yn: true, section: 'config')
+
+configure_file(
+  output : 'blkhash-config.h',
+  configuration : conf_data,
+)
+
+config_inc = include_directories('.')
+
 subdir('include')
 subdir('common')
 subdir('lib')

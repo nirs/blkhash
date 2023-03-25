@@ -7,11 +7,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#if defined(__APPLE__)
-#include <sys/types.h>
-#include <sys/sysctl.h>
-#endif
-
 #include "unity.h"
 #include "blkhash.h"
 #include "blkhash-internal.h"
@@ -321,22 +316,12 @@ void test_abort_quickly()
 
 static void check_false_sharing(const char *name, size_t type_size)
 {
-    size_t cache_line_size;
-
-#ifdef _SC_LEVEL1_DCACHE_LINESIZE
-    cache_line_size = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
-#endif
-#if defined(__APPLE__)
-    size_t size = sizeof(cache_line_size);
-    sysctlbyname("hw.cachelinesize", &cache_line_size, &size, 0, 0);
-#endif
-
-    if (type_size % cache_line_size != 0) {
-        size_t padding = cache_line_size - (type_size % cache_line_size);
+    if (type_size % CACHE_LINE_SIZE != 0) {
+        size_t padding = CACHE_LINE_SIZE - (type_size % CACHE_LINE_SIZE);
 
         printf("WARNING: %s is not aligned to cache line size\n", name);
         printf("  type size: %ld\n", type_size);
-        printf("  cache line size: %ld\n", cache_line_size);
+        printf("  cache line size: %d\n", CACHE_LINE_SIZE);
         printf("  needs padding: %ld\n", padding);
     }
 }

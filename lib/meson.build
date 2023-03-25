@@ -11,7 +11,10 @@ blkhash_lib = library(
     'worker.c',
     'zero.c',
   ],
-  include_directories : include,
+  include_directories : [
+    include,
+    config_inc,
+  ],
   version: meson.project_version(),
   soversion: '0',
   link_with: [
