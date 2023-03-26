@@ -16,7 +16,10 @@ blksum = executable(
     'progress.c',
     'src.c',
   ],
-  include_directories : include,
+  include_directories : [
+    include,
+    config_inc,
+  ],
   link_with: [
     blkhash_lib,
     common_lib,

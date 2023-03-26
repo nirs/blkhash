@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include "blksum.h"
+#include "blkhash-config.h"
 
 bool is_nbd_uri(const char *s)
 {

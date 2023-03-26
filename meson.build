@@ -14,19 +14,19 @@ project(
   ],
 )
 
+conf_data = configuration_data()
+
 libnbd = dependency(
   'libnbd',
   version : '>=1.2.2',  # RHEL 8.5
   required: get_option('nbd'),
 )
 if libnbd.found()
-  add_project_arguments('-DHAVE_NBD=1', language : 'c')
+  conf_data.set('HAVE_NBD', true)
 endif
 
 include = include_directories('include')
 openssl = dependency('openssl')
-
-conf_data = configuration_data()
 
 compiler = meson.get_compiler('c')
 
@@ -63,7 +63,9 @@ if result.returncode() == 0
   conf_data.set('CACHE_LINE_SIZE', result.stdout().strip())
 endif
 
-summary_info = {'cache line size': conf_data.get('CACHE_LINE_SIZE')}
+summary_info = {}
+summary_info += {'nbd': conf_data.get('HAVE_NBD')}
+summary_info += {'cache line size': conf_data.get('CACHE_LINE_SIZE')}
 summary(summary_info, bool_yn: true, section: 'config')
 
 configure_file(

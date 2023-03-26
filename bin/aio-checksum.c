@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "blkhash.h"
+#include "blkhash-config.h"
 #include "blksum.h"
 #include "util.h"
 
