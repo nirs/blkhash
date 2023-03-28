@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: Red Hat Inc
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#ifdef HAVE_NBD
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,6 +8,9 @@
 #include <libnbd.h>
 
 #include "blksum.h"
+#include "blkhash-config.h"
+
+#ifdef HAVE_NBD
 
 #define FAIL_NBD() FAIL("%s", nbd_get_error())
 

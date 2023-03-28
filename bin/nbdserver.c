@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: Red Hat Inc
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#ifdef HAVE_NBD
-
 #define _GNU_SOURCE     /* For asprintf */
 
 #include <string.h>
@@ -17,6 +15,9 @@
 #include <fcntl.h>
 
 #include "blksum.h"
+#include "blkhash-config.h"
+
+#ifdef HAVE_NBD
 
 /* This is baked into the systemd socket activation API. */
 #define FIRST_SOCKET_ACTIVATION_FD 3

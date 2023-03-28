@@ -11,13 +11,7 @@
 
 #include <openssl/evp.h>
 
-/* We can get this via sysconf, maybe it should be set by meson? */
-#if defined(linux)
-#define CACHE_LINE_SIZE 64
-#endif
-#if defined(__APPLE__)
-#define CACHE_LINE_SIZE 128
-#endif
+#include "blkhash-config.h"
 
 struct config {
     size_t block_size;
