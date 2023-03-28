@@ -172,3 +172,51 @@ Example run of the benchmark script:
      8 threads: 157.00 TiB in 1.035 s (151.65 TiB/s)
     16 threads: 211.00 TiB in 1.014 s (208.16 TiB/s)
     32 threads: 190.00 TiB in 0.932 s (203.76 TiB/s)
+
+## The zero-bench program
+
+This program measure zero detection throughput.
+
+We measure 3 cases:
+
+- data best: A non zero byte in the first 16 bytes of the buffer. This
+  is very likely for non-zero data, and show that zero detection is
+  practically free.
+
+- data worst: A non zero byte at the last 16 bytes of the buffer, so
+  blkhash must scan the entire buffer, and then compute a hash.
+
+- zero: The entire buffer contains zero bytes, so blkhash can
+  skip hash computation, but it has to scan the entire buffer.
+
+For each case we measure both aligned and unaligned buffer.
+
+### Lenovo P1 Gen 3 (Intel(R) Core(TM) i7-10850H CPU @ 2.70GHz)
+
+    $ build/test/zero-bench
+    aligned data best: 40.00 TiB in 0.983 seconds (40.68 TiB/s)
+    aligned data worst: 60.00 GiB in 0.943 seconds (63.65 GiB/s)
+    aligned zero: 60.00 GiB in 0.929 seconds (64.58 GiB/s)
+    unaligned data best: 40.00 TiB in 0.988 seconds (40.47 TiB/s)
+    unaligned data worst: 60.00 GiB in 0.924 seconds (64.94 GiB/s)
+    unaligned zero: 60.00 GiB in 0.939 seconds (63.90 GiB/s)
+
+### Dell PowerEdge R640 (Intel(R) Xeon(R) Gold 5218R CPU @ 2.10GHz)
+
+    $ build/test/zero-bench
+    aligned data best: 40.00 TiB in 1.388 seconds (28.81 TiB/s)
+    aligned data worst: 60.00 GiB in 1.162 seconds (51.64 GiB/s)
+    aligned zero: 60.00 GiB in 1.161 seconds (51.69 GiB/s)
+    unaligned data best: 40.00 TiB in 1.386 seconds (28.86 TiB/s)
+    unaligned data worst: 60.00 GiB in 1.159 seconds (51.75 GiB/s)
+    unaligned zero: 60.00 GiB in 1.163 seconds (51.59 GiB/s)
+
+### MacBook Air M1
+
+    % build/test/zero-bench
+    aligned data best: 40.00 TiB in 0.878 seconds (45.54 TiB/s)
+    aligned data worst: 60.00 GiB in 1.659 seconds (36.17 GiB/s)
+    aligned zero: 60.00 GiB in 1.637 seconds (36.65 GiB/s)
+    unaligned data best: 40.00 TiB in 0.839 seconds (47.69 TiB/s)
+    unaligned data worst: 60.00 GiB in 1.666 seconds (36.02 GiB/s)
+    unaligned zero: 60.00 GiB in 1.651 seconds (36.34 GiB/s)
