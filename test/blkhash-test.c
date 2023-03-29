@@ -32,9 +32,18 @@ void checksum(struct extent *extents, unsigned int len,
     unsigned char md[digest_len];
     unsigned int md_len = digest_len;
     struct blkhash *h;
+    struct blkhash_opts *opts;
     int err = 0;
 
-    h = blkhash_new(digest_name, block_size, threads);
+    opts = blkhash_opts_new(digest_name);
+    TEST_ASSERT_NOT_NULL_MESSAGE(opts, strerror(errno));
+    err = blkhash_opts_set_block_size(opts, block_size);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, err, strerror(errno));
+    err = blkhash_opts_set_threads(opts, threads);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, err, strerror(errno));
+
+    h = blkhash_new_opts(opts);
+    blkhash_opts_free(opts);
     TEST_ASSERT_NOT_NULL_MESSAGE(h, strerror(errno));
 
     for (unsigned i = 0; i < len; i++) {
@@ -299,7 +308,7 @@ void test_abort_quickly()
     struct blkhash *h;
     int err;
 
-    h = blkhash_new(digest_name, block_size, 4);
+    h = blkhash_new();
     TEST_ASSERT_NOT_NULL_MESSAGE(h, strerror(errno));
 
     for (int i = 0; i < 10; i++) {

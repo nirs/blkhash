@@ -155,6 +155,7 @@ int main(int argc, char *argv[])
     uint64_t todo;
     int64_t start, elapsed;
     struct blkhash *h;
+    struct blkhash_opts *opts;
     unsigned char md[BLKHASH_MAX_MD_SIZE];
     char md_hex[BLKHASH_MAX_MD_SIZE * 2 + 1];
     unsigned int len;
@@ -176,7 +177,15 @@ int main(int argc, char *argv[])
 
     start = gettime();
 
-    h = blkhash_new(digest_name, block_size, threads);
+    opts = blkhash_opts_new(digest_name);
+    assert(opts);
+    err = blkhash_opts_set_block_size(opts, block_size);
+    assert(err == 0);
+    err = blkhash_opts_set_threads(opts, threads);
+    assert(err == 0);
+
+    h = blkhash_new_opts(opts);
+    blkhash_opts_free(opts);
     assert(h);
 
     while (todo >= chunk_size) {

@@ -13,6 +13,12 @@
 
 #include "blkhash-config.h"
 
+struct blkhash_opts {
+    const char *digest_name;
+    size_t block_size;
+    uint8_t threads;
+};
+
 struct config {
     size_t block_size;
     unsigned streams;
@@ -82,8 +88,7 @@ struct worker {
     bool stopped;
 };
 
-int config_init(struct config *c, const char *digest_name, size_t block_size,
-                unsigned workers, unsigned streams);
+int config_init(struct config *c, const struct blkhash_opts *opts);
 
 struct block *block_new(struct stream *stream, uint64_t index, size_t len,
                         const void *data);

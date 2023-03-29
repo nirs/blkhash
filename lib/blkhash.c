@@ -53,6 +53,67 @@ struct blkhash {
     bool finalized;
 };
 
+static const struct blkhash_opts default_opts = {
+    .digest_name = "sha256",
+    .block_size = 64 * KiB,
+    .threads = 4,
+};
+
+struct blkhash_opts *blkhash_opts_new(const char *digest_name)
+{
+    if (digest_name == NULL) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    struct blkhash_opts *o = malloc(sizeof(*o));
+    if (o == NULL)
+        return NULL;
+
+    memcpy(o, &default_opts, sizeof(*o));
+    o->digest_name = digest_name;
+
+    return o;
+}
+
+int blkhash_opts_set_block_size(struct blkhash_opts *o, size_t block_size)
+{
+    if (block_size % 2)
+        return EINVAL;
+
+    o->block_size = block_size;
+    return 0;
+}
+
+int blkhash_opts_set_threads(struct blkhash_opts *o, uint8_t threads)
+{
+    if (threads < 1)
+        return EINVAL;
+
+    o->threads = threads;
+    return 0;
+}
+
+const char *blkhash_opts_get_digest_name(struct blkhash_opts *o)
+{
+    return o->digest_name;
+}
+
+size_t blkhash_opts_get_block_size(struct blkhash_opts *o)
+{
+    return o->block_size;
+}
+
+uint8_t blkhash_opts_get_threads(struct blkhash_opts *o)
+{
+    return o->threads;
+}
+
+void blkhash_opts_free(struct blkhash_opts *o)
+{
+    free(o);
+}
+
 /* Set the error and return -1. All intenral errors should be handled with
  * this. Public APIs should always return the internal error on failures. */
 static inline int set_error(struct blkhash *h, int error)
@@ -63,8 +124,12 @@ static inline int set_error(struct blkhash *h, int error)
     return -1;
 }
 
-struct blkhash *blkhash_new(const char *md_name, size_t block_size,
-                            unsigned threads)
+struct blkhash *blkhash_new()
+{
+    return blkhash_new_opts(&default_opts);
+}
+
+struct blkhash *blkhash_new_opts(const struct blkhash_opts *opts)
 {
     struct blkhash *h;
     int err;
@@ -73,7 +138,7 @@ struct blkhash *blkhash_new(const char *md_name, size_t block_size,
     if (h == NULL)
         return NULL;
 
-    err = config_init(&h->config, md_name, block_size, threads, threads);
+    err = config_init(&h->config, opts);
     if (err)
         goto error;
 
@@ -116,7 +181,7 @@ struct blkhash *blkhash_new(const char *md_name, size_t block_size,
         goto error;
     }
 
-    h->pending = calloc(1, block_size);
+    h->pending = calloc(1, h->config.block_size);
     if (h->pending == NULL) {
         err = errno;
         goto error;

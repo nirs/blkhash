@@ -469,15 +469,27 @@ static void *worker_thread(void *arg)
     struct worker *w = (struct worker *)arg;
     struct job *job = w->job;
     struct options *opt = job->opt;
+    struct blkhash_opts *ho;
     int err = 0;
 
     DEBUG("worker %d started", w->id);
 
-    w->s = open_src(job->uri);
+    ho = blkhash_opts_new(opt->digest_name);
+    if (ho == NULL)
+        FAIL_ERRNO("blkhash_opts_new");
 
-    w->h = blkhash_new(opt->digest_name, opt->block_size, opt->threads);
+    if (blkhash_opts_set_block_size(ho, opt->block_size))
+        FAIL("Invalid block size value: %zu", opt->block_size);
+
+    if (blkhash_opts_set_threads(ho, opt->threads))
+        FAIL("Invalid threads value: %zu", opt->threads);
+
+    w->h = blkhash_new_opts(ho);
+    blkhash_opts_free(ho);
     if (w->h == NULL)
         FAIL_ERRNO("blkhash_new");
+
+    w->s = open_src(job->uri);
 
     process_image(w);
 
