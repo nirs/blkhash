@@ -16,7 +16,7 @@ static const size_t block_size = 64 * 1024;
 static const char * digest_name = "sha256";
 static const unsigned int digest_len = 32;
 static const unsigned int hexdigest_len = digest_len * 2 + 1; /* NULL */
-static const unsigned streams = 4;
+static const unsigned streams = BLKHASH_STREAMS;
 
 void setUp() {}
 void tearDown() {}
@@ -97,7 +97,7 @@ void test_block_data()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "b1a37d57301efe26db0ae98c681fb33bc7718e2d7eaa6d14bef667fdb0ce4153",
+            "3fe9a19c59cc0320c1bb605e3cbf3ecd35a295a1f7a2b4e5ebc1efdd1f5ebb8c",
             hexdigest);
     }
 }
@@ -113,7 +113,7 @@ void test_block_data_zero()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "e3464a69bf8aa32beb68088f07a797b61edba57b87bcccb19e4b093ded09d2c3",
+            "62e22dfa9a68d2747441335d07929c1577a0a836a90cb9bddc016f1728ae0ae6",
             hexdigest);
     }
 }
@@ -129,7 +129,7 @@ void test_block_zero()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "e3464a69bf8aa32beb68088f07a797b61edba57b87bcccb19e4b093ded09d2c3",
+            "62e22dfa9a68d2747441335d07929c1577a0a836a90cb9bddc016f1728ae0ae6",
             hexdigest);
     }
 }
@@ -145,7 +145,7 @@ void test_partial_block_data()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "9882fe93f0340c4414833acadae9c0dcf1c988e2cf1da67902e6863f069c2617",
+            "cd8d1ced5e8cb96831fc637e7c69a4ce940b04be401b30be7fabba4451c6e4c0",
             hexdigest);
     }
 }
@@ -161,7 +161,7 @@ void test_partial_block_data_zero()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "982e8f30451ead173a4da1df76e3b8849a3d0a5126f03e09b54e7c107c429b01",
+            "eb6df5009bff0bd2f11a42fdfee2f24ab88b8e2c4d8cd3fac686ecbb06a91c60",
             hexdigest);
     }
 }
@@ -177,7 +177,7 @@ void test_partial_block_zero()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "982e8f30451ead173a4da1df76e3b8849a3d0a5126f03e09b54e7c107c429b01",
+            "eb6df5009bff0bd2f11a42fdfee2f24ab88b8e2c4d8cd3fac686ecbb06a91c60",
             hexdigest);
     }
 }
@@ -193,7 +193,7 @@ void test_sparse()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "823d6ac7d26b7768abfbd2051a6bb167937043e884bac39ea8da31bae7bf5ace",
+            "ac5b87337b903179e34e03ddddaa2132a5ff0733922a2c697b322416529ab50b",
             hexdigest);
     }
 }
@@ -209,7 +209,7 @@ void test_sparse_large()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "9b3d2f329b8e1a3a10ac623efa163c12e953dbb5192825b4772dcf0f8905e1b1",
+            "cd8516de3da285cff382e4bd7528d148d8650691b5b78d77e0ebf8a6609c7aa0",
             hexdigest);
     }
 }
@@ -226,7 +226,7 @@ void test_sparse_unaligned()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "d28c351b1e0d8293aace1032ccee33579fbaf3075e0d5e868226bf9d898cc476",
+            "904281f5a6b3a2cddde0ef22fcd904a7210354b637365f6f6b21bb0b2ae230cb",
             hexdigest);
     }
 }
@@ -242,7 +242,7 @@ void test_zero()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "823d6ac7d26b7768abfbd2051a6bb167937043e884bac39ea8da31bae7bf5ace",
+            "ac5b87337b903179e34e03ddddaa2132a5ff0733922a2c697b322416529ab50b",
             hexdigest);
     }
 }
@@ -259,7 +259,7 @@ void test_zero_unaligned()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "d28c351b1e0d8293aace1032ccee33579fbaf3075e0d5e868226bf9d898cc476",
+            "904281f5a6b3a2cddde0ef22fcd904a7210354b637365f6f6b21bb0b2ae230cb",
             hexdigest);
     }
 }
@@ -280,7 +280,7 @@ void test_full()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "658d47f67ee57ce66c71fccc5ebf7768f5720c9c37139409874d8afe354a9571",
+            "51dce4f28453cb4087dd506441da279916b60f6875e51ca4df5d2184de69509b",
             hexdigest);
     }
 }
@@ -300,7 +300,7 @@ void test_full_unaligned()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "d08e319cba087440b6f42120df4a8830b2475463edf2967cc61f3cd6ccaa84c6",
+            "35b8503c0575e3b81a7d5f7f03bb9e10a2baa0b86d871e26ae9d458ff1b5e656",
             hexdigest);
     }
 }
@@ -331,7 +331,7 @@ void test_mix()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "fe6ed2020798c76a9a28e98c4a575f12a29710f41ec88f1055fa5b407361085a",
+            "6a2f51e242d77a19e966b3ecad98c63dbe0bb2ff984c4ba70fb52c6ef9956897",
             hexdigest);
     }
 }
@@ -361,7 +361,7 @@ void test_mix_unaligned()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "8b4034f448346b3feeb89b08d15a07feeba8de3baaeda47ecc15d3dd16d8c4ca",
+            "3dc7e5448806207aa096baccdec8d2c0a27986ebf31a4a7e96e9ec9ca334eb84",
             hexdigest);
     }
 }

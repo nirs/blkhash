@@ -21,7 +21,7 @@ GiB = 1 << 30
 TiB = 1 << 40
 
 
-def blkhash(input_type, input_size, digest_name="sha256", threads=4, streams=4):
+def blkhash(input_type, input_size, digest_name="sha256", threads=4, streams=32):
     cmd = [
         BLKHASH_BENCH,
         f"--input-type={input_type}",

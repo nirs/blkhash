@@ -32,7 +32,7 @@ static int block_size = 64 * KiB;
 static int read_size = 1 * MiB;
 static int64_t hole_size = (int64_t)MIN(16 * GiB, SIZE_MAX);
 static int threads = 4;
-static int streams = 4;
+static int streams = BLKHASH_STREAMS;
 
 static const char *short_options = ":hi:s:d:b:r:z:t:S:";
 

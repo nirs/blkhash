@@ -57,7 +57,7 @@ static const struct blkhash_opts default_opts = {
     .digest_name = "sha256",
     .block_size = 64 * KiB,
     .threads = 4,
-    .streams = 4,
+    .streams = BLKHASH_STREAMS,
 };
 
 struct blkhash_opts *blkhash_opts_new(const char *digest_name)

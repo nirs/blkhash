@@ -65,7 +65,7 @@ static struct options opt = {
      * Number of blkhash streams. Changing this value changes the
      * algorithm and hash value.
      */
-    .streams = 4,
+    .streams = BLKHASH_STREAMS,
 
     /* Maximum size for extents call. */
     .extents_size = 1024 * 1024 * 1024,
