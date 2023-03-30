@@ -14,7 +14,8 @@ SYNOPSYS
 --------
 
 *blksum* [-d DIGEST|--digest=DIGEST] [-p|--progress]
-         [-c|--cache] [--queue-size=N] [--read-size=N]
+         [-c|--cache] [-t N|--threads=N] [-S N|--streams=N]
+         [--queue-size=N] [--read-size=N]
          [-l|--list-digests] [-h|--help]
          ['FILENAME']
 
@@ -49,6 +50,21 @@ OPTIONS
   a block device connected to multiple hosts. Typically it gives less
   consistent results. If not set, enabled if the file system does not
   support direct I/O.
+
+*--threads*='N'::
+  Number of threads computing the checksum in parallel. The default
+  value (4) is good enough for most cases. If your storage is very fast
+  you can speed up checksum computation by increasing this value. The
+  value must be smaller or equal to the number of streams. For best
+  performance, the value should be power of 2.
+
+*--streams*='N'::
+  Number of hash streams, enabling parallel hashing. The deffault value
+  (32) allows up to 32 threads. If you want to use more threads you need
+  to increase this value. Note that changing this value changes the hash
+  value and the computed hash will not be compatible with other users of
+  the tool. The value must be equal or larger than the number of
+  threads. For best performance, the value should be power of 2.
 
 *--queue-size*='N'::
   Maximum number of bytes to queue for in-flight reads. The default

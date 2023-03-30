@@ -17,6 +17,7 @@ struct blkhash_opts {
     const char *digest_name;
     size_t block_size;
     uint8_t threads;
+    uint8_t streams;
 };
 
 struct config {

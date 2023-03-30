@@ -57,6 +57,7 @@ static const struct blkhash_opts default_opts = {
     .digest_name = "sha256",
     .block_size = 64 * KiB,
     .threads = 4,
+    .streams = BLKHASH_STREAMS,
 };
 
 struct blkhash_opts *blkhash_opts_new(const char *digest_name)
@@ -87,10 +88,19 @@ int blkhash_opts_set_block_size(struct blkhash_opts *o, size_t block_size)
 
 int blkhash_opts_set_threads(struct blkhash_opts *o, uint8_t threads)
 {
-    if (threads < 1)
+    if (threads < 1 || threads > o->streams)
         return EINVAL;
 
     o->threads = threads;
+    return 0;
+}
+
+int blkhash_opts_set_streams(struct blkhash_opts *o, uint8_t streams)
+{
+    if (streams < o->threads)
+        return EINVAL;
+
+    o->streams = streams;
     return 0;
 }
 
@@ -107,6 +117,11 @@ size_t blkhash_opts_get_block_size(struct blkhash_opts *o)
 uint8_t blkhash_opts_get_threads(struct blkhash_opts *o)
 {
     return o->threads;
+}
+
+uint8_t blkhash_opts_get_streams(struct blkhash_opts *o)
+{
+    return o->streams;
 }
 
 void blkhash_opts_free(struct blkhash_opts *o)

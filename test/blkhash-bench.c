@@ -32,8 +32,9 @@ static int block_size = 64 * KiB;
 static int read_size = 1 * MiB;
 static int64_t hole_size = (int64_t)MIN(16 * GiB, SIZE_MAX);
 static int threads = 4;
+static int streams = BLKHASH_STREAMS;
 
-static const char *short_options = ":hi:s:d:b:r:z:t:";
+static const char *short_options = ":hi:s:d:b:r:z:t:S:";
 
 static struct option long_options[] = {
    {"help",         no_argument,        0,  'h'},
@@ -44,6 +45,7 @@ static struct option long_options[] = {
    {"read-size",    required_argument,  0,  'r'},
    {"hole-size",    required_argument,  0,  'z'},
    {"threads",      required_argument,  0,  't'},
+   {"streams",      required_argument,  0,  'S'},
    {0,              0,                  0,  0},
 };
 
@@ -56,7 +58,7 @@ static void usage(int code)
         "    blkhash-bench [-i TYPE|--input-type TYPE] [-s N|--input-size N]\n"
         "                  [-d DIGEST|--digest-name=DIGEST] [-b N|--block-size N]\n"
         "                  [-r N|--read-size N] [-z N|--hole-size N]\n"
-        "                  [-t N|--threads N] [-h|--help]\n"
+        "                  [-t N|--threads N] [-S N|--streams N] [-h|--help]\n"
         "\n"
         "input types:\n"
         "    data: non-zero data\n"
@@ -136,6 +138,9 @@ static void parse_options(int argc, char *argv[])
         case 't':
             threads = parse_size(optname, optarg);
             break;
+        case 'S':
+            streams = parse_size(optname, optarg);
+            break;
         case ':':
             fprintf(stderr, "Option %s requires an argument", optname);
             exit(EXIT_FAILURE);
@@ -180,6 +185,8 @@ int main(int argc, char *argv[])
     opts = blkhash_opts_new(digest_name);
     assert(opts);
     err = blkhash_opts_set_block_size(opts, block_size);
+    assert(err == 0);
+    err = blkhash_opts_set_streams(opts, streams);
     assert(err == 0);
     err = blkhash_opts_set_threads(opts, threads);
     assert(err == 0);
@@ -227,6 +234,7 @@ int main(int argc, char *argv[])
     printf("  \"read-size\": %d,\n", read_size);
     printf("  \"hole-size\": %" PRIi64 ",\n", hole_size);
     printf("  \"threads\": %d,\n", threads);
+    printf("  \"streams\": %d,\n", streams);
     printf("  \"elapsed\": %.3f,\n", seconds);
     printf("  \"throughput\": %" PRIi64 ",\n", throughput);
     printf("  \"checksum\": \"%s\"\n", md_hex);
