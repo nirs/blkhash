@@ -19,31 +19,37 @@
  * zero length block to all streams. */
 #define STREAM_ZERO_BATCH_SIZE (16 * 1024)
 
+struct buffer {
+    unsigned char *data;
+    size_t len;
+    bool zero;
+};
+
 struct blkhash {
     struct config config;
 
-    /* The streams computing internal hashes. */
-    struct stream *streams;
-    unsigned streams_count;
-
-    /* Workers processing streams. */
-    struct worker *workers;
-    unsigned workers_count;
-
-    /* For computing root digest from the streams hashes. */
-    EVP_MD_CTX *root_ctx;
-
     /* For keeping partial blocks when user call blkhash_update() with buffer
      * that is not aligned to block size. */
-    unsigned char *pending;
-    size_t pending_len;
-    bool pending_zero;
+    struct buffer pending;
 
     /* Current block index, increased when consuming a data or zero block. */
     int64_t block_index;
 
     /* The index of the last submitted block. */
     int64_t update_index;
+
+    /* The streams computing internal hashes. */
+    struct stream *streams;
+
+    /* Workers processing streams. */
+    struct worker *workers;
+
+    /* For computing root digest from the streams hashes. */
+    EVP_MD_CTX *root_ctx;
+
+    /* Count initialized streams and workers to allow cleanups on errors. */
+    unsigned streams_count;
+    unsigned workers_count;
 
     /* The first error. Once set, any operation will fail quickly with this
      * error. */
@@ -196,8 +202,8 @@ struct blkhash *blkhash_new_opts(const struct blkhash_opts *opts)
         goto error;
     }
 
-    h->pending = calloc(1, h->config.block_size);
-    if (h->pending == NULL) {
+    h->pending.data = calloc(1, h->config.block_size);
+    if (h->pending.data == NULL) {
         err = errno;
         goto error;
     }
@@ -283,19 +289,19 @@ static int submit_data_block(struct blkhash *h, const void *buf, size_t len)
  */
 static size_t add_pending_data(struct blkhash *h, const void *buf, size_t len)
 {
-    size_t n = MIN(len, h->config.block_size - h->pending_len);
+    size_t n = MIN(len, h->config.block_size - h->pending.len);
 
-    if (h->pending_zero) {
+    if (h->pending.zero) {
         /*
          * The buffer contains zeros, convert pending zeros to data.
          */
-        memset(h->pending, 0, h->pending_len);
-        h->pending_zero = false;
+        memset(h->pending.data, 0, h->pending.len);
+        h->pending.zero = false;
     }
 
-    memcpy(h->pending + h->pending_len, buf, n);
+    memcpy(h->pending.data + h->pending.len, buf, n);
 
-    h->pending_len += n;
+    h->pending.len += n;
 
     return n;
 }
@@ -309,19 +315,19 @@ static size_t add_pending_data(struct blkhash *h, const void *buf, size_t len)
  */
 static size_t add_pending_zeros(struct blkhash *h, size_t len)
 {
-    size_t n = MIN(len, h->config.block_size - h->pending_len);
+    size_t n = MIN(len, h->config.block_size - h->pending.len);
 
-    if (h->pending_len == 0) {
+    if (h->pending.len == 0) {
         /* The buffer is empty, start collecting pending zeros. */
-        h->pending_zero = true;
-    } else if (!h->pending_zero) {
+        h->pending.zero = true;
+    } else if (!h->pending.zero) {
         /*
          * The buffer contains some data, convert the zeros to pending data.
          */
-        memset(h->pending + h->pending_len, 0, n);
+        memset(h->pending.data + h->pending.len, 0, n);
     }
 
-    h->pending_len += n;
+    h->pending.len += n;
 
     return n;
 }
@@ -370,9 +376,9 @@ static int consume_data_block(struct blkhash *h, const void *buf, size_t len)
  */
 static int consume_pending(struct blkhash *h)
 {
-    assert(h->pending_len <= h->config.block_size);
+    assert(h->pending.len <= h->config.block_size);
 
-    if (h->pending_len == h->config.block_size && h->pending_zero) {
+    if (h->pending.len == h->config.block_size && h->pending.zero) {
         /* Fast path. */
         if (consume_zero_blocks(h, 1))
             return -1;
@@ -381,17 +387,17 @@ static int consume_pending(struct blkhash *h)
          * Slow path if pending is partial block, fast path is pending
          * is full block and pending data is zeros.
          */
-        if (h->pending_zero) {
+        if (h->pending.zero) {
             /* Convert partial block of zeros to data. */
-            memset(h->pending, 0, h->pending_len);
+            memset(h->pending.data, 0, h->pending.len);
         }
 
-        if (consume_data_block(h, h->pending, h->pending_len))
+        if (consume_data_block(h, h->pending.data, h->pending.len))
             return -1;
     }
 
-    h->pending_len = 0;
-    h->pending_zero = false;
+    h->pending.len = 0;
+    h->pending.zero = false;
     return 0;
 }
 
@@ -401,11 +407,11 @@ int blkhash_update(struct blkhash *h, const void *buf, size_t len)
         return h->error;
 
     /* Try to fill the pending buffer and consume it. */
-    if (h->pending_len > 0) {
+    if (h->pending.len > 0) {
         size_t n = add_pending_data(h, buf, len);
         buf += n;
         len -= n;
-        if (h->pending_len == h->config.block_size) {
+        if (h->pending.len == h->config.block_size) {
             if (consume_pending(h))
                 return h->error;
         }
@@ -437,9 +443,9 @@ int blkhash_zero(struct blkhash *h, size_t len)
         return h->error;
 
     /* Try to fill the pending buffer and consume it. */
-    if (h->pending_len > 0) {
+    if (h->pending.len > 0) {
         len -= add_pending_zeros(h, len);
-        if (h->pending_len == h->config.block_size) {
+        if (h->pending.len == h->config.block_size) {
             if (consume_pending(h))
                 return h->error;
         }
@@ -511,7 +517,7 @@ int blkhash_final(struct blkhash *h, unsigned char *md_value,
 
     h->finalized = true;
 
-    if (h->pending_len > 0)
+    if (h->pending.len > 0)
         consume_pending(h);
 
     if (h->error == 0)
@@ -541,7 +547,7 @@ void blkhash_free(struct blkhash *h)
     for (unsigned i = 0; i < h->streams_count; i++)
         stream_destroy(&h->streams[i]);
 
-    free(h->pending);
+    free(h->pending.data);
     EVP_MD_CTX_free(h->root_ctx);
     free(h->workers);
     free(h->streams);

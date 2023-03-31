@@ -21,13 +21,15 @@ struct blkhash_opts {
 };
 
 struct config {
+    unsigned char zero_md[EVP_MAX_MD_SIZE];
+    const EVP_MD *md;
     size_t block_size;
+    unsigned int md_len;
     unsigned streams;
     unsigned workers;
-    const EVP_MD *md;
-    unsigned char zero_md[EVP_MAX_MD_SIZE];
-    unsigned int md_len;
-};
+
+    /* Align to avoid false sharing between workers. */
+} __attribute__ ((aligned (CACHE_LINE_SIZE)));
 
 struct stream {
     const struct config *config;
@@ -87,7 +89,9 @@ struct worker {
 
     /* Set when stopping the worker. No updates are allowed after this. */
     bool stopped;
-};
+
+    /* Align to avoid false sharing between workers. */
+} __attribute__ ((aligned (CACHE_LINE_SIZE)));
 
 int config_init(struct config *c, const struct blkhash_opts *opts);
 
@@ -96,7 +100,7 @@ struct block *block_new(struct stream *stream, uint64_t index, size_t len,
 void block_free(struct block *b);
 
 int stream_init(struct stream *s, int id, const struct config *config);
-int stream_update(struct stream *s, struct block *b);
+int stream_update(struct stream *s, const struct block *b);
 int stream_final(struct stream *s, unsigned char *md, unsigned int *len);
 void stream_destroy(struct stream *s);
 

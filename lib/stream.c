@@ -13,7 +13,7 @@ static inline void set_error(struct stream *s, int error)
         s->error = error;
 }
 
-static int add_zero_blocks_before(struct stream *s, struct block *b)
+static int add_zero_blocks_before(struct stream *s, const struct block *b)
 {
     int64_t index;
 
@@ -35,7 +35,7 @@ static int add_zero_blocks_before(struct stream *s, struct block *b)
     return 0;
 }
 
-static int add_data_block(struct stream *s, struct block *b)
+static int add_data_block(struct stream *s, const struct block *b)
 {
     unsigned char block_md[EVP_MAX_MD_SIZE];
 
@@ -96,7 +96,7 @@ error:
     return err;
 }
 
-int stream_update(struct stream *s, struct block *b)
+int stream_update(struct stream *s, const struct block *b)
 {
     if (s->error)
         return s->error;
