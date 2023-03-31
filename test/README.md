@@ -24,29 +24,49 @@ kind of input and configuration options.
         blkhash-bench [-i TYPE|--input-type TYPE] [-s N|--input-size N]
                       [-d DIGEST|--digest-name=DIGEST] [-b N|--block-size N]
                       [-r N|--read-size N] [-z N|--hole-size N]
-                      [-t N|--threads N] [-h|--help]
+                      [-t N|--threads N] [-S N|--streams N] [-h|--help]
 
     input types:
         data: non-zero data
         zero: all zeros data
         hole: unallocated area
 
-### Example run
+### Example usage
 
-This example benchmark hashing of 1 GiB of non-zero data with `sha256`
-digest:
+Measure hashing of 5.9 GiB of non-zero data with `sha256` digest and 16
+threads:
 
-    $ build/test/blkhash-bench -i data -s 1g -d sha256
+    $ build/test/blkhash-bench -i data -s 5.9g -d sha256 -t 16
     {
       "input-type": "data",
-      "input-size": 1073741824,
+      "input-size": 6335076761,
       "digest-name": "sha256",
       "block-size": 65536,
       "read-size": 1048576,
       "hole-size": 17179869184,
-      "threads": 4,
-      "elapsed": 0.488,
-      "throughput": 2199118961
+      "threads": 16,
+      "streams": 32,
+      "elapsed": 1.054,
+      "throughput": 6008143625,
+      "checksum": "ede31d9b878ba22bf73967d06abb8c6eecc125010acb478b594465e6fa20a33b"
+    }
+
+Measure hashing of 8.8 TiB of unallocated data with `sha256` digest and
+16 threads:
+
+    $ build/test/blkhash-bench -i hole -s 8.8t -d sha256 -t 16
+    {
+      "input-type": "hole",
+      "input-size": 9675702324428,
+      "digest-name": "sha256",
+      "block-size": 65536,
+      "read-size": 1048576,
+      "hole-size": 17179869184,
+      "threads": 16,
+      "streams": 32,
+      "elapsed": 1.072,
+      "throughput": 9026473236866,
+      "checksum": "26000639dbd36b21e694e9cab29150aa0e8c9edf67eda764666dcce744463725"
     }
 
 The json output can be used by another program to create graphs.
@@ -121,57 +141,63 @@ Example run of the benchmark script:
 
     blkhash-bench --digest-name sha256 --input-type data
 
-     1 threads: 614.40 MiB in 1.062 s (578.72 MiB/s)
-     2 threads: 1.00 GiB in 0.932 s (1.07 GiB/s)
-     4 threads: 2.00 GiB in 0.987 s (2.03 GiB/s)
-     8 threads: 2.20 GiB in 0.985 s (2.23 GiB/s)
-    16 threads: 3.00 GiB in 0.955 s (3.14 GiB/s)
-    32 threads: 2.90 GiB in 0.975 s (2.97 GiB/s)
+     1 threads, 64 streams: 614.40 MiB in 1.385 s (443.63 MiB/s)
+     2 threads, 64 streams: 1.00 GiB in 1.159 s (883.90 MiB/s)
+     4 threads, 64 streams: 2.00 GiB in 1.155 s (1.73 GiB/s)
+     8 threads, 64 streams: 2.20 GiB in 0.676 s (3.25 GiB/s)
+    16 threads, 64 streams: 3.00 GiB in 0.548 s (5.47 GiB/s)
+    32 threads, 64 streams: 2.90 GiB in 0.490 s (5.91 GiB/s)
+    64 threads, 64 streams: 2.90 GiB in 0.466 s (6.23 GiB/s)
 
     blkhash-bench --digest-name sha256 --input-type zero
 
-     1 threads: 50.00 GiB in 1.080 s (46.32 GiB/s)
-     2 threads: 50.00 GiB in 1.054 s (47.44 GiB/s)
-     4 threads: 50.00 GiB in 1.083 s (46.16 GiB/s)
-     8 threads: 50.00 GiB in 0.972 s (51.43 GiB/s)
-    16 threads: 50.00 GiB in 1.060 s (47.18 GiB/s)
-    32 threads: 50.00 GiB in 0.980 s (51.04 GiB/s)
+     1 threads, 64 streams: 50.00 GiB in 1.326 s (37.71 GiB/s)
+     2 threads, 64 streams: 50.00 GiB in 1.219 s (41.01 GiB/s)
+     4 threads, 64 streams: 50.00 GiB in 1.275 s (39.22 GiB/s)
+     8 threads, 64 streams: 50.00 GiB in 1.170 s (42.72 GiB/s)
+    16 threads, 64 streams: 50.00 GiB in 1.223 s (40.87 GiB/s)
+    32 threads, 64 streams: 50.00 GiB in 1.330 s (37.60 GiB/s)
+    64 threads, 64 streams: 50.00 GiB in 1.230 s (40.64 GiB/s)
 
     blkhash-bench --digest-name sha256 --input-type hole
 
-     1 threads: 960.00 GiB in 1.046 s (917.55 GiB/s)
-     2 threads: 1.80 TiB in 0.997 s (1.81 TiB/s)
-     4 threads: 3.50 TiB in 1.048 s (3.34 TiB/s)
-     8 threads: 4.00 TiB in 1.102 s (3.63 TiB/s)
-    16 threads: 4.70 TiB in 1.036 s (4.54 TiB/s)
-    32 threads: 4.60 TiB in 1.032 s (4.46 TiB/s)
+     1 threads, 64 streams: 960.00 GiB in 1.296 s (740.80 GiB/s)
+     2 threads, 64 streams: 1.80 TiB in 1.263 s (1.43 TiB/s)
+     4 threads, 64 streams: 3.50 TiB in 1.258 s (2.78 TiB/s)
+     8 threads, 64 streams: 4.00 TiB in 0.790 s (5.07 TiB/s)
+    16 threads, 64 streams: 4.70 TiB in 0.536 s (8.77 TiB/s)
+    32 threads, 64 streams: 4.60 TiB in 0.528 s (8.72 TiB/s)
+    64 threads, 64 streams: 4.60 TiB in 0.346 s (13.31 TiB/s)
 
     blkhash-bench --digest-name null --input-type data
 
-     1 threads: 21.00 GiB in 1.477 s (14.22 GiB/s)
-     2 threads: 21.00 GiB in 0.834 s (25.17 GiB/s)
-     4 threads: 21.00 GiB in 0.891 s (23.57 GiB/s)
-     8 threads: 21.00 GiB in 0.959 s (21.90 GiB/s)
-    16 threads: 21.00 GiB in 0.870 s (24.13 GiB/s)
-    32 threads: 21.00 GiB in 0.984 s (21.35 GiB/s)
+     1 threads, 64 streams: 21.00 GiB in 1.302 s (16.12 GiB/s)
+     2 threads, 64 streams: 21.00 GiB in 1.377 s (15.25 GiB/s)
+     4 threads, 64 streams: 21.00 GiB in 1.266 s (16.59 GiB/s)
+     8 threads, 64 streams: 21.00 GiB in 1.726 s (12.16 GiB/s)
+    16 threads, 64 streams: 21.00 GiB in 1.353 s (15.53 GiB/s)
+    32 threads, 64 streams: 21.00 GiB in 1.434 s (14.64 GiB/s)
+    64 threads, 64 streams: 21.00 GiB in 1.475 s (14.24 GiB/s)
 
     blkhash-bench --digest-name null --input-type zero
 
-     1 threads: 50.00 GiB in 1.006 s (49.72 GiB/s)
-     2 threads: 50.00 GiB in 1.067 s (46.86 GiB/s)
-     4 threads: 50.00 GiB in 1.077 s (46.41 GiB/s)
-     8 threads: 50.00 GiB in 1.073 s (46.62 GiB/s)
-    16 threads: 50.00 GiB in 0.974 s (51.33 GiB/s)
-    32 threads: 50.00 GiB in 1.071 s (46.70 GiB/s)
+     1 threads, 64 streams: 50.00 GiB in 1.121 s (44.61 GiB/s)
+     2 threads, 64 streams: 50.00 GiB in 1.161 s (43.07 GiB/s)
+     4 threads, 64 streams: 50.00 GiB in 1.221 s (40.96 GiB/s)
+     8 threads, 64 streams: 50.00 GiB in 1.263 s (39.59 GiB/s)
+    16 threads, 64 streams: 50.00 GiB in 1.256 s (39.80 GiB/s)
+    32 threads, 64 streams: 50.00 GiB in 1.274 s (39.26 GiB/s)
+    64 threads, 64 streams: 50.00 GiB in 1.265 s (39.54 GiB/s)
 
     blkhash-bench --digest-name null --input-type hole
 
-     1 threads: 31.00 TiB in 0.961 s (32.27 TiB/s)
-     2 threads: 61.00 TiB in 0.961 s (63.50 TiB/s)
-     4 threads: 118.00 TiB in 0.963 s (122.53 TiB/s)
-     8 threads: 157.00 TiB in 1.035 s (151.65 TiB/s)
-    16 threads: 211.00 TiB in 1.014 s (208.16 TiB/s)
-    32 threads: 190.00 TiB in 0.932 s (203.76 TiB/s)
+     1 threads, 64 streams: 31.00 TiB in 1.589 s (19.51 TiB/s)
+     2 threads, 64 streams: 61.00 TiB in 1.589 s (38.38 TiB/s)
+     4 threads, 64 streams: 118.00 TiB in 1.593 s (74.07 TiB/s)
+     8 threads, 64 streams: 157.00 TiB in 1.097 s (143.06 TiB/s)
+    16 threads, 64 streams: 211.00 TiB in 0.967 s (218.15 TiB/s)
+    32 threads, 64 streams: 190.00 TiB in 0.626 s (303.66 TiB/s)
+    64 threads, 64 streams: 190.00 TiB in 0.344 s (553.09 TiB/s)
 
 ## The zero-bench program
 
