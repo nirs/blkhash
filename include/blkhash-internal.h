@@ -89,7 +89,9 @@ struct worker {
 
     /* Set when stopping the worker. No updates are allowed after this. */
     bool stopped;
-};
+
+    /* Align to avoid false sharing between workers. */
+} __attribute__ ((aligned (CACHE_LINE_SIZE)));
 
 int config_init(struct config *c, const struct blkhash_opts *opts);
 

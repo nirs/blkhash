@@ -402,6 +402,7 @@ void test_false_sharing()
 {
     check_false_sharing("struct stream", sizeof(struct stream));
     check_false_sharing("struct config", sizeof(struct config));
+    check_false_sharing("struct config", sizeof(struct worker));
 }
 
 int main(void)
