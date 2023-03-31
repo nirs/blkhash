@@ -100,7 +100,7 @@ struct block *block_new(struct stream *stream, uint64_t index, size_t len,
 void block_free(struct block *b);
 
 int stream_init(struct stream *s, int id, const struct config *config);
-int stream_update(struct stream *s, struct block *b);
+int stream_update(struct stream *s, const struct block *b);
 int stream_final(struct stream *s, unsigned char *md, unsigned int *len);
 void stream_destroy(struct stream *s);
 
