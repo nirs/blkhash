@@ -32,6 +32,12 @@ struct blkhash {
      * that is not aligned to block size. */
     struct buffer pending;
 
+    /* Current block index, increased when consuming a data or zero block. */
+    int64_t block_index;
+
+    /* The index of the last submitted block. */
+    int64_t update_index;
+
     /* The streams computing internal hashes. */
     struct stream *streams;
 
@@ -40,12 +46,6 @@ struct blkhash {
 
     /* For computing root digest from the streams hashes. */
     EVP_MD_CTX *root_ctx;
-
-    /* Current block index, increased when consuming a data or zero block. */
-    int64_t block_index;
-
-    /* The index of the last submitted block. */
-    int64_t update_index;
 
     /* Count initialized streams and workers to allow cleanups on errors. */
     unsigned streams_count;
