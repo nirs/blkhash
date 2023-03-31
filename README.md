@@ -374,53 +374,24 @@ See [blkhash(3)](blkhash.3.adoc) for complete documentation.
 
 ### blkhash performance
 
-You can use the `blkhash_bench` program to measure `blkhash` throughput
-with different kinds of input.
+The `blkhash` library is up to 4 order of magnitude faster than openssl
+using the same digest algorithm.
 
-Example run on *Lenovo ThinkPad P1 Gen 3* with *Fedora 36*:
+We measured the throughput of the `blkhash` library using `sha256`
+algorithm and 16 threads for 3 operations:
+- `h(non zero)` - hash non-zero data
+- `h(all zeros)` - hash data that is all zeros
+- `h(unallocated)` - hash an unallocated area (logically filled with zeros)
 
-```
-$ build/test/blkhash_bench | grep -v PASS
-update-data (sha256): 2.00 GiB in 1.226 seconds (1.63 GiB/s)
-update-data (sha1): 4.00 GiB in 1.087 seconds (3.68 GiB/s)
-update-zero (sha256): 50.00 GiB in 1.154 seconds (43.33 GiB/s)
-update-zero (sha1): 50.00 GiB in 1.152 seconds (43.40 GiB/s)
-zero (sha256): 2.44 TiB in 0.840 seconds (2.91 TiB/s)
-zero (sha1): 7.32 TiB in 0.802 seconds (9.13 TiB/s)
-```
+The following graph compares the throughput to `sha256` using
+logarithmic scale.  The throughput of hashing unallocated area is *19000
+times higher*, hashing zeros is *80 times higher*, and hashing non-zero
+data is *12 times higher*.
 
-Example run on *Dell PowerEdge R640* with *RHEL 8.6* running in a
-*CentOS Stream 9* container:
+![blkhash vs sha256](media/blkhash-web.png)
 
-```
-$ build/test/blkhash_bench | grep -v PASS
-update-data (sha256): 2.00 GiB in 1.217 seconds (1.64 GiB/s)
-update-data (sha1): 4.00 GiB in 1.130 seconds (3.54 GiB/s)
-update-zero (sha256): 50.00 GiB in 1.303 seconds (38.38 GiB/s)
-update-zero (sha1): 50.00 GiB in 1.302 seconds (38.40 GiB/s)
-zero (sha256): 2.44 TiB in 0.910 seconds (2.68 TiB/s)
-zero (sha1): 7.32 TiB in 1.017 seconds (7.21 TiB/s)
-```
-
-Example run on *MacBook Air M1* with *macOS 12.5.1*:
-
-```
-% build/test/blkhash_bench | grep -v PASS
-update-data (sha256): 2.00 GiB in 0.286 seconds (6.99 GiB/s)
-update-data (sha1): 4.00 GiB in 0.519 seconds (7.71 GiB/s)
-update-zero (sha256): 50.00 GiB in 1.389 seconds (36.01 GiB/s)
-update-zero (sha1): 50.00 GiB in 1.388 seconds (36.02 GiB/s)
-zero (sha256): 2.44 TiB in 0.182 seconds (13.41 TiB/s)
-zero (sha1): 7.32 TiB in 0.527 seconds (13.91 TiB/s)
-```
-
-Tested cases:
-- update data - calling `blkhash_update()` with buffer full of non-zero
-  bytes.
-- update zero - calling `blkhash_update()` with buffer full of zero
-  bytes.
-- zero - calling `blkhash_zero()` when you know a range of a n image is
-  unallocated or reads as zeros.
+For more info on benchmarking `blkhash` see
+[test/README.md](test/#the-blkhash-bench-program).
 
 ## Portability
 
