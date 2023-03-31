@@ -21,12 +21,12 @@ struct blkhash_opts {
 };
 
 struct config {
+    unsigned char zero_md[EVP_MAX_MD_SIZE];
+    const EVP_MD *md;
     size_t block_size;
+    unsigned int md_len;
     unsigned streams;
     unsigned workers;
-    const EVP_MD *md;
-    unsigned char zero_md[EVP_MAX_MD_SIZE];
-    unsigned int md_len;
 };
 
 struct stream {
