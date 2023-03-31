@@ -34,11 +34,9 @@ struct blkhash {
 
     /* The streams computing internal hashes. */
     struct stream *streams;
-    unsigned streams_count;
 
     /* Workers processing streams. */
     struct worker *workers;
-    unsigned workers_count;
 
     /* For computing root digest from the streams hashes. */
     EVP_MD_CTX *root_ctx;
@@ -48,6 +46,10 @@ struct blkhash {
 
     /* The index of the last submitted block. */
     int64_t update_index;
+
+    /* Count initialized streams and workers to allow cleanups on errors. */
+    unsigned streams_count;
+    unsigned workers_count;
 
     /* The first error. Once set, any operation will fail quickly with this
      * error. */
