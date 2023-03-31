@@ -174,7 +174,7 @@ int worker_submit(struct worker *w, struct block *b)
     /* Nothing will be submitted after a worker was stopped. */
     if (w->stopped) {
         err = EPERM;
-        goto out;
+        goto unlock;
     }
 
     /* The block will leak if the worker failed. */
