@@ -27,7 +27,9 @@ struct config {
     unsigned int md_len;
     unsigned streams;
     unsigned workers;
-};
+
+    /* Align to avoid false sharing between workers. */
+} __attribute__ ((aligned (CACHE_LINE_SIZE)));
 
 struct stream {
     const struct config *config;

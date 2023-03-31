@@ -401,6 +401,7 @@ static void check_false_sharing(const char *name, size_t type_size)
 void test_false_sharing()
 {
     check_false_sharing("struct stream", sizeof(struct stream));
+    check_false_sharing("struct config", sizeof(struct config));
 }
 
 int main(void)
