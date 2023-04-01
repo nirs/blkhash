@@ -12,6 +12,16 @@
 #include "blkhash.h"
 #include "util.h"
 
+#define FAILF(fmt, ...) do { \
+    fprintf(stderr, fmt "\n", ## __VA_ARGS__); \
+    exit(EXIT_FAILURE); \
+} while (0)
+
+#define FAIL(msg) do { \
+    perror(msg); \
+    exit(EXIT_FAILURE); \
+} while (0)
+
 enum input_type {DATA, ZERO, HOLE};
 
 const char *type_name(enum input_type type)
@@ -81,8 +91,7 @@ static int parse_type(const char *name, const char *arg)
     if (strcmp(arg, "hole") == 0)
         return HOLE;
 
-    fprintf(stderr, "Invalid value for option %s: '%s'\n", name, arg);
-    exit(EXIT_FAILURE);
+    FAILF("Invalid value for option %s: '%s'", name, arg);
 }
 
 static int64_t parse_size(const char *name, const char *arg)
@@ -91,8 +100,7 @@ static int64_t parse_size(const char *name, const char *arg)
 
     value = parse_humansize(arg);
     if (value < 1 || value == -EINVAL) {
-        fprintf(stderr, "Invalid value for option %s: '%s'\n", name, arg);
-        exit(EXIT_FAILURE);
+        FAILF("Invalid value for option %s: '%s'", name, arg);
     }
 
     return value;
@@ -142,13 +150,11 @@ static void parse_options(int argc, char *argv[])
             streams = parse_size(optname, optarg);
             break;
         case ':':
-            fprintf(stderr, "Option %s requires an argument", optname);
-            exit(EXIT_FAILURE);
+            FAILF("Option %s requires an argument", optname);
             break;
         case '?':
         default:
-            fprintf(stderr, "Invalid option: %s", optname);
-            exit(EXIT_FAILURE);
+            FAILF("Invalid option: %s", optname);
         }
     }
 }
