@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Red Hat Inc
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#include <assert.h>
 #include <errno.h>
 #include <getopt.h>
 #include <signal.h>
@@ -206,12 +205,15 @@ static inline void update_hash(struct blkhash *h, unsigned char *buf, size_t len
 {
     int err;
 
-    if (input_type == HOLE)
+    if (input_type == HOLE) {
         err = blkhash_zero(h, len);
-    else
+        if (err)
+            FAILF("blkhash_zero: %s", strerror(err));
+    } else {
         err = blkhash_update(h, buf, len);
-
-    assert(err == 0);
+        if (err)
+            FAILF("blkhash_update: %s", strerror(err));
+    }
 }
 
 static int64_t update_by_size(struct blkhash *h)
@@ -245,7 +247,7 @@ int main(int argc, char *argv[])
 {
     int64_t start, elapsed;
     struct blkhash *h;
-    struct blkhash_opts *opts;
+    struct blkhash_opts *opts = NULL;
     unsigned char md[BLKHASH_MAX_MD_SIZE];
     char md_hex[BLKHASH_MAX_MD_SIZE * 2 + 1];
     unsigned int len;
@@ -257,7 +259,9 @@ int main(int argc, char *argv[])
 
     if (input_type != HOLE) {
         buffer = malloc(read_size);
-        assert(buffer);
+        if (buffer == NULL)
+            FAIL("malloc");
+
         memset(buffer, input_type == DATA ? 0x55 : 0x00, read_size);
     }
 
@@ -269,17 +273,24 @@ int main(int argc, char *argv[])
     start = gettime();
 
     opts = blkhash_opts_new(digest_name);
-    assert(opts);
+    if (opts == NULL)
+        FAIL("blkhash_opts_new");
+
     err = blkhash_opts_set_block_size(opts, block_size);
-    assert(err == 0);
+    if (err)
+        FAILF("blkhash_opts_set_block_size: %s", strerror(err));
+
     err = blkhash_opts_set_streams(opts, streams);
-    assert(err == 0);
+    if (err)
+        FAILF("blkhash_opts_set_streams: %s", strerror(err));
+
     err = blkhash_opts_set_threads(opts, threads);
-    assert(err == 0);
+    if (err)
+        FAILF("blkhash_opts_set_threads: %s", strerror(err));
 
     h = blkhash_new_opts(opts);
-    blkhash_opts_free(opts);
-    assert(h);
+    if (h == NULL)
+        FAIL("blkhash_new_opts");
 
     if (input_size)
         total_size = update_by_size(h);
@@ -287,7 +298,8 @@ int main(int argc, char *argv[])
         total_size = update_until_timeout(h);
 
     err = blkhash_final(h, md, &len);
-    assert(err == 0);
+    if (err)
+        FAILF("blkhash_final: %s", strerror(err));
 
     blkhash_free(h);
 
@@ -311,5 +323,6 @@ int main(int argc, char *argv[])
     printf("  \"checksum\": \"%s\"\n", md_hex);
     printf("}\n");
 
+    blkhash_opts_free(opts);
     free(buffer);
 }
