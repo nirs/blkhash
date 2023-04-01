@@ -21,18 +21,29 @@ GiB = 1 << 30
 TiB = 1 << 40
 
 
-def blkhash(input_type, input_size, digest_name="sha256", threads=4, streams=32):
+def blkhash(
+    input_type,
+    digest_name="sha256",
+    timeout_seconds=1,
+    input_size=None,
+    threads=4,
+    streams=32,
+):
     cmd = [
         BLKHASH_BENCH,
         f"--input-type={input_type}",
-        f"--input-size={input_size}",
         f"--digest-name={digest_name}",
+        f"--timeout-seconds={timeout_seconds}",
         f"--threads={threads}",
         f"--streams={streams}",
     ]
+
+    if input_size:
+        cmd.append(f"--input-size={input_size}")
+
     cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
     r = json.loads(cp.stdout)
-    hsize = format_humansize(r["input-size"])
+    hsize = format_humansize(r["total-size"])
     hrate = format_humansize(r["throughput"])
     print(
         f"{r['threads']:>2} threads, {r['streams']} streams: "

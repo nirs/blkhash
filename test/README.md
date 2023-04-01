@@ -21,10 +21,12 @@ kind of input and configuration options.
 
     Benchmark blkhash
 
-        blkhash-bench [-i TYPE|--input-type TYPE] [-s N|--input-size N]
-                      [-d DIGEST|--digest-name=DIGEST] [-b N|--block-size N]
-                      [-r N|--read-size N] [-z N|--hole-size N]
-                      [-t N|--threads N] [-S N|--streams N] [-h|--help]
+        blkhash-bench [-i TYPE|--input-type TYPE]
+                      [-d DIGEST|--digest-name=DIGEST]
+                      [-T N|--timeout-seconds N] [-s N|--input-size N]
+                      [-t N|--threads N] [-S N|--streams N]
+                      [-b N|--block-size N] [-r N|--read-size N]
+                      [-z N|--hole-size N] [-h|--help]
 
     input types:
         data: non-zero data
@@ -33,41 +35,54 @@ kind of input and configuration options.
 
 ### Example usage
 
-Measure hashing of 5.9 GiB of non-zero data with `sha256` digest and 16
-threads:
+Measure hashing throughput for non-zero data using 16 threads:
 
-    $ build/test/blkhash-bench -i data -s 5.9g -d sha256 -t 16
+    $ build/test/blkhash-bench -i data -t 16
     {
       "input-type": "data",
-      "input-size": 6335076761,
       "digest-name": "sha256",
+      "timeout-seconds": 1,
+      "input-size": 0,
       "block-size": 65536,
       "read-size": 1048576,
       "hole-size": 17179869184,
       "threads": 16,
       "streams": 32,
-      "elapsed": 1.054,
-      "throughput": 6008143625,
-      "checksum": "ede31d9b878ba22bf73967d06abb8c6eecc125010acb478b594465e6fa20a33b"
+      "total-size": 3463446528,
+      "elapsed": 1.004,
+      "throughput": 3450792472,
+      "checksum": "00cfa392d29e721583243ec4bd4c0f19fe47fe87d96969fa1fed66e94c57ba00"
     }
 
-Measure hashing of 8.8 TiB of unallocated data with `sha256` digest and
-16 threads:
+Measure hashing throughput for unallocated data using 16 threads:
 
-    $ build/test/blkhash-bench -i hole -s 8.8t -d sha256 -t 16
+    $ build/test/blkhash-bench -i hole -t 16
     {
       "input-type": "hole",
-      "input-size": 9675702324428,
       "digest-name": "sha256",
+      "timeout-seconds": 1,
+      "input-size": 0,
       "block-size": 65536,
       "read-size": 1048576,
       "hole-size": 17179869184,
       "threads": 16,
       "streams": 32,
-      "elapsed": 1.072,
-      "throughput": 9026473236866,
-      "checksum": "26000639dbd36b21e694e9cab29150aa0e8c9edf67eda764666dcce744463725"
+      "total-size": 5600637353984,
+      "elapsed": 1.032,
+      "throughput": 5428983745905,
+      "checksum": "6ff9cb9d47f2a9418f7a7315a3c4720d1fb3de2a657f5fae017d44c6c3344ed1"
     }
+
+Validate the checksum for 1 MiB of data with different number of
+threads:
+
+    $ for n in 1 2 4 8 16 32; do build/test/blkhash-bench -s 1m -t $n | jq .checksum; done
+    "f596205d1108c4752339b76f7a046fc9b40ed096c393cc1a9a32b052f679eef6"
+    "f596205d1108c4752339b76f7a046fc9b40ed096c393cc1a9a32b052f679eef6"
+    "f596205d1108c4752339b76f7a046fc9b40ed096c393cc1a9a32b052f679eef6"
+    "f596205d1108c4752339b76f7a046fc9b40ed096c393cc1a9a32b052f679eef6"
+    "f596205d1108c4752339b76f7a046fc9b40ed096c393cc1a9a32b052f679eef6"
+    "f596205d1108c4752339b76f7a046fc9b40ed096c393cc1a9a32b052f679eef6"
 
 The json output can be used by another program to create graphs.
 

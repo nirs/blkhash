@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <getopt.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,6 +23,8 @@
     exit(EXIT_FAILURE); \
 } while (0)
 
+static volatile sig_atomic_t running = 1;
+
 enum input_type {DATA, ZERO, HOLE};
 
 const char *type_name(enum input_type type)
@@ -36,47 +39,53 @@ const char *type_name(enum input_type type)
 }
 
 static enum input_type input_type = DATA;
-static int64_t input_size = 2 * GiB;
 static const char *digest_name = "sha256";
+static int timeout_seconds = 1;
+static int64_t input_size = 0;
 static int block_size = 64 * KiB;
 static int read_size = 1 * MiB;
 static int64_t hole_size = (int64_t)MIN(16 * GiB, SIZE_MAX);
 static int threads = 4;
 static int streams = BLKHASH_STREAMS;
+static unsigned char *buffer;
+static int64_t chunk_size;
 
-static const char *short_options = ":hi:s:d:b:r:z:t:S:";
+static const char *short_options = ":hi:d:T:t:S:s:b:r:z:";
 
 static struct option long_options[] = {
-   {"help",         no_argument,        0,  'h'},
-   {"input-type",   required_argument,  0,  'i'},
-   {"input-size",   required_argument,  0,  's'},
-   {"digest-name",  required_argument,  0,  'd'},
-   {"block-size",   required_argument,  0,  'b'},
-   {"read-size",    required_argument,  0,  'r'},
-   {"hole-size",    required_argument,  0,  'z'},
-   {"threads",      required_argument,  0,  't'},
-   {"streams",      required_argument,  0,  'S'},
-   {0,              0,                  0,  0},
+    {"help",                no_argument,        0,  'h'},
+    {"input-type",          required_argument,  0,  'i'},
+    {"digest-name",         required_argument,  0,  'd'},
+    {"timeout-seconds",     required_argument,  0,  'T'},
+    {"threads",             required_argument,  0,  't'},
+    {"streams",             required_argument,  0,  'S'},
+    {"input-size",          required_argument,  0,  's'},
+    {"block-size",          required_argument,  0,  'b'},
+    {"read-size",           required_argument,  0,  'r'},
+    {"hole-size",           required_argument,  0,  'z'},
+    {0,                     0,                  0,  0},
 };
 
 static void usage(int code)
 {
-    fputs(
-        "\n"
-        "Benchmark blkhash\n"
-        "\n"
-        "    blkhash-bench [-i TYPE|--input-type TYPE] [-s N|--input-size N]\n"
-        "                  [-d DIGEST|--digest-name=DIGEST] [-b N|--block-size N]\n"
-        "                  [-r N|--read-size N] [-z N|--hole-size N]\n"
-        "                  [-t N|--threads N] [-S N|--streams N] [-h|--help]\n"
-        "\n"
-        "input types:\n"
-        "    data: non-zero data\n"
-        "    zero: all zeros data\n"
-        "    hole: unallocated area\n"
-        "\n",
-        stderr);
+    const char *msg =
+"\n"
+"Benchmark blkhash\n"
+"\n"
+"    blkhash-bench [-i TYPE|--input-type TYPE]\n"
+"                  [-d DIGEST|--digest-name=DIGEST]\n"
+"                  [-T N|--timeout-seconds N] [-s N|--input-size N]\n"
+"                  [-t N|--threads N] [-S N|--streams N]\n"
+"                  [-b N|--block-size N] [-r N|--read-size N]\n"
+"                  [-z N|--hole-size N] [-h|--help]\n"
+"\n"
+"input types:\n"
+"    data: non-zero data\n"
+"    zero: all zeros data\n"
+"    hole: unallocated area\n"
+"\n";
 
+    fputs(msg, stderr);
     exit(code);
 }
 
@@ -92,6 +101,19 @@ static int parse_type(const char *name, const char *arg)
         return HOLE;
 
     FAILF("Invalid value for option %s: '%s'", name, arg);
+}
+
+static int parse_count(const char *name, const char *arg)
+{
+    char *end;
+    long value;
+
+    value = strtol(arg, &end, 10);
+    if (*end != '\0' || value < 1) {
+        FAILF("Invalid value for option %s: '%s'", name, arg);
+    }
+
+    return value;
 }
 
 static int64_t parse_size(const char *name, const char *arg)
@@ -128,11 +150,20 @@ static void parse_options(int argc, char *argv[])
         case 'i':
             input_type = parse_type(optname, optarg);
             break;
+        case 'd':
+            digest_name = optarg;
+            break;
+        case 'T':
+            timeout_seconds = parse_count(optname, optarg);
+            break;
         case 's':
             input_size = parse_size(optname, optarg);
             break;
-        case 'd':
-            digest_name = optarg;
+        case 't':
+            threads = parse_count(optname, optarg);
+            break;
+        case 'S':
+            streams = parse_count(optname, optarg);
             break;
         case 'b':
             block_size = parse_size(optname, optarg);
@@ -142,12 +173,6 @@ static void parse_options(int argc, char *argv[])
             break;
         case 'z':
             hole_size = parse_size(optname, optarg);
-            break;
-        case 't':
-            threads = parse_size(optname, optarg);
-            break;
-        case 'S':
-            streams = parse_size(optname, optarg);
             break;
         case ':':
             FAILF("Option %s requires an argument", optname);
@@ -159,20 +184,74 @@ static void parse_options(int argc, char *argv[])
     }
 }
 
+static void handle_timeout()
+{
+    running = 0;
+}
+
+static void start_timeout(void)
+{
+    sigset_t all;
+    sigfillset(&all);
+
+    struct sigaction act = { .sa_handler = handle_timeout, .sa_mask = all, };
+
+    if (sigaction(SIGALRM, &act, NULL) != 0)
+        FAIL("sigaction");
+
+    alarm(timeout_seconds);
+}
+
+static inline void update_hash(struct blkhash *h, unsigned char *buf, size_t len)
+{
+    int err;
+
+    if (input_type == HOLE)
+        err = blkhash_zero(h, len);
+    else
+        err = blkhash_update(h, buf, len);
+
+    assert(err == 0);
+}
+
+static int64_t update_by_size(struct blkhash *h)
+{
+    int64_t todo = input_size;
+
+    while (todo > chunk_size) {
+        update_hash(h, buffer, chunk_size);
+        todo -= chunk_size;
+    }
+
+    if (todo > 0)
+        update_hash(h, buffer, todo);
+
+    return input_size;
+}
+
+static int64_t update_until_timeout(struct blkhash *h)
+{
+    int64_t done = 0;
+
+    while (running) {
+        update_hash(h, buffer, chunk_size);
+        done += chunk_size;
+    }
+
+    return done;
+}
+
 int main(int argc, char *argv[])
 {
-    unsigned char *buffer = NULL;
-    size_t chunk_size;
-    uint64_t todo;
     int64_t start, elapsed;
     struct blkhash *h;
     struct blkhash_opts *opts;
     unsigned char md[BLKHASH_MAX_MD_SIZE];
     char md_hex[BLKHASH_MAX_MD_SIZE * 2 + 1];
     unsigned int len;
+    int64_t total_size;
     double seconds;
-    int64_t throughput;
-    int err = 0;
+    int err;
 
     parse_options(argc, argv);
 
@@ -182,9 +261,10 @@ int main(int argc, char *argv[])
         memset(buffer, input_type == DATA ? 0x55 : 0x00, read_size);
     }
 
-    todo = input_size;
-    chunk_size = MIN(input_size,
-                     input_type == HOLE ? hole_size : (int64_t)read_size);
+    chunk_size = input_type == HOLE ? hole_size : read_size;
+
+    if (timeout_seconds)
+        start_timeout();
 
     start = gettime();
 
@@ -201,22 +281,10 @@ int main(int argc, char *argv[])
     blkhash_opts_free(opts);
     assert(h);
 
-    while (todo >= chunk_size) {
-        if (input_type == HOLE)
-            err = blkhash_zero(h, chunk_size);
-        else
-            err = blkhash_update(h, buffer, chunk_size);
-        assert(err == 0);
-        todo -= chunk_size;
-    }
-
-    if (todo > 0) {
-        if (input_type == HOLE)
-            err = blkhash_zero(h, todo);
-        else
-            err = blkhash_update(h, buffer, todo);
-        assert(err == 0);
-    }
+    if (input_size)
+        total_size = update_by_size(h);
+    else
+        total_size = update_until_timeout(h);
 
     err = blkhash_final(h, md, &len);
     assert(err == 0);
@@ -224,25 +292,24 @@ int main(int argc, char *argv[])
     blkhash_free(h);
 
     elapsed = gettime() - start;
-
-    free(buffer);
-
     seconds = elapsed / 1e6;
-    throughput = input_size / seconds;
-
     format_hex(md, len, md_hex);
 
     printf("{\n");
     printf("  \"input-type\": \"%s\",\n", type_name(input_type));
-    printf("  \"input-size\": %" PRIi64 ",\n", input_size);
     printf("  \"digest-name\": \"%s\",\n", digest_name);
+    printf("  \"timeout-seconds\": %d,\n", timeout_seconds);
+    printf("  \"input-size\": %" PRIi64 ",\n", input_size);
     printf("  \"block-size\": %d,\n", block_size);
     printf("  \"read-size\": %d,\n", read_size);
     printf("  \"hole-size\": %" PRIi64 ",\n", hole_size);
     printf("  \"threads\": %d,\n", threads);
     printf("  \"streams\": %d,\n", streams);
+    printf("  \"total-size\": %" PRIi64 ",\n", total_size);
     printf("  \"elapsed\": %.3f,\n", seconds);
-    printf("  \"throughput\": %" PRIi64 ",\n", throughput);
+    printf("  \"throughput\": %" PRIi64 ",\n", (int64_t)(total_size / seconds));
     printf("  \"checksum\": \"%s\"\n", md_hex);
     printf("}\n");
+
+    free(buffer);
 }
