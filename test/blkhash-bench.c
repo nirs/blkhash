@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "blkhash.h"
@@ -39,7 +40,7 @@ const char *type_name(enum input_type type)
 
 static enum input_type input_type = DATA;
 static const char *digest_name = "sha256";
-static int timeout_seconds = 1;
+static double timeout_seconds = 1.0;
 static int64_t input_size = 0;
 static int block_size = 64 * KiB;
 static int read_size = 1 * MiB;
@@ -102,6 +103,19 @@ static int parse_type(const char *name, const char *arg)
     FAILF("Invalid value for option %s: '%s'", name, arg);
 }
 
+static double parse_seconds(const char *name, const char *arg)
+{
+    char *end;
+    double value;
+
+    value = strtod(arg, &end);
+    if (*end != '\0' || value < 0.0) {
+        FAILF("Invalid value for option %s: '%s'", name, arg);
+    }
+
+    return value;
+}
+
 static int parse_count(const char *name, const char *arg)
 {
     char *end;
@@ -153,7 +167,7 @@ static void parse_options(int argc, char *argv[])
             digest_name = optarg;
             break;
         case 'T':
-            timeout_seconds = parse_count(optname, optarg);
+            timeout_seconds = parse_seconds(optname, optarg);
             break;
         case 's':
             input_size = parse_size(optname, optarg);
@@ -191,14 +205,30 @@ static void handle_timeout()
 static void start_timeout(void)
 {
     sigset_t all;
+    struct sigaction act = {0};
+    struct itimerspec it = {0};
+    timer_t timer;
+
     sigfillset(&all);
 
-    struct sigaction act = { .sa_handler = handle_timeout, .sa_mask = all, };
+    act.sa_handler = handle_timeout;
+    act.sa_mask = all;
 
     if (sigaction(SIGALRM, &act, NULL) != 0)
         FAIL("sigaction");
 
-    alarm(timeout_seconds);
+    it.it_value.tv_sec = (int)timeout_seconds;
+    it.it_value.tv_nsec = (timeout_seconds - (int)timeout_seconds) * 1000000000;
+
+    /* Zero timeval disarms the timer - use 1 nanosecond timeout. */
+    if (it.it_value.tv_sec == 0 && it.it_value.tv_nsec == 0)
+        it.it_value.tv_nsec = 1;
+
+    if (timer_create(CLOCK_MONOTONIC, NULL, &timer))
+        FAIL("timer_create");
+
+    if (timer_settime(timer, 0, &it, NULL))
+        FAIL("setitimer");
 }
 
 static inline void update_hash(struct blkhash *h, unsigned char *buf, size_t len)
@@ -235,10 +265,10 @@ static int64_t update_until_timeout(struct blkhash *h)
 {
     int64_t done = 0;
 
-    while (running) {
+    do {
         update_hash(h, buffer, chunk_size);
         done += chunk_size;
-    }
+    } while (running);
 
     return done;
 }
@@ -267,7 +297,7 @@ int main(int argc, char *argv[])
 
     chunk_size = input_type == HOLE ? hole_size : read_size;
 
-    if (timeout_seconds)
+    if (input_size == 0)
         start_timeout();
 
     start = gettime();
@@ -310,7 +340,7 @@ int main(int argc, char *argv[])
     printf("{\n");
     printf("  \"input-type\": \"%s\",\n", type_name(input_type));
     printf("  \"digest-name\": \"%s\",\n", digest_name);
-    printf("  \"timeout-seconds\": %d,\n", timeout_seconds);
+    printf("  \"timeout-seconds\": %.3f,\n", timeout_seconds);
     printf("  \"input-size\": %" PRIi64 ",\n", input_size);
     printf("  \"block-size\": %d,\n", block_size);
     printf("  \"read-size\": %d,\n", read_size);

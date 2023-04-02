@@ -37,6 +37,9 @@ zero_bench = executable(
   ],
 )
 
+cc = meson.get_compiler('c')
+rt_dep = cc.find_library('rt')
+
 blkhash_bench = executable(
   'blkhash-bench',
   'blkhash-bench.c',
@@ -47,6 +50,8 @@ blkhash_bench = executable(
   ],
   dependencies: [
     openssl,
+    # Works without rt_dep, but better to make this excplicit.
+    rt_dep,
   ],
 )
 
@@ -62,18 +67,27 @@ openssl_bench = executable(
   ],
 )
 
+env = environment()
+env.set('BUILD_DIR', meson.current_build_dir())
+env.set('QUICK', '1')
+env.set('BLKSUM', blksum.full_path())
+env.set('HAVE_NBD', libnbd.found() ? '1' : '')
+
 test('blkhash-test', blkhash_test)
 test('zero-bench', zero_bench, args: ['quick'])
+
+test(
+  'blkhash-bench',
+  find_program('blkhash-bench.py'),
+  depends: blkhash_bench,
+  env: env,
+  workdir: meson.current_source_dir(),
+)
 
 # On Centos Stream 8 pytest is installed as pytest-3
 pytest = find_program('pytest', '/usr/bin/pytest-3', required: false)
 
 if pytest.found()
-  env = environment()
-  env.set('BUILD_DIR', meson.current_build_dir())
-  env.set('BLKSUM', blksum.full_path())
-  env.set('HAVE_NBD', libnbd.found() ? '1' : '')
-
   test(
     'bench-test',
     pytest,
