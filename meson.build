@@ -21,9 +21,7 @@ libnbd = dependency(
   version : '>=1.2.2',  # RHEL 8.5
   required: get_option('nbd'),
 )
-if libnbd.found()
-  conf_data.set('HAVE_NBD', true)
-endif
+conf_data.set('HAVE_NBD', libnbd.found())
 
 include = include_directories('include')
 openssl = dependency('openssl')
