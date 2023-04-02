@@ -41,7 +41,7 @@ detect_cache_line_size = '''
 
 int main()
 {
-  size_t cache_line_size;
+  size_t cache_line_size = 64;
 #ifdef _SC_LEVEL1_DCACHE_LINESIZE
   cache_line_size = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
 #endif
