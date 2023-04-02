@@ -31,6 +31,7 @@ compiler = meson.get_compiler('c')
 detect_cache_line_size = '''
 #include <stdio.h>
 
+#include <sys/param.h>
 #if defined(linux)
   #include <unistd.h>
 #endif
@@ -42,6 +43,9 @@ detect_cache_line_size = '''
 int main()
 {
   size_t cache_line_size = 64;
+#ifdef CACHE_LINE_SIZE
+  cache_line_size = CACHE_LINE_SIZE;
+#endif
 #ifdef _SC_LEVEL1_DCACHE_LINESIZE
   cache_line_size = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
 #endif
