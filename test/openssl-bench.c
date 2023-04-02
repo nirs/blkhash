@@ -11,6 +11,7 @@
 
 #include <openssl/evp.h>
 
+#include "benchmark.h"
 #include "util.h"
 
 static int64_t input_size = 512 * MiB;
@@ -40,19 +41,6 @@ static void usage(int code)
         stderr);
 
     exit(code);
-}
-
-static int64_t parse_size(const char *name, const char *arg)
-{
-    int64_t value;
-
-    value = parse_humansize(arg);
-    if (value < 1 || value == -EINVAL) {
-        fprintf(stderr, "Invalid value for option %s: '%s'\n", name, arg);
-        exit(EXIT_FAILURE);
-    }
-
-    return value;
 }
 
 static void parse_options(int argc, char *argv[])

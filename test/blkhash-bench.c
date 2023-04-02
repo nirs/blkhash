@@ -4,39 +4,14 @@
 #include <errno.h>
 #include <getopt.h>
 #include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <unistd.h>
 
 #include "blkhash.h"
 #include "util.h"
-
-#define FAILF(fmt, ...) do { \
-    fprintf(stderr, fmt "\n", ## __VA_ARGS__); \
-    exit(EXIT_FAILURE); \
-} while (0)
-
-#define FAIL(msg) do { \
-    perror(msg); \
-    exit(EXIT_FAILURE); \
-} while (0)
+#include "benchmark.h"
 
 static volatile sig_atomic_t running = 1;
-
-enum input_type {DATA, ZERO, HOLE};
-
-const char *type_name(enum input_type type)
-{
-    switch (type) {
-        case DATA: return "data";
-        case ZERO: return "zero";
-        case HOLE: return "hole";
-    default:
-        return "unknown";
-    }
-}
 
 static enum input_type input_type = DATA;
 static const char *digest_name = "sha256";
@@ -87,58 +62,6 @@ static void usage(int code)
 
     fputs(msg, stderr);
     exit(code);
-}
-
-static int parse_type(const char *name, const char *arg)
-{
-    if (strcmp(arg, "data") == 0)
-        return DATA;
-
-    if (strcmp(arg, "zero") == 0)
-        return ZERO;
-
-    if (strcmp(arg, "hole") == 0)
-        return HOLE;
-
-    FAILF("Invalid value for option %s: '%s'", name, arg);
-}
-
-static double parse_seconds(const char *name, const char *arg)
-{
-    char *end;
-    double value;
-
-    value = strtod(arg, &end);
-    if (*end != '\0' || value < 0.0) {
-        FAILF("Invalid value for option %s: '%s'", name, arg);
-    }
-
-    return value;
-}
-
-static int parse_count(const char *name, const char *arg)
-{
-    char *end;
-    long value;
-
-    value = strtol(arg, &end, 10);
-    if (*end != '\0' || value < 1) {
-        FAILF("Invalid value for option %s: '%s'", name, arg);
-    }
-
-    return value;
-}
-
-static int64_t parse_size(const char *name, const char *arg)
-{
-    int64_t value;
-
-    value = parse_humansize(arg);
-    if (value < 1 || value == -EINVAL) {
-        FAILF("Invalid value for option %s: '%s'", name, arg);
-    }
-
-    return value;
 }
 
 static void parse_options(int argc, char *argv[])
