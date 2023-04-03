@@ -37,9 +37,6 @@ zero_bench = executable(
   ],
 )
 
-cc = meson.get_compiler('c')
-rt_dep = cc.find_library('rt')
-
 blkhash_bench = executable(
   'blkhash-bench',
   'blkhash-bench.c',
@@ -51,7 +48,6 @@ blkhash_bench = executable(
   ],
   dependencies: [
     openssl,
-    rt_dep,
   ],
 )
 
@@ -65,7 +61,6 @@ openssl_bench = executable(
   ],
   dependencies: [
     openssl,
-    rt_dep,
   ],
 )
 

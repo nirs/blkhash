@@ -11,7 +11,7 @@
 #include "util.h"
 
 static const char *digest_name = "sha256";
-static double timeout_seconds = 1.0;
+static int timeout_seconds = 1;
 static int64_t input_size = 0;
 static int read_size = 1 * MiB;
 static unsigned char *buffer;
@@ -167,7 +167,7 @@ int main(int argc, char *argv[])
     printf("{\n");
     printf("  \"input-type\": \"data\",\n");
     printf("  \"digest-name\": \"%s\",\n", digest_name);
-    printf("  \"timeout-seconds\": %.3f,\n", timeout_seconds);
+    printf("  \"timeout-seconds\": %d,\n", timeout_seconds);
     printf("  \"input-size\": %" PRIi64 ",\n", input_size);
     printf("  \"read-size\": %d,\n", read_size);
     printf("  \"threads\": 1,\n");
