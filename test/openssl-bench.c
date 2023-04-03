@@ -1,11 +1,8 @@
 // SPDX-FileCopyrightText: Red Hat Inc
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#include <assert.h>
 #include <errno.h>
 #include <getopt.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include <openssl/evp.h>
@@ -78,13 +75,11 @@ static void parse_options(int argc, char *argv[])
             read_size = parse_size(optname, optarg);
             break;
         case ':':
-            fprintf(stderr, "Option %s requires an argument", optname);
-            exit(EXIT_FAILURE);
+            FAILF("Option %s requires an argument", optname);
             break;
         case '?':
         default:
-            fprintf(stderr, "Invalid option: %s", optname);
-            exit(EXIT_FAILURE);
+            FAILF("Invalid option: %s", optname);
         }
     }
 }
@@ -92,17 +87,16 @@ static void parse_options(int argc, char *argv[])
 static int64_t update_by_size(EVP_MD_CTX *ctx)
 {
     int64_t todo = input_size;
-    int ok;
 
     while (todo > read_size) {
-        ok = EVP_DigestUpdate(ctx, buffer, read_size);
-        assert(ok);
+        if (!EVP_DigestUpdate(ctx, buffer, read_size))
+            FAIL("EVP_DigestUpdate");
         todo -= read_size;
     }
 
     if (todo > 0) {
-        ok = EVP_DigestUpdate(ctx, buffer, todo);
-        assert(ok);
+        if (!EVP_DigestUpdate(ctx, buffer, todo))
+            FAIL("EVP_DigestUpdate");
     }
 
     return input_size;
@@ -111,11 +105,10 @@ static int64_t update_by_size(EVP_MD_CTX *ctx)
 static int64_t update_until_timeout(EVP_MD_CTX *ctx)
 {
     int64_t done = 0;
-    int ok;
 
     do {
-        ok = EVP_DigestUpdate(ctx, buffer, read_size);
-        assert(ok);
+        if (!EVP_DigestUpdate(ctx, buffer, read_size))
+            FAIL("EVP_DigestUpdate");
         done += read_size;
     } while (timer_is_running);
 
@@ -132,12 +125,12 @@ int main(int argc, char *argv[])
     unsigned int len;
     int64_t total_size;
     double seconds;
-    int ok;
 
     parse_options(argc, argv);
 
     buffer = malloc(read_size);
-    assert(buffer);
+    if (buffer == NULL)
+        FAIL("malloc");
 
     memset(buffer, 0x55, read_size);
 
@@ -147,21 +140,23 @@ int main(int argc, char *argv[])
     start = gettime();
 
     md = lookup_digest(digest_name);
-    assert(md);
+    if (md == NULL)
+        FAIL("lookup_digest");
 
     ctx = EVP_MD_CTX_new();
-    assert(ctx);
+    if (ctx == NULL)
+        FAIL("EVP_MD_CTX_new");
 
-    ok = EVP_DigestInit_ex(ctx, md, NULL);
-    assert(ok);
+    if (!EVP_DigestInit_ex(ctx, md, NULL))
+        FAIL("EVP_DigestInit_ex");
 
     if (input_size)
         total_size = update_by_size(ctx);
     else
         total_size = update_until_timeout(ctx);
 
-    ok = EVP_DigestFinal_ex(ctx, res, &len);
-    assert(ok);
+    if (!EVP_DigestFinal_ex(ctx, res, &len))
+        FAIL("EVP_DigestFinal_ex");
 
     EVP_MD_CTX_free(ctx);
 
