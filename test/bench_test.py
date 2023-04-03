@@ -74,10 +74,10 @@ def test_blkhash_hole_null(threads):
 
 
 def test_openssl_sha256():
-    r = bench.openssl("1m", digest_name="sha256")["checksum"]
+    r = bench.openssl(digest_name="sha256", input_size="1m")["checksum"]
     assert r == "dab852c11ae8f79aa478e168d108ee88a49c1c1bc7fd2154833a9fbfeb46de28"
 
 
 def test_openssl_null():
-    r = bench.openssl("1m", digest_name="null")["checksum"]
+    r = bench.openssl(digest_name="null", input_size="1m")["checksum"]
     assert r == ""

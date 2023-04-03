@@ -43,6 +43,7 @@ rt_dep = cc.find_library('rt')
 blkhash_bench = executable(
   'blkhash-bench',
   'blkhash-bench.c',
+  'benchmark.c',
   include_directories : include,
   link_with: [
     blkhash_lib,
@@ -50,7 +51,6 @@ blkhash_bench = executable(
   ],
   dependencies: [
     openssl,
-    # Works without rt_dep, but better to make this excplicit.
     rt_dep,
   ],
 )
@@ -58,12 +58,14 @@ blkhash_bench = executable(
 openssl_bench = executable(
   'openssl-bench',
   'openssl-bench.c',
+  'benchmark.c',
   include_directories : include,
   link_with: [
     common_lib,
   ],
   dependencies: [
     openssl,
+    rt_dep,
   ],
 )
 

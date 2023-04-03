@@ -52,15 +52,19 @@ def blkhash(
     return r
 
 
-def openssl(input_size, digest_name="sha256"):
+def openssl(digest_name="sha256", timeout_seconds=1, input_size=None):
     cmd = [
         OPENSSL_BENCH,
-        f"--input-size={input_size}",
         f"--digest-name={digest_name}",
+        f"--timeout-seconds={timeout_seconds}",
     ]
+
+    if input_size:
+        cmd.append(f"--input-size={input_size}")
+
     cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
     r = json.loads(cp.stdout)
-    hsize = format_humansize(r["input-size"])
+    hsize = format_humansize(r["total-size"])
     hrate = format_humansize(r["throughput"])
     print(f"{hsize} in {r['elapsed']:.3f} s ({hrate}/s)")
     return r

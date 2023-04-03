@@ -3,40 +3,11 @@
 
 #include <errno.h>
 #include <getopt.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#include <unistd.h>
 
 #include "blkhash.h"
 #include "util.h"
-
-#define FAILF(fmt, ...) do { \
-    fprintf(stderr, fmt "\n", ## __VA_ARGS__); \
-    exit(EXIT_FAILURE); \
-} while (0)
-
-#define FAIL(msg) do { \
-    perror(msg); \
-    exit(EXIT_FAILURE); \
-} while (0)
-
-static volatile sig_atomic_t running = 1;
-
-enum input_type {DATA, ZERO, HOLE};
-
-const char *type_name(enum input_type type)
-{
-    switch (type) {
-        case DATA: return "data";
-        case ZERO: return "zero";
-        case HOLE: return "hole";
-    default:
-        return "unknown";
-    }
-}
+#include "benchmark.h"
 
 static enum input_type input_type = DATA;
 static const char *digest_name = "sha256";
@@ -87,58 +58,6 @@ static void usage(int code)
 
     fputs(msg, stderr);
     exit(code);
-}
-
-static int parse_type(const char *name, const char *arg)
-{
-    if (strcmp(arg, "data") == 0)
-        return DATA;
-
-    if (strcmp(arg, "zero") == 0)
-        return ZERO;
-
-    if (strcmp(arg, "hole") == 0)
-        return HOLE;
-
-    FAILF("Invalid value for option %s: '%s'", name, arg);
-}
-
-static double parse_seconds(const char *name, const char *arg)
-{
-    char *end;
-    double value;
-
-    value = strtod(arg, &end);
-    if (*end != '\0' || value < 0.0) {
-        FAILF("Invalid value for option %s: '%s'", name, arg);
-    }
-
-    return value;
-}
-
-static int parse_count(const char *name, const char *arg)
-{
-    char *end;
-    long value;
-
-    value = strtol(arg, &end, 10);
-    if (*end != '\0' || value < 1) {
-        FAILF("Invalid value for option %s: '%s'", name, arg);
-    }
-
-    return value;
-}
-
-static int64_t parse_size(const char *name, const char *arg)
-{
-    int64_t value;
-
-    value = parse_humansize(arg);
-    if (value < 1 || value == -EINVAL) {
-        FAILF("Invalid value for option %s: '%s'", name, arg);
-    }
-
-    return value;
 }
 
 static void parse_options(int argc, char *argv[])
@@ -197,40 +116,6 @@ static void parse_options(int argc, char *argv[])
     }
 }
 
-static void handle_timeout()
-{
-    running = 0;
-}
-
-static void start_timeout(void)
-{
-    sigset_t all;
-    struct sigaction act = {0};
-    struct itimerspec it = {0};
-    timer_t timer;
-
-    sigfillset(&all);
-
-    act.sa_handler = handle_timeout;
-    act.sa_mask = all;
-
-    if (sigaction(SIGALRM, &act, NULL) != 0)
-        FAIL("sigaction");
-
-    it.it_value.tv_sec = (int)timeout_seconds;
-    it.it_value.tv_nsec = (timeout_seconds - (int)timeout_seconds) * 1000000000;
-
-    /* Zero timeval disarms the timer - use 1 nanosecond timeout. */
-    if (it.it_value.tv_sec == 0 && it.it_value.tv_nsec == 0)
-        it.it_value.tv_nsec = 1;
-
-    if (timer_create(CLOCK_MONOTONIC, NULL, &timer))
-        FAIL("timer_create");
-
-    if (timer_settime(timer, 0, &it, NULL))
-        FAIL("setitimer");
-}
-
 static inline void update_hash(struct blkhash *h, unsigned char *buf, size_t len)
 {
     int err;
@@ -268,7 +153,7 @@ static int64_t update_until_timeout(struct blkhash *h)
     do {
         update_hash(h, buffer, chunk_size);
         done += chunk_size;
-    } while (running);
+    } while (timer_is_running);
 
     return done;
 }
@@ -298,7 +183,7 @@ int main(int argc, char *argv[])
     chunk_size = input_type == HOLE ? hole_size : read_size;
 
     if (input_size == 0)
-        start_timeout();
+        start_timer(timeout_seconds);
 
     start = gettime();
 
