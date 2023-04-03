@@ -129,24 +129,43 @@ compare blkhash to digest functions provided by openssl.
 
         openssl-bench [-d DIGEST|--digest-name=DIGEST]
                       [-T N|--timeout-seconds=N]
-                      [-s N|--input-size N]
-                      [-r N|--read-size N] [-h|--help]
+                      [-s N|--input-size N] [-r N|--read-size N]
+                      [-t N|--threads N] [-h|--help]
 
-Example run:
+Running single threaded benchmark:
 
     $ build/test/openssl-bench
     {
       "input-type": "data",
       "digest-name": "sha256",
-      "timeout-seconds": 1.000,
+      "timeout-seconds": 1,
       "input-size": 0,
       "read-size": 1048576,
       "threads": 1,
-      "total-size": 617611264,
+      "total-size": 619708416,
       "elapsed": 1.001,
-      "throughput": 616829740,
-      "checksum": "6ac87117718f7ffdf46609908a26bdf2336efe6844aa450b3df1c61214158710"
+      "throughput": 618973075,
+      "checksum": "51e4a452b62b8f15a457c0cf9e4fff596493f52a2ca48c0c31dab8dcb4140c19"
     }
+
+Using multiple threads we can evaluate the maximum scalability of
+`blkhash` on a machine:
+
+    $ build/test/openssl-bench -t 12
+    {
+      "input-type": "data",
+      "digest-name": "sha256",
+      "timeout-seconds": 1,
+      "input-size": 0,
+      "read-size": 1048576,
+      "threads": 12,
+      "total-size": 3528458240,
+      "elapsed": 1.003,
+      "throughput": 3516330416,
+      "checksum": "3132289183802c3459a0fefa862b46726ff9030eb991060518b0b38bd22d0b53"
+    }
+
+When using multiple threads, only the first thread checksum is reported.
 
 ## The blkhash-bench.py script
 
