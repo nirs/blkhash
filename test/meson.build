@@ -37,7 +37,6 @@ zero_bench = executable(
   ],
 )
 
-# Works without rt_dep, but better to make this excplicit.
 cc = meson.get_compiler('c')
 rt_dep = cc.find_library('rt')
 
@@ -66,6 +65,7 @@ openssl_bench = executable(
   ],
   dependencies: [
     openssl,
+    rt_dep,
   ],
 )
 

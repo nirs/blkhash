@@ -7,24 +7,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include <openssl/evp.h>
 
 #include "benchmark.h"
 #include "util.h"
 
-static int64_t input_size = 512 * MiB;
 static const char *digest_name = "sha256";
+static double timeout_seconds = 1.0;
+static int64_t input_size = 0;
 static int read_size = 1 * MiB;
+static unsigned char *buffer;
 
-static const char *short_options = ":hs:d:r:";
+static const char *short_options = ":hd:T:s:r:";
 
 static struct option long_options[] = {
-   {"help",         no_argument,        0,  'h'},
-   {"input-size",   required_argument,  0,  's'},
-   {"digest-name",  required_argument,  0,  'd'},
-   {"read-size",    required_argument,  0,  'r'},
+   {"help",             no_argument,        0,  'h'},
+   {"digest-name",      required_argument,  0,  'd'},
+   {"timeout-seconds",  required_argument,  0,  'T'},
+   {"input-size",       required_argument,  0,  's'},
+   {"read-size",        required_argument,  0,  'r'},
    {0,              0,                  0,  0},
 };
 
@@ -36,6 +38,7 @@ static void usage(int code)
         "\n"
         "    openssl-bench [-s N|--input-size N]\n"
         "                  [-d DIGEST|--digest-name=DIGEST]\n"
+        "                  [-T N|--timeout-seconds=N]\n"
         "                  [-r N|--read-size N] [-h|--help]\n"
         "\n",
         stderr);
@@ -62,11 +65,14 @@ static void parse_options(int argc, char *argv[])
         case 'h':
             usage(0);
             break;
-        case 's':
-            input_size = parse_size(optname, optarg);
-            break;
         case 'd':
             digest_name = optarg;
+            break;
+        case 'T':
+            timeout_seconds = parse_seconds(optname, optarg);
+            break;
+        case 's':
+            input_size = parse_size(optname, optarg);
             break;
         case 'r':
             read_size = parse_size(optname, optarg);
@@ -83,19 +89,49 @@ static void parse_options(int argc, char *argv[])
     }
 }
 
+static int64_t update_by_size(EVP_MD_CTX *ctx)
+{
+    int64_t todo = input_size;
+    int ok;
+
+    while (todo > read_size) {
+        ok = EVP_DigestUpdate(ctx, buffer, read_size);
+        assert(ok);
+        todo -= read_size;
+    }
+
+    if (todo > 0) {
+        ok = EVP_DigestUpdate(ctx, buffer, todo);
+        assert(ok);
+    }
+
+    return input_size;
+}
+
+static int64_t update_until_timeout(EVP_MD_CTX *ctx)
+{
+    int64_t done = 0;
+    int ok;
+
+    do {
+        ok = EVP_DigestUpdate(ctx, buffer, read_size);
+        assert(ok);
+        done += read_size;
+    } while (timer_is_running);
+
+    return done;
+}
+
 int main(int argc, char *argv[])
 {
-    unsigned char *buffer = NULL;
-    size_t chunk_size;
-    uint64_t todo;
     int64_t start, elapsed;
     const EVP_MD *md;
     EVP_MD_CTX *ctx;
     unsigned char res[EVP_MAX_MD_SIZE];
     char res_hex[EVP_MAX_MD_SIZE * 2 + 1];
     unsigned int len;
+    int64_t total_size;
     double seconds;
-    int64_t throughput;
     int ok;
 
     parse_options(argc, argv);
@@ -105,8 +141,8 @@ int main(int argc, char *argv[])
 
     memset(buffer, 0x55, read_size);
 
-    todo = input_size;
-    chunk_size = MIN(input_size, (int64_t)read_size);
+    if (input_size == 0)
+        start_timer(timeout_seconds);
 
     start = gettime();
 
@@ -119,16 +155,10 @@ int main(int argc, char *argv[])
     ok = EVP_DigestInit_ex(ctx, md, NULL);
     assert(ok);
 
-    while (todo >= chunk_size) {
-        ok = EVP_DigestUpdate(ctx, buffer, chunk_size);
-        assert(ok);
-        todo -= chunk_size;
-    }
-
-    if (todo > 0) {
-        ok = EVP_DigestUpdate(ctx, buffer, todo);
-        assert(ok);
-    }
+    if (input_size)
+        total_size = update_by_size(ctx);
+    else
+        total_size = update_until_timeout(ctx);
 
     ok = EVP_DigestFinal_ex(ctx, res, &len);
     assert(ok);
@@ -136,22 +166,21 @@ int main(int argc, char *argv[])
     EVP_MD_CTX_free(ctx);
 
     elapsed = gettime() - start;
-
-    free(buffer);
-
     seconds = elapsed / 1e6;
-    throughput = input_size / seconds;
-
     format_hex(res, len, res_hex);
 
     printf("{\n");
     printf("  \"input-type\": \"data\",\n");
-    printf("  \"input-size\": %" PRIi64 ",\n", input_size);
     printf("  \"digest-name\": \"%s\",\n", digest_name);
+    printf("  \"timeout-seconds\": %.3f,\n", timeout_seconds);
+    printf("  \"input-size\": %" PRIi64 ",\n", input_size);
     printf("  \"read-size\": %d,\n", read_size);
     printf("  \"threads\": 1,\n");
+    printf("  \"total-size\": %" PRIi64 ",\n", total_size);
     printf("  \"elapsed\": %.3f,\n", seconds);
-    printf("  \"throughput\": %" PRIi64 ",\n", throughput);
+    printf("  \"throughput\": %" PRIi64 ",\n", (int64_t)(total_size / seconds));
     printf("  \"checksum\": \"%s\"\n", res_hex);
     printf("}\n");
+
+    free(buffer);
 }
