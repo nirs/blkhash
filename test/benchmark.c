@@ -40,13 +40,13 @@ int parse_type(const char *name, const char *arg)
     FAILF("Invalid value for option %s: '%s'", name, arg);
 }
 
-double parse_seconds(const char *name, const char *arg)
+int parse_seconds(const char *name, const char *arg)
 {
     char *end;
-    double value;
+    long value;
 
-    value = strtod(arg, &end);
-    if (*end != '\0' || value < 0.0) {
+    value = strtol(arg, &end, 0);
+    if (*end != '\0' || value < 0) {
         FAILF("Invalid value for option %s: '%s'", name, arg);
     }
 
@@ -83,12 +83,10 @@ static void handle_timeout()
     timer_is_running = 0;
 }
 
-void start_timer(double seconds)
+void start_timer(int seconds)
 {
     sigset_t all;
     struct sigaction act = {0};
-    struct itimerspec it = {0};
-    timer_t timer;
 
     assert(timer_is_running == 0);
 
@@ -100,18 +98,8 @@ void start_timer(double seconds)
     if (sigaction(SIGALRM, &act, NULL) != 0)
         FAIL("sigaction");
 
-    it.it_value.tv_sec = (int)seconds;
-    it.it_value.tv_nsec = (seconds - (int)seconds) * 1000000000;
-
-    /* Zero timeval disarms the timer - use 1 nanosecond timeout. */
-    if (it.it_value.tv_sec == 0 && it.it_value.tv_nsec == 0)
-        it.it_value.tv_nsec = 1;
-
-    if (timer_create(CLOCK_MONOTONIC, NULL, &timer))
-        FAIL("timer_create");
-
-    timer_is_running = 1;
-
-    if (timer_settime(timer, 0, &it, NULL))
-        FAIL("setitimer");
+    if (seconds > 0) {
+        timer_is_running = 1;
+        alarm(seconds);
+    }
 }

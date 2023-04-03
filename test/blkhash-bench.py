@@ -6,7 +6,7 @@ import os
 import bench
 
 STREAMS = 64
-TIMEOUT = 0 if "QUICK" in os.environ else 1.0
+TIMEOUT = 0 if "QUICK" in os.environ else 1
 
 
 def threads(streams):
