@@ -3,15 +3,11 @@
 
 #include <errno.h>
 #include <getopt.h>
-#include <signal.h>
 #include <string.h>
-#include <time.h>
 
 #include "blkhash.h"
 #include "util.h"
 #include "benchmark.h"
-
-static volatile sig_atomic_t running = 1;
 
 static enum input_type input_type = DATA;
 static const char *digest_name = "sha256";
@@ -120,40 +116,6 @@ static void parse_options(int argc, char *argv[])
     }
 }
 
-static void handle_timeout()
-{
-    running = 0;
-}
-
-static void start_timeout(void)
-{
-    sigset_t all;
-    struct sigaction act = {0};
-    struct itimerspec it = {0};
-    timer_t timer;
-
-    sigfillset(&all);
-
-    act.sa_handler = handle_timeout;
-    act.sa_mask = all;
-
-    if (sigaction(SIGALRM, &act, NULL) != 0)
-        FAIL("sigaction");
-
-    it.it_value.tv_sec = (int)timeout_seconds;
-    it.it_value.tv_nsec = (timeout_seconds - (int)timeout_seconds) * 1000000000;
-
-    /* Zero timeval disarms the timer - use 1 nanosecond timeout. */
-    if (it.it_value.tv_sec == 0 && it.it_value.tv_nsec == 0)
-        it.it_value.tv_nsec = 1;
-
-    if (timer_create(CLOCK_MONOTONIC, NULL, &timer))
-        FAIL("timer_create");
-
-    if (timer_settime(timer, 0, &it, NULL))
-        FAIL("setitimer");
-}
-
 static inline void update_hash(struct blkhash *h, unsigned char *buf, size_t len)
 {
     int err;
@@ -191,7 +153,7 @@ static int64_t update_until_timeout(struct blkhash *h)
     do {
         update_hash(h, buffer, chunk_size);
         done += chunk_size;
-    } while (running);
+    } while (timer_is_running);
 
     return done;
 }
@@ -221,7 +183,7 @@ int main(int argc, char *argv[])
     chunk_size = input_type == HOLE ? hole_size : read_size;
 
     if (input_size == 0)
-        start_timeout();
+        start_timer(timeout_seconds);
 
     start = gettime();
 
