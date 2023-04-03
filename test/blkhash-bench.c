@@ -92,10 +92,10 @@ static void parse_options(int argc, char *argv[])
             input_size = parse_size(optname, optarg);
             break;
         case 't':
-            threads = parse_count(optname, optarg);
+            threads = parse_threads(optname, optarg);
             break;
         case 'S':
-            streams = parse_count(optname, optarg);
+            streams = parse_threads(optname, optarg);
             break;
         case 'b':
             block_size = parse_size(optname, optarg);
