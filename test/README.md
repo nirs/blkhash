@@ -127,21 +127,25 @@ compare blkhash to digest functions provided by openssl.
 
     Benchmark openssl
 
-        openssl-bench [-s N|--input-size N]
-                      [-d DIGEST|--digest-name=DIGEST]
+        openssl-bench [-d DIGEST|--digest-name=DIGEST]
+                      [-T N|--timeout-seconds=N]
+                      [-s N|--input-size N]
                       [-r N|--read-size N] [-h|--help]
 
 Example run:
 
-    $ build/test/openssl-bench -s 550m -d sha256
+    $ build/test/openssl-bench
     {
       "input-type": "data",
-      "input-size": 576716800,
       "digest-name": "sha256",
+      "timeout-seconds": 1.000,
+      "input-size": 0,
       "read-size": 1048576,
       "threads": 1,
-      "elapsed": 0.975,
-      "throughput": 591693752
+      "total-size": 617611264,
+      "elapsed": 1.001,
+      "throughput": 616829740,
+      "checksum": "6ac87117718f7ffdf46609908a26bdf2336efe6844aa450b3df1c61214158710"
     }
 
 ## The blkhash-bench.py script

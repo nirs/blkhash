@@ -33,9 +33,9 @@ static void usage(int code)
         "\n"
         "Benchmark openssl\n"
         "\n"
-        "    openssl-bench [-s N|--input-size N]\n"
-        "                  [-d DIGEST|--digest-name=DIGEST]\n"
+        "    openssl-bench [-d DIGEST|--digest-name=DIGEST]\n"
         "                  [-T N|--timeout-seconds=N]\n"
+        "                  [-s N|--input-size N]\n"
         "                  [-r N|--read-size N] [-h|--help]\n"
         "\n",
         stderr);
