@@ -66,7 +66,9 @@ def openssl(digest_name="sha256", timeout_seconds=1, input_size=None):
     r = json.loads(cp.stdout)
     hsize = format_humansize(r["total-size"])
     hrate = format_humansize(r["throughput"])
-    print(f"{hsize} in {r['elapsed']:.3f} s ({hrate}/s)")
+    print(
+        f"{r['threads']:>2} threads: {hsize} in {r['elapsed']:.3f} s ({hrate}/s)",
+    )
     return r
 
 
