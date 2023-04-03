@@ -84,4 +84,9 @@ for n in threads(STREAMS):
 
 print("\nopenssl-bench --digest-name sha256\n")
 
-bench.openssl(digest_name="sha256", timeout_seconds=TIMEOUT)
+for n in threads(STREAMS):
+    bench.openssl(
+        digest_name="sha256",
+        timeout_seconds=TIMEOUT,
+        threads=n,
+    )

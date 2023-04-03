@@ -179,67 +179,73 @@ Example run of the benchmark script:
 
     blkhash-bench --digest-name sha256 --input-type data
 
-     1 threads, 64 streams: 480.00 MiB in 1.002 s (478.87 MiB/s)
-     2 threads, 64 streams: 926.00 MiB in 1.003 s (923.03 MiB/s)
+     1 threads, 64 streams: 481.00 MiB in 1.004 s (479.19 MiB/s)
+     2 threads, 64 streams: 924.00 MiB in 1.003 s (921.08 MiB/s)
      4 threads, 64 streams: 1.76 GiB in 1.003 s (1.76 GiB/s)
-     8 threads, 64 streams: 3.36 GiB in 1.003 s (3.35 GiB/s)
-    16 threads, 64 streams: 5.53 GiB in 1.003 s (5.51 GiB/s)
-    32 threads, 64 streams: 5.97 GiB in 1.006 s (5.94 GiB/s)
-    64 threads, 64 streams: 6.36 GiB in 1.001 s (6.35 GiB/s)
+     8 threads, 64 streams: 3.33 GiB in 1.003 s (3.32 GiB/s)
+    16 threads, 64 streams: 5.65 GiB in 1.003 s (5.63 GiB/s)
+    32 threads, 64 streams: 5.98 GiB in 1.006 s (5.94 GiB/s)
+    64 threads, 64 streams: 6.37 GiB in 1.001 s (6.37 GiB/s)
 
     blkhash-bench --digest-name sha256 --input-type zero
 
-     1 threads, 64 streams: 41.75 GiB in 1.056 s (39.54 GiB/s)
-     2 threads, 64 streams: 42.28 GiB in 1.030 s (41.06 GiB/s)
-     4 threads, 64 streams: 44.64 GiB in 1.016 s (43.93 GiB/s)
-     8 threads, 64 streams: 41.03 GiB in 1.009 s (40.67 GiB/s)
-    16 threads, 64 streams: 42.72 GiB in 1.006 s (42.47 GiB/s)
-    32 threads, 64 streams: 40.54 GiB in 1.005 s (40.32 GiB/s)
-    64 threads, 64 streams: 43.17 GiB in 1.005 s (42.96 GiB/s)
+     1 threads, 64 streams: 45.05 GiB in 1.058 s (42.59 GiB/s)
+     2 threads, 64 streams: 42.07 GiB in 1.028 s (40.91 GiB/s)
+     4 threads, 64 streams: 38.66 GiB in 1.014 s (38.13 GiB/s)
+     8 threads, 64 streams: 39.75 GiB in 1.008 s (39.42 GiB/s)
+    16 threads, 64 streams: 38.96 GiB in 1.006 s (38.75 GiB/s)
+    32 threads, 64 streams: 40.36 GiB in 1.005 s (40.15 GiB/s)
+    64 threads, 64 streams: 39.93 GiB in 1.005 s (39.74 GiB/s)
 
     blkhash-bench --digest-name sha256 --input-type hole
 
-     1 threads, 64 streams: 832.00 GiB in 1.071 s (776.69 GiB/s)
-     2 threads, 64 streams: 1.50 TiB in 1.026 s (1.46 TiB/s)
-     4 threads, 64 streams: 2.94 TiB in 1.033 s (2.84 TiB/s)
-     8 threads, 64 streams: 5.56 TiB in 1.031 s (5.40 TiB/s)
-    16 threads, 64 streams: 9.12 TiB in 1.034 s (8.82 TiB/s)
-    32 threads, 64 streams: 8.94 TiB in 1.034 s (8.64 TiB/s)
-    64 threads, 64 streams: 14.12 TiB in 1.032 s (13.68 TiB/s)
+     1 threads, 64 streams: 832.00 GiB in 1.078 s (772.10 GiB/s)
+     2 threads, 64 streams: 1.50 TiB in 1.028 s (1.46 TiB/s)
+     4 threads, 64 streams: 2.94 TiB in 1.038 s (2.83 TiB/s)
+     8 threads, 64 streams: 5.44 TiB in 1.029 s (5.29 TiB/s)
+    16 threads, 64 streams: 7.81 TiB in 1.037 s (7.53 TiB/s)
+    32 threads, 64 streams: 8.94 TiB in 1.035 s (8.63 TiB/s)
+    64 threads, 64 streams: 15.00 TiB in 1.035 s (14.50 TiB/s)
 
     blkhash-bench --digest-name null --input-type data
 
-     1 threads, 64 streams: 16.73 GiB in 1.000 s (16.73 GiB/s)
-     2 threads, 64 streams: 17.02 GiB in 1.000 s (17.02 GiB/s)
-     4 threads, 64 streams: 16.19 GiB in 1.000 s (16.19 GiB/s)
+     1 threads, 64 streams: 16.72 GiB in 1.000 s (16.72 GiB/s)
+     2 threads, 64 streams: 16.60 GiB in 1.000 s (16.60 GiB/s)
+     4 threads, 64 streams: 16.90 GiB in 1.000 s (16.90 GiB/s)
      8 threads, 64 streams: 16.48 GiB in 1.000 s (16.48 GiB/s)
-    16 threads, 64 streams: 14.41 GiB in 1.000 s (14.41 GiB/s)
-    32 threads, 64 streams: 14.33 GiB in 1.000 s (14.32 GiB/s)
-    64 threads, 64 streams: 14.29 GiB in 1.001 s (14.29 GiB/s)
+    16 threads, 64 streams: 14.43 GiB in 1.000 s (14.43 GiB/s)
+    32 threads, 64 streams: 14.39 GiB in 1.000 s (14.39 GiB/s)
+    64 threads, 64 streams: 14.67 GiB in 1.001 s (14.66 GiB/s)
 
     blkhash-bench --digest-name null --input-type zero
 
-     1 threads, 64 streams: 39.83 GiB in 1.002 s (39.74 GiB/s)
-     2 threads, 64 streams: 42.75 GiB in 1.001 s (42.70 GiB/s)
-     4 threads, 64 streams: 44.67 GiB in 1.001 s (44.64 GiB/s)
-     8 threads, 64 streams: 42.17 GiB in 1.001 s (42.14 GiB/s)
-    16 threads, 64 streams: 43.39 GiB in 1.001 s (43.37 GiB/s)
-    32 threads, 64 streams: 39.12 GiB in 1.001 s (39.08 GiB/s)
-    64 threads, 64 streams: 41.74 GiB in 1.001 s (41.68 GiB/s)
+     1 threads, 64 streams: 42.30 GiB in 1.002 s (42.21 GiB/s)
+     2 threads, 64 streams: 44.90 GiB in 1.001 s (44.84 GiB/s)
+     4 threads, 64 streams: 42.48 GiB in 1.001 s (42.45 GiB/s)
+     8 threads, 64 streams: 41.49 GiB in 1.001 s (41.47 GiB/s)
+    16 threads, 64 streams: 42.03 GiB in 1.001 s (42.00 GiB/s)
+    32 threads, 64 streams: 41.40 GiB in 1.001 s (41.36 GiB/s)
+    64 threads, 64 streams: 45.28 GiB in 1.001 s (45.21 GiB/s)
 
     blkhash-bench --digest-name null --input-type hole
 
-     1 threads, 64 streams: 20.69 TiB in 1.001 s (20.66 TiB/s)
-     2 threads, 64 streams: 39.44 TiB in 1.002 s (39.35 TiB/s)
-     4 threads, 64 streams: 76.75 TiB in 1.001 s (76.66 TiB/s)
-     8 threads, 64 streams: 146.19 TiB in 1.001 s (146.00 TiB/s)
-    16 threads, 64 streams: 233.19 TiB in 1.001 s (232.89 TiB/s)
-    32 threads, 64 streams: 298.94 TiB in 1.001 s (298.50 TiB/s)
-    64 threads, 64 streams: 466.12 TiB in 1.001 s (465.72 TiB/s)
+     1 threads, 64 streams: 19.75 TiB in 1.001 s (19.72 TiB/s)
+     2 threads, 64 streams: 39.56 TiB in 1.002 s (39.47 TiB/s)
+     4 threads, 64 streams: 77.06 TiB in 1.001 s (76.99 TiB/s)
+     8 threads, 64 streams: 145.81 TiB in 1.001 s (145.65 TiB/s)
+    16 threads, 64 streams: 222.62 TiB in 1.001 s (222.34 TiB/s)
+    32 threads, 64 streams: 300.19 TiB in 1.001 s (299.80 TiB/s)
+    64 threads, 64 streams: 542.06 TiB in 1.002 s (541.23 TiB/s)
 
     openssl-bench --digest-name sha256
 
-     1 threads: 476.00 MiB in 1.000 s (475.97 MiB/s)
+     1 threads: 478.00 MiB in 1.002 s (477.06 MiB/s)
+     2 threads: 944.00 MiB in 1.002 s (942.33 MiB/s)
+     4 threads: 1.79 GiB in 1.002 s (1.79 GiB/s)
+     8 threads: 3.45 GiB in 1.003 s (3.44 GiB/s)
+    16 threads: 6.85 GiB in 1.002 s (6.84 GiB/s)
+    32 threads: 11.42 GiB in 1.003 s (11.38 GiB/s)
+    64 threads: 14.43 GiB in 1.009 s (14.31 GiB/s)
 
 ## The zero-bench program
 
