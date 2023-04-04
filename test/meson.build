@@ -55,12 +55,16 @@ openssl_bench = executable(
   'openssl-bench',
   'openssl-bench.c',
   'benchmark.c',
-  include_directories : include,
+  include_directories : [
+    include,
+    config_inc,
+  ],
   link_with: [
     common_lib,
   ],
   dependencies: [
     openssl,
+    dependency('threads'),
   ],
 )
 

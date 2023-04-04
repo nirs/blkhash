@@ -1,22 +1,37 @@
 // SPDX-FileCopyrightText: Red Hat Inc
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-#include <errno.h>
 #include <getopt.h>
+#include <pthread.h>
 #include <string.h>
 
 #include <openssl/evp.h>
 
 #include "benchmark.h"
 #include "util.h"
+#include "blkhash-config.h"
+
+struct worker {
+    unsigned char res[EVP_MAX_MD_SIZE];
+    pthread_t thread;
+    unsigned char *buffer;
+    const EVP_MD *md;
+    EVP_MD_CTX *ctx;
+    int64_t total_size;
+    unsigned int len;
+} __attribute__ ((aligned (CACHE_LINE_SIZE)));
 
 static const char *digest_name = "sha256";
 static int timeout_seconds = 1;
 static int64_t input_size = 0;
 static int read_size = 1 * MiB;
-static unsigned char *buffer;
 
-static const char *short_options = ":hd:T:s:r:";
+/* Using multiple threads to test the maxmimum scalability of blkhash. */
+static int threads = 1;
+
+static struct worker workers[MAX_THREADS];
+
+static const char *short_options = ":hd:T:s:r:t:";
 
 static struct option long_options[] = {
    {"help",             no_argument,        0,  'h'},
@@ -24,6 +39,7 @@ static struct option long_options[] = {
    {"timeout-seconds",  required_argument,  0,  'T'},
    {"input-size",       required_argument,  0,  's'},
    {"read-size",        required_argument,  0,  'r'},
+   {"threads",          required_argument,  0,  't'},
    {0,              0,                  0,  0},
 };
 
@@ -35,8 +51,8 @@ static void usage(int code)
         "\n"
         "    openssl-bench [-d DIGEST|--digest-name=DIGEST]\n"
         "                  [-T N|--timeout-seconds=N]\n"
-        "                  [-s N|--input-size N]\n"
-        "                  [-r N|--read-size N] [-h|--help]\n"
+        "                  [-s N|--input-size N] [-r N|--read-size N]\n"
+        "                  [-t N|--threads N] [-h|--help]\n"
         "\n",
         stderr);
 
@@ -74,6 +90,9 @@ static void parse_options(int argc, char *argv[])
         case 'r':
             read_size = parse_size(optname, optarg);
             break;
+        case 't':
+            threads = parse_threads(optname, optarg);
+            break;
         case ':':
             FAILF("Option %s requires an argument", optname);
             break;
@@ -84,30 +103,30 @@ static void parse_options(int argc, char *argv[])
     }
 }
 
-static int64_t update_by_size(EVP_MD_CTX *ctx)
+static int64_t update_by_size(struct worker *w)
 {
     int64_t todo = input_size;
 
     while (todo > read_size) {
-        if (!EVP_DigestUpdate(ctx, buffer, read_size))
+        if (!EVP_DigestUpdate(w->ctx, w->buffer, read_size))
             FAIL("EVP_DigestUpdate");
         todo -= read_size;
     }
 
     if (todo > 0) {
-        if (!EVP_DigestUpdate(ctx, buffer, todo))
+        if (!EVP_DigestUpdate(w->ctx, w->buffer, todo))
             FAIL("EVP_DigestUpdate");
     }
 
     return input_size;
 }
 
-static int64_t update_until_timeout(EVP_MD_CTX *ctx)
+static int64_t update_until_timeout(struct worker *w)
 {
     int64_t done = 0;
 
     do {
-        if (!EVP_DigestUpdate(ctx, buffer, read_size))
+        if (!EVP_DigestUpdate(w->ctx, w->buffer, read_size))
             FAIL("EVP_DigestUpdate");
         done += read_size;
     } while (timer_is_running);
@@ -115,54 +134,75 @@ static int64_t update_until_timeout(EVP_MD_CTX *ctx)
     return done;
 }
 
-int main(int argc, char *argv[])
+static void *worker_thread(void *arg)
 {
-    int64_t start, elapsed;
-    const EVP_MD *md;
-    EVP_MD_CTX *ctx;
-    unsigned char res[EVP_MAX_MD_SIZE];
-    char res_hex[EVP_MAX_MD_SIZE * 2 + 1];
-    unsigned int len;
-    int64_t total_size;
-    double seconds;
+    struct worker *w = arg;
 
-    parse_options(argc, argv);
-
-    buffer = malloc(read_size);
-    if (buffer == NULL)
+    w->buffer = malloc(read_size);
+    if (w->buffer == NULL)
         FAIL("malloc");
 
-    memset(buffer, 0x55, read_size);
+    memset(w->buffer, 0x55, read_size);
+
+    w->md = lookup_digest(digest_name);
+    if (w->md == NULL)
+        FAIL("lookup_digest");
+
+    w->ctx = EVP_MD_CTX_new();
+    if (w->ctx == NULL)
+        FAIL("EVP_MD_CTX_new");
+
+    if (!EVP_DigestInit_ex(w->ctx, w->md, NULL))
+        FAIL("EVP_DigestInit_ex");
+
+    if (input_size)
+        w->total_size = update_by_size(w);
+    else
+        w->total_size = update_until_timeout(w);
+
+    if (!EVP_DigestFinal_ex(w->ctx, w->res, &w->len))
+        FAIL("EVP_DigestFinal_ex");
+
+    EVP_MD_CTX_free(w->ctx);
+    free(w->buffer);
+
+    return NULL;
+}
+
+int main(int argc, char *argv[])
+{
+    char res_hex[EVP_MAX_MD_SIZE * 2 + 1];
+    int64_t start, elapsed;
+    int64_t total_size = 0;
+    double seconds;
+    int err;
+
+    parse_options(argc, argv);
 
     if (input_size == 0)
         start_timer(timeout_seconds);
 
     start = gettime();
 
-    md = lookup_digest(digest_name);
-    if (md == NULL)
-        FAIL("lookup_digest");
+    for (int i = 0; i < threads; i++) {
+        struct worker *w = &workers[i];
+        err = pthread_create(&w->thread, NULL, worker_thread, w);
+        if (err)
+            FAILF("pthread_create: %s", strerror(err));
+    }
 
-    ctx = EVP_MD_CTX_new();
-    if (ctx == NULL)
-        FAIL("EVP_MD_CTX_new");
+    for (int i = 0; i < threads; i++) {
+        struct worker *w = &workers[i];
+        err = pthread_join(w->thread, NULL);
+        if (err)
+            FAILF("pthread_join: %s", strerror(err));
 
-    if (!EVP_DigestInit_ex(ctx, md, NULL))
-        FAIL("EVP_DigestInit_ex");
-
-    if (input_size)
-        total_size = update_by_size(ctx);
-    else
-        total_size = update_until_timeout(ctx);
-
-    if (!EVP_DigestFinal_ex(ctx, res, &len))
-        FAIL("EVP_DigestFinal_ex");
-
-    EVP_MD_CTX_free(ctx);
+        total_size += w->total_size;
+    }
 
     elapsed = gettime() - start;
     seconds = elapsed / 1e6;
-    format_hex(res, len, res_hex);
+    format_hex(workers[0].res, workers[0].len, res_hex);
 
     printf("{\n");
     printf("  \"input-type\": \"data\",\n");
@@ -170,12 +210,10 @@ int main(int argc, char *argv[])
     printf("  \"timeout-seconds\": %d,\n", timeout_seconds);
     printf("  \"input-size\": %" PRIi64 ",\n", input_size);
     printf("  \"read-size\": %d,\n", read_size);
-    printf("  \"threads\": 1,\n");
+    printf("  \"threads\": %d,\n", threads);
     printf("  \"total-size\": %" PRIi64 ",\n", total_size);
     printf("  \"elapsed\": %.3f,\n", seconds);
     printf("  \"throughput\": %" PRIi64 ",\n", (int64_t)(total_size / seconds));
     printf("  \"checksum\": \"%s\"\n", res_hex);
     printf("}\n");
-
-    free(buffer);
 }

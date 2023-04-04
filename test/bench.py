@@ -52,11 +52,17 @@ def blkhash(
     return r
 
 
-def openssl(digest_name="sha256", timeout_seconds=1, input_size=None):
+def openssl(
+    digest_name="sha256",
+    timeout_seconds=1,
+    input_size=None,
+    threads=1,
+):
     cmd = [
         OPENSSL_BENCH,
         f"--digest-name={digest_name}",
         f"--timeout-seconds={timeout_seconds}",
+        f"--threads={threads}",
     ]
 
     if input_size:

@@ -53,14 +53,15 @@ int parse_seconds(const char *name, const char *arg)
     return value;
 }
 
-int parse_count(const char *name, const char *arg)
+int parse_threads(const char *name, const char *arg)
 {
     char *end;
     long value;
 
     value = strtol(arg, &end, 10);
-    if (*end != '\0' || value < 1) {
-        FAILF("Invalid value for option %s: '%s'", name, arg);
+    if (*end != '\0' || value < 1 || value > MAX_THREADS) {
+        FAILF("Invalid value for option %s: '%s' (valid range 1-%d)",
+              name, arg, MAX_THREADS);
     }
 
     return value;
