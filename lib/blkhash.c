@@ -477,7 +477,7 @@ static void stop_workers(struct blkhash *h)
     for (unsigned i = 0; i < h->workers_count; i++) {
         err = worker_stop(&h->workers[i]);
         if (err)
-            set_error(h, err);
+            ABORTF("worker_stop: %s", strerror(err));
     }
 
     for (unsigned i = 0; i < h->workers_count; i++) {
