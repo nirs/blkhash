@@ -5,6 +5,7 @@ blkhash_lib = library(
   'blkhash',
   [
     'blkhash.c',
+    'completion.c',
     'config.c',
     'stream.c',
     'submission.c',

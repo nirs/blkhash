@@ -257,7 +257,8 @@ static int submit_zero_block(struct blkhash *h)
 /*
  * Submit one data block to the worker handling this block.
  */
-static int submit_data_block(struct blkhash *h, const void *buf, size_t len)
+static int submit_data_block(struct blkhash *h, const void *buf, size_t len,
+                             struct completion *completion)
 {
     struct stream *s;
     struct worker *w;
@@ -267,7 +268,7 @@ static int submit_data_block(struct blkhash *h, const void *buf, size_t len)
     s = stream_for_block(h, h->block_index);
     w = worker_for_stream(h, s->id);
 
-    sub = submission_new_data(s, h->block_index, len, buf);
+    sub = submission_new_data(s, h->block_index, len, buf, completion);
     if (sub == NULL)
         return set_error(h, errno);
 
@@ -358,14 +359,15 @@ static inline bool is_zero_block(struct blkhash *h, const void *buf, size_t len)
  * to speed the computation by detecting zeros. Detecting zeros in
  * order of magnitude faster compared with computing a message digest.
  */
-static int consume_data_block(struct blkhash *h, const void *buf, size_t len)
+static int consume_data_block(struct blkhash *h, const void *buf, size_t len,
+                              struct completion *completion)
 {
     if (is_zero_block(h, buf, len)) {
         /* Fast path. */
         return consume_zero_blocks(h, 1);
     } else {
         /* Slow path. */
-        return submit_data_block(h, buf, len);
+        return submit_data_block(h, buf, len, completion);
     }
 }
 
@@ -374,7 +376,7 @@ static int consume_data_block(struct blkhash *h, const void *buf, size_t len)
  * full or partial block of data or zeros. The pending buffer is
  * cleared after this call.
  */
-static int consume_pending(struct blkhash *h)
+static int consume_pending(struct blkhash *h, struct completion *completion)
 {
     assert(h->pending.len <= h->config.block_size);
 
@@ -392,7 +394,7 @@ static int consume_pending(struct blkhash *h)
             memset(h->pending.data, 0, h->pending.len);
         }
 
-        if (consume_data_block(h, h->pending.data, h->pending.len))
+        if (consume_data_block(h, h->pending.data, h->pending.len, completion))
             return -1;
     }
 
@@ -412,14 +414,14 @@ int blkhash_update(struct blkhash *h, const void *buf, size_t len)
         buf += n;
         len -= n;
         if (h->pending.len == h->config.block_size) {
-            if (consume_pending(h))
+            if (consume_pending(h, NULL))
                 return h->error;
         }
     }
 
     /* Consume all full blocks in caller buffer. */
     while (len >= h->config.block_size) {
-        if (consume_data_block(h, buf, h->config.block_size))
+        if (consume_data_block(h, buf, h->config.block_size, NULL))
             return h->error;
 
         buf += h->config.block_size;
@@ -442,7 +444,7 @@ int blkhash_zero(struct blkhash *h, size_t len)
     if (h->pending.len > 0) {
         len -= add_pending_zeros(h, len);
         if (h->pending.len == h->config.block_size) {
-            if (consume_pending(h))
+            if (consume_pending(h, NULL))
                 return h->error;
         }
     }
@@ -512,7 +514,7 @@ int blkhash_final(struct blkhash *h, unsigned char *md_value,
     h->finalized = true;
 
     if (h->pending.len > 0)
-        consume_pending(h);
+        consume_pending(h, NULL);
 
     if (h->error == 0)
         submit_zero_block(h);

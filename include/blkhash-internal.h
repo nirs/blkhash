@@ -60,6 +60,14 @@ struct stream {
     /* Align to avoid false sharing between workers. */
 } __attribute__ ((aligned (CACHE_LINE_SIZE)));
 
+typedef void (*completion_callback)(void *user_data);
+
+struct completion {
+    completion_callback callback;
+    void *user_data;
+    unsigned refs;
+};
+
 enum submission_type {DATA, ZERO, STOP};
 
 struct submission {
@@ -70,6 +78,10 @@ struct submission {
 
     /* The stream handling this submission. */
     struct stream *stream;
+
+    /* Completion for DATA submission, used to wait until all submissions are
+     * handled by the workers. */
+    struct completion *completion;
 
     int64_t index;
 
@@ -105,8 +117,14 @@ struct worker {
 
 int config_init(struct config *c, const struct blkhash_opts *opts);
 
+void completion_init(struct completion *c, completion_callback cb,
+                     void *user_data);
+void completion_ref(struct completion *c);
+void completion_unref(struct completion *c);
+
 struct submission *submission_new_data(struct stream *stream, int64_t index,
-                                       size_t len, const void *data);
+                                       size_t len, const void *data,
+                                       struct completion *completion);
 struct submission *submission_new_zero(struct stream *stream, int64_t index);
 struct submission *submission_new_stop(void);
 void submission_free(struct submission *sub);

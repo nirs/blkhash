@@ -7,7 +7,8 @@
 #include "blkhash-internal.h"
 
 struct submission *submission_new_data(struct stream *stream, int64_t index,
-                                       size_t len, const void *data)
+                                       size_t len, const void *data,
+                                       struct completion *completion)
 {
     struct submission *sub;
 
@@ -17,8 +18,12 @@ struct submission *submission_new_data(struct stream *stream, int64_t index,
 
     sub->type = DATA;
     sub->stream = stream;
+    sub->completion = completion;
     sub->index = index;
     sub->len = len;
+
+    if (sub->completion)
+        completion_ref(sub->completion);
 
     memcpy(sub->data, data, len);
 
@@ -55,5 +60,13 @@ struct submission *submission_new_stop(void)
 
 void submission_free(struct submission *sub)
 {
+    if (sub == NULL)
+        return;
+
+    if (sub->type == DATA) {
+        if (sub->completion)
+            completion_unref(sub->completion);
+    }
+
     free(sub);
 }
