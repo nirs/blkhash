@@ -103,7 +103,7 @@ int stream_update(struct stream *s, const struct block *b)
 
     add_zero_blocks_before(s, b);
 
-    if (b->len)
+    if (b->type == DATA)
         add_data_block(s, b);
 
     return s->error;

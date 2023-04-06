@@ -60,7 +60,11 @@ struct stream {
     /* Align to avoid false sharing between workers. */
 } __attribute__ ((aligned (CACHE_LINE_SIZE)));
 
+enum block_type {DATA, ZERO, STOP};
+
 struct block {
+    enum block_type type;
+
     /* Entry in the worker queue handling this block stream. */
     STAILQ_ENTRY(block) entry;
 
@@ -69,9 +73,6 @@ struct block {
 
     int64_t index;
     size_t len;
-
-    /* If true, the worker should terminate. */
-    bool last;
 
     /* If len > 0, the block data. */
     unsigned char data[0];
@@ -102,8 +103,8 @@ struct worker {
 
 int config_init(struct config *c, const struct blkhash_opts *opts);
 
-struct block *block_new(struct stream *stream, uint64_t index, size_t len,
-                        const void *data);
+struct block *block_new(enum block_type type, struct stream *stream,
+                        int64_t index, size_t len, const void *data);
 void block_free(struct block *b);
 
 int stream_init(struct stream *s, int id, const struct config *config);

@@ -95,10 +95,9 @@ static void *worker_thread(void *arg)
         if (block == NULL)
             break;
 
-        if (block->last)
+        if (block->type == STOP)
             w->running = false;
-
-        if (block->stream) {
+        else {
             int err = stream_update(block->stream, block);
             if (err)
                 set_error(w, err);
@@ -193,7 +192,7 @@ int worker_submit(struct worker *w, struct block *b)
     STAILQ_INSERT_TAIL(&w->queue, b, entry);
 
     /* Ensure that nothing is submitted after the last block. */
-    if (b->last)
+    if (b->type == STOP)
         w->stopped = true;
 
     /* The block is owned by the queue now. */
@@ -219,11 +218,9 @@ int worker_stop(struct worker *w)
 {
     struct block *b;
 
-    b = block_new(NULL, 0, 0, NULL);
+    b = block_new(STOP, NULL, 0, 0, NULL);
     if (b == NULL)
         return errno;
-
-    b->last = true;
 
     return worker_submit(w, b);
 }

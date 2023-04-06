@@ -6,17 +6,17 @@
 
 #include "blkhash-internal.h"
 
-struct block *block_new(struct stream *stream, uint64_t index, size_t len,
-                        const void *data)
+struct block *block_new(enum block_type type, struct stream *stream,
+                        int64_t index, size_t len, const void *data)
 {
     struct block *b = malloc(sizeof(*b) + len);
     if (b == NULL)
         return NULL;
 
+    b->type = type;
     b->stream = stream;
     b->index = index;
     b->len = len;
-    b->last = false;
 
     if (len)
         memcpy(b->data, data, len);
