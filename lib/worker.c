@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include <errno.h>
+#include <string.h>
 
 #include "blkhash-internal.h"
 
@@ -52,7 +53,7 @@ static struct block *pop_block(struct worker *w)
 out:
     err = pthread_mutex_unlock(&w->mutex);
     if (err)
-        set_error(w, err);
+        ABORTF("pthread_mutex_unlock: %s", strerror(err));
 
     if (w->error) {
         block_free(block);
@@ -204,8 +205,8 @@ int worker_submit(struct worker *w, struct block *b)
 
 unlock:
     rv = pthread_mutex_unlock(&w->mutex);
-    if (rv && !err)
-        err = rv;
+    if (rv)
+        ABORTF("pthread_mutex_unlock: %s", strerror(err));
 
 out:
     if (b)

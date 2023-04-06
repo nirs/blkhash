@@ -7,11 +7,18 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/queue.h>
 
 #include <openssl/evp.h>
 
 #include "blkhash-config.h"
+
+#define ABORTF(fmt, ...) do { \
+    fprintf(stderr, "blkhash: " fmt "\n", ## __VA_ARGS__); \
+    abort(); \
+} while (0)
 
 struct blkhash_opts {
     const char *digest_name;
