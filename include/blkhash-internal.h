@@ -60,26 +60,28 @@ struct stream {
     /* Align to avoid false sharing between workers. */
 } __attribute__ ((aligned (CACHE_LINE_SIZE)));
 
-enum block_type {DATA, ZERO, STOP};
+enum submission_type {DATA, ZERO, STOP};
 
-struct block {
-    enum block_type type;
+struct submission {
+    enum submission_type type;
 
-    /* Entry in the worker queue handling this block stream. */
-    STAILQ_ENTRY(block) entry;
+    /* Entry in the worker queue handling this submission stream. */
+    STAILQ_ENTRY(submission) entry;
 
-    /* The stream handling this block. */
+    /* The stream handling this submission. */
     struct stream *stream;
 
     int64_t index;
+
+    /* Length of data for DATA submission. */
     size_t len;
 
-    /* If len > 0, the block data. */
+    /* Data for DATA submission. */
     unsigned char data[0];
 };
 
 struct worker {
-    STAILQ_HEAD(, block) queue;
+    STAILQ_HEAD(, submission) queue;
     pthread_t thread;
     pthread_mutex_t mutex;
     pthread_cond_t not_empty;
@@ -91,7 +93,7 @@ struct worker {
      * caused the failure. */
     int error;
 
-    /* Set to false when worker is stopped by the final zero length block, or
+    /* Set to false when worker is stopped by the final zero length submission, or
      * when a worker fails. */
     bool running;
 
@@ -103,17 +105,17 @@ struct worker {
 
 int config_init(struct config *c, const struct blkhash_opts *opts);
 
-struct block *block_new(enum block_type type, struct stream *stream,
+struct submission *submission_new(enum submission_type type, struct stream *stream,
                         int64_t index, size_t len, const void *data);
-void block_free(struct block *b);
+void submission_free(struct submission *sub);
 
 int stream_init(struct stream *s, int id, const struct config *config);
-int stream_update(struct stream *s, const struct block *b);
+int stream_update(struct stream *s, const struct submission *sub);
 int stream_final(struct stream *s, unsigned char *md, unsigned int *len);
 void stream_destroy(struct stream *s);
 
 int worker_init(struct worker *w);
-int worker_submit(struct worker *w, struct block *b);
+int worker_submit(struct worker *w, struct submission *sub);
 int worker_stop(struct worker *w);
 int worker_join(struct worker *w);
 void worker_destroy(struct worker *w);

@@ -6,8 +6,8 @@
 
 #include "blkhash-internal.h"
 
-/* Maximum number of blocks to queue per worker. */
-#define MAX_BLOCKS 16
+/* Maximum number of submissions to queue per worker. */
+#define QUEUE_SIZE 16
 
 static inline void set_error(struct worker *w, int error)
 {
@@ -18,10 +18,10 @@ static inline void set_error(struct worker *w, int error)
     }
 }
 
-static struct block *pop_block(struct worker *w)
+static struct submission *pop_submission(struct worker *w)
 {
     bool was_full;
-    struct block *block = NULL;
+    struct submission *sub = NULL;
     int err;
 
     err = pthread_mutex_lock(&w->mutex);
@@ -38,10 +38,10 @@ static struct block *pop_block(struct worker *w)
         }
     }
 
-    block = STAILQ_FIRST(&w->queue);
+    sub = STAILQ_FIRST(&w->queue);
     STAILQ_REMOVE_HEAD(&w->queue, entry);
 
-    was_full = w->queue_len == MAX_BLOCKS;
+    was_full = w->queue_len == QUEUE_SIZE;
     w->queue_len--;
 
     if (was_full) {
@@ -56,27 +56,27 @@ out:
         ABORTF("pthread_mutex_unlock: %s", strerror(err));
 
     if (w->error) {
-        block_free(block);
+        submission_free(sub);
         return NULL;
     }
 
-    return block;
+    return sub;
 }
 
 /* Called during cleanup - ignore errors. */
 static void drain_queue(struct worker *w)
 {
-    struct block *block;
+    struct submission *sub;
 
     pthread_mutex_lock(&w->mutex);
 
     while (!STAILQ_EMPTY(&w->queue)) {
-        block = STAILQ_FIRST(&w->queue);
+        sub = STAILQ_FIRST(&w->queue);
         STAILQ_REMOVE_HEAD(&w->queue, entry);
-        block_free(block);
+        submission_free(sub);
     }
 
-    if (w->queue_len == MAX_BLOCKS)
+    if (w->queue_len == QUEUE_SIZE)
         pthread_cond_signal(&w->not_full);
 
     w->queue_len = 0;
@@ -89,21 +89,21 @@ static void *worker_thread(void *arg)
     struct worker *w = arg;
 
     while (w->running) {
-        struct block *block;
+        struct submission *sub;
 
-        block = pop_block(w);
-        if (block == NULL)
+        sub = pop_submission(w);
+        if (sub == NULL)
             break;
 
-        if (block->type == STOP)
+        if (sub->type == STOP)
             w->running = false;
         else {
-            int err = stream_update(block->stream, block);
+            int err = stream_update(sub->stream, sub);
             if (err)
                 set_error(w, err);
         }
 
-        block_free(block);
+        submission_free(sub);
     }
 
     drain_queue(w);
@@ -157,7 +157,7 @@ void worker_destroy(struct worker *w)
     pthread_mutex_destroy(&w->mutex);
 }
 
-int worker_submit(struct worker *w, struct block *b)
+int worker_submit(struct worker *w, struct submission *sub)
 {
     int err = 0;
     int rv;
@@ -177,26 +177,26 @@ int worker_submit(struct worker *w, struct block *b)
         goto unlock;
     }
 
-    /* The block will leak if the worker failed. */
+    /* The submission will leak if the worker failed. */
     if (w->error) {
         err = w->error;
         goto unlock;
     }
 
-    while (w->queue_len >= MAX_BLOCKS) {
+    while (w->queue_len >= QUEUE_SIZE) {
         err = pthread_cond_wait(&w->not_full, &w->mutex);
         if (err)
             goto unlock;
     }
 
-    STAILQ_INSERT_TAIL(&w->queue, b, entry);
+    STAILQ_INSERT_TAIL(&w->queue, sub, entry);
 
-    /* Ensure that nothing is submitted after the last block. */
-    if (b->type == STOP)
+    /* Ensure that nothing is submitted after the last submission. */
+    if (sub->type == STOP)
         w->stopped = true;
 
-    /* The block is owned by the queue now. */
-    b = NULL;
+    /* The submission is owned by the queue now. */
+    sub = NULL;
 
     w->queue_len++;
     if (w->queue_len == 1)
@@ -208,21 +208,21 @@ unlock:
         ABORTF("pthread_mutex_unlock: %s", strerror(err));
 
 out:
-    if (b)
-        block_free(b);
+    if (sub)
+        submission_free(sub);
 
     return err;
 }
 
 int worker_stop(struct worker *w)
 {
-    struct block *b;
+    struct submission *sub;
 
-    b = block_new(STOP, NULL, 0, 0, NULL);
-    if (b == NULL)
+    sub = submission_new(STOP, NULL, 0, 0, NULL);
+    if (sub == NULL)
         return errno;
 
-    return worker_submit(w, b);
+    return worker_submit(w, sub);
 }
 
 int worker_join(struct worker *w)
