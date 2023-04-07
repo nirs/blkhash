@@ -12,7 +12,7 @@ This is work in progress, describing only some of the tests.
 
 ## The blkhash-bench program
 
-This program can be used to benchmark the blkhash library with different
+This program can be used to benchmark the `blkhash` library with different
 kind of input and configuration options.
 
 ### Options
@@ -89,7 +89,7 @@ The json output can be used by another program to create graphs.
 ### Profiling blkhash
 
 You can use `perf` to profile specific scenarios. In this example we
-profile blkhash with `sha256` digest, hashing 4 TiB hole.
+profile `blkhash` with `sha256` digest, hashing 4 TiB hole.
 
     $ perf record -g --call-graph dwarf build/test/blkhash-bench -i hole -s 4t
     ...
@@ -121,7 +121,7 @@ profile blkhash with `sha256` digest, hashing 4 TiB hole.
 ## The openssl-bench program
 
 Similar to `blkhash-bench` with the relevant options. It is used to
-compare blkhash to digest functions provided by openssl.
+compare `blkhash` to digest functions provided by openssl.
 
     $ build/test/openssl-bench -h
 
@@ -258,9 +258,9 @@ We measure 3 cases:
   practically free.
 
 - data worst: A non zero byte at the last 16 bytes of the buffer, so
-  blkhash must scan the entire buffer, and then compute a hash.
+  `blkhash` must scan the entire buffer, and then compute a hash.
 
-- zero: The entire buffer contains zero bytes, so blkhash can
+- zero: The entire buffer contains zero bytes, so `blkhash` can
   skip hash computation, but it has to scan the entire buffer.
 
 For each case we measure both aligned and unaligned buffer.
