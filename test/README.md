@@ -167,85 +167,122 @@ Using multiple threads we can evaluate the maximum scalability of
 
 When using multiple threads, only the first thread checksum is reported.
 
-## The blkhash-bench.py script
+## The bench-data.py script
 
-This script runs many scenarios using the `blkhash-bench` program.
-The script should be used for evaluating performance related changes,
-comparing results before and after a change.
+This script compare the throughput of `blkhash` for hashing non-zero data
+with different number of threads.
 
 Example run of the benchmark script:
 
-    $ test/blkhash-bench.py
+    $ test/bench-data.py
 
-    blkhash-bench --digest-name sha256 --input-type data
+    blkhash-bench --input-type data --digest-name sha256
 
-     1 threads, 64 streams: 481.00 MiB in 1.004 s (479.19 MiB/s)
-     2 threads, 64 streams: 924.00 MiB in 1.003 s (921.08 MiB/s)
-     4 threads, 64 streams: 1.76 GiB in 1.003 s (1.76 GiB/s)
-     8 threads, 64 streams: 3.33 GiB in 1.003 s (3.32 GiB/s)
-    16 threads, 64 streams: 5.65 GiB in 1.003 s (5.63 GiB/s)
-    32 threads, 64 streams: 5.98 GiB in 1.006 s (5.94 GiB/s)
-    64 threads, 64 streams: 6.37 GiB in 1.001 s (6.37 GiB/s)
+     1 threads, 64 streams: 4.65 GiB in 10.004 s (476.43 MiB/s)
+     2 threads, 64 streams: 9.01 GiB in 10.003 s (921.89 MiB/s)
+     4 threads, 64 streams: 17.48 GiB in 10.003 s (1.75 GiB/s)
+     8 threads, 64 streams: 34.60 GiB in 10.003 s (3.46 GiB/s)
+    16 threads, 64 streams: 55.18 GiB in 10.000 s (5.52 GiB/s)
+    32 threads, 64 streams: 52.16 GiB in 10.001 s (5.22 GiB/s)
+    64 threads, 64 streams: 59.07 GiB in 10.001 s (5.91 GiB/s)
 
-    blkhash-bench --digest-name sha256 --input-type zero
+## The bench-zero.py script
 
-     1 threads, 64 streams: 45.05 GiB in 1.058 s (42.59 GiB/s)
-     2 threads, 64 streams: 42.07 GiB in 1.028 s (40.91 GiB/s)
-     4 threads, 64 streams: 38.66 GiB in 1.014 s (38.13 GiB/s)
-     8 threads, 64 streams: 39.75 GiB in 1.008 s (39.42 GiB/s)
-    16 threads, 64 streams: 38.96 GiB in 1.006 s (38.75 GiB/s)
-    32 threads, 64 streams: 40.36 GiB in 1.005 s (40.15 GiB/s)
-    64 threads, 64 streams: 39.93 GiB in 1.005 s (39.74 GiB/s)
+This script compare the throughput of `blkhash` for hashing data which is
+all zeros with different number of threads.
 
-    blkhash-bench --digest-name sha256 --input-type hole
+Example run of the benchmark script:
 
-     1 threads, 64 streams: 832.00 GiB in 1.078 s (772.10 GiB/s)
-     2 threads, 64 streams: 1.50 TiB in 1.028 s (1.46 TiB/s)
-     4 threads, 64 streams: 2.94 TiB in 1.038 s (2.83 TiB/s)
-     8 threads, 64 streams: 5.44 TiB in 1.029 s (5.29 TiB/s)
-    16 threads, 64 streams: 7.81 TiB in 1.037 s (7.53 TiB/s)
-    32 threads, 64 streams: 8.94 TiB in 1.035 s (8.63 TiB/s)
-    64 threads, 64 streams: 15.00 TiB in 1.035 s (14.50 TiB/s)
+$ test/bench-zero.py
 
-    blkhash-bench --digest-name null --input-type data
+    blkhash-bench --input-type zero --digest-name sha256
 
-     1 threads, 64 streams: 16.72 GiB in 1.000 s (16.72 GiB/s)
-     2 threads, 64 streams: 16.60 GiB in 1.000 s (16.60 GiB/s)
-     4 threads, 64 streams: 16.90 GiB in 1.000 s (16.90 GiB/s)
-     8 threads, 64 streams: 16.48 GiB in 1.000 s (16.48 GiB/s)
-    16 threads, 64 streams: 14.43 GiB in 1.000 s (14.43 GiB/s)
-    32 threads, 64 streams: 14.39 GiB in 1.000 s (14.39 GiB/s)
-    64 threads, 64 streams: 14.67 GiB in 1.001 s (14.66 GiB/s)
+     1 threads, 64 streams: 380.86 GiB in 10.078 s (37.79 GiB/s)
+     2 threads, 64 streams: 420.76 GiB in 10.025 s (41.97 GiB/s)
+     4 threads, 64 streams: 410.31 GiB in 10.011 s (40.99 GiB/s)
+     8 threads, 64 streams: 428.40 GiB in 10.009 s (42.80 GiB/s)
+    16 threads, 64 streams: 380.65 GiB in 10.008 s (38.04 GiB/s)
+    32 threads, 64 streams: 403.36 GiB in 10.003 s (40.33 GiB/s)
+    64 threads, 64 streams: 388.20 GiB in 10.001 s (38.82 GiB/s)
 
-    blkhash-bench --digest-name null --input-type zero
+## The bench-hole.py script
 
-     1 threads, 64 streams: 42.30 GiB in 1.002 s (42.21 GiB/s)
-     2 threads, 64 streams: 44.90 GiB in 1.001 s (44.84 GiB/s)
-     4 threads, 64 streams: 42.48 GiB in 1.001 s (42.45 GiB/s)
-     8 threads, 64 streams: 41.49 GiB in 1.001 s (41.47 GiB/s)
-    16 threads, 64 streams: 42.03 GiB in 1.001 s (42.00 GiB/s)
-    32 threads, 64 streams: 41.40 GiB in 1.001 s (41.36 GiB/s)
-    64 threads, 64 streams: 45.28 GiB in 1.001 s (45.21 GiB/s)
+This script compare the throughput of `blkhash` for hashing unallocated
+data with different number of threads.
 
-    blkhash-bench --digest-name null --input-type hole
+Example run of the benchmark script:
 
-     1 threads, 64 streams: 19.75 TiB in 1.001 s (19.72 TiB/s)
-     2 threads, 64 streams: 39.56 TiB in 1.002 s (39.47 TiB/s)
-     4 threads, 64 streams: 77.06 TiB in 1.001 s (76.99 TiB/s)
-     8 threads, 64 streams: 145.81 TiB in 1.001 s (145.65 TiB/s)
-    16 threads, 64 streams: 222.62 TiB in 1.001 s (222.34 TiB/s)
-    32 threads, 64 streams: 300.19 TiB in 1.001 s (299.80 TiB/s)
-    64 threads, 64 streams: 542.06 TiB in 1.002 s (541.23 TiB/s)
+    $ test/bench-hole.py
+
+    blkhash-bench --input-type hole --digest-name sha256
+
+     1 threads, 64 streams: 7.50 TiB in 10.040 s (764.98 GiB/s)
+     2 threads, 64 streams: 14.50 TiB in 10.024 s (1.45 TiB/s)
+     4 threads, 64 streams: 28.69 TiB in 10.042 s (2.86 TiB/s)
+     8 threads, 64 streams: 54.38 TiB in 10.028 s (5.42 TiB/s)
+    16 threads, 64 streams: 91.06 TiB in 10.028 s (9.08 TiB/s)
+    32 threads, 64 streams: 87.81 TiB in 10.033 s (8.75 TiB/s)
+    64 threads, 64 streams: 146.25 TiB in 10.030 s (14.58 TiB/s)
+
+## The bench-openssl.py script
+
+This script compare the throughput of `sha256` for hashing data with
+different number of threads. This shows the highest possible throughput
+on the machine, for evaluating `blkhash` efficiency.
+
+Example run of the benchmark script:
+
+$ test/bench-openssl.py
 
     openssl-bench --digest-name sha256
 
-     1 threads: 478.00 MiB in 1.002 s (477.06 MiB/s)
-     2 threads: 944.00 MiB in 1.002 s (942.33 MiB/s)
-     4 threads: 1.79 GiB in 1.002 s (1.79 GiB/s)
-     8 threads: 3.45 GiB in 1.003 s (3.44 GiB/s)
-    16 threads: 6.85 GiB in 1.002 s (6.84 GiB/s)
-    32 threads: 11.42 GiB in 1.003 s (11.38 GiB/s)
-    64 threads: 14.43 GiB in 1.009 s (14.31 GiB/s)
+     1 threads: 4.83 GiB in 10.002 s (494.71 MiB/s)
+     2 threads: 9.66 GiB in 10.001 s (988.57 MiB/s)
+     4 threads: 18.35 GiB in 10.002 s (1.83 GiB/s)
+     8 threads: 36.28 GiB in 10.002 s (3.63 GiB/s)
+    16 threads: 68.60 GiB in 10.003 s (6.86 GiB/s)
+    32 threads: 118.94 GiB in 10.004 s (11.89 GiB/s)
+    64 threads: 141.33 GiB in 10.008 s (14.12 GiB/s)
+
+## The bench-null.py script
+
+This script compare the throughput of `blkhash` for hashing data, zero,
+and holes using "null" digest and different number of threads. This is
+useful for optimizing `blkhash` internals.
+
+Example run of the benchmark script:
+
+    $ test/bench-null.py
+
+    blkhash-bench --digest-name null --input-type data
+
+     1 threads, 64 streams: 176.33 GiB in 10.000 s (17.63 GiB/s)
+     2 threads, 64 streams: 170.41 GiB in 10.000 s (17.04 GiB/s)
+     4 threads, 64 streams: 165.37 GiB in 10.000 s (16.54 GiB/s)
+     8 threads, 64 streams: 163.38 GiB in 10.000 s (16.34 GiB/s)
+    16 threads, 64 streams: 152.12 GiB in 10.000 s (15.21 GiB/s)
+    32 threads, 64 streams: 145.57 GiB in 10.000 s (14.56 GiB/s)
+    64 threads, 64 streams: 147.42 GiB in 10.001 s (14.74 GiB/s)
+
+    blkhash-bench --digest-name null --input-type zero
+
+     1 threads, 64 streams: 411.12 GiB in 10.001 s (41.11 GiB/s)
+     2 threads, 64 streams: 426.54 GiB in 10.001 s (42.65 GiB/s)
+     4 threads, 64 streams: 406.94 GiB in 10.000 s (40.69 GiB/s)
+     8 threads, 64 streams: 413.80 GiB in 10.000 s (41.38 GiB/s)
+    16 threads, 64 streams: 424.58 GiB in 10.000 s (42.46 GiB/s)
+    32 threads, 64 streams: 414.87 GiB in 10.001 s (41.48 GiB/s)
+    64 threads, 64 streams: 403.69 GiB in 10.001 s (40.37 GiB/s)
+
+    blkhash-bench --digest-name null --input-type hole
+
+     1 threads, 64 streams: 193.12 TiB in 10.001 s (19.31 TiB/s)
+     2 threads, 64 streams: 379.19 TiB in 10.001 s (37.91 TiB/s)
+     4 threads, 64 streams: 735.19 TiB in 10.002 s (73.51 TiB/s)
+     8 threads, 64 streams: 1.41 TiB in 10.001 s (144.35 TiB/s)
+    16 threads, 64 streams: 2.51 TiB in 10.001 s (257.15 TiB/s)
+    32 threads, 64 streams: 3.39 TiB in 10.001 s (347.38 TiB/s)
+    64 threads, 64 streams: 4.59 TiB in 10.001 s (470.14 TiB/s)
 
 ## The zero-bench program
 

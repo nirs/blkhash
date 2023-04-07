@@ -23,6 +23,13 @@ PiB = 1 << 50
 EiB = 1 << 60
 
 
+def threads(streams):
+    n = 1
+    while n <= streams:
+        yield n
+        n *= 2
+
+
 def blkhash(
     input_type,
     digest_name="sha256",
