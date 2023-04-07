@@ -218,7 +218,7 @@ int worker_stop(struct worker *w)
 {
     struct submission *sub;
 
-    sub = submission_new(STOP, NULL, 0, 0, NULL);
+    sub = submission_new_stop();
     if (sub == NULL)
         return errno;
 

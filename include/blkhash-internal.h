@@ -105,8 +105,10 @@ struct worker {
 
 int config_init(struct config *c, const struct blkhash_opts *opts);
 
-struct submission *submission_new(enum submission_type type, struct stream *stream,
-                        int64_t index, size_t len, const void *data);
+struct submission *submission_new_data(struct stream *stream, int64_t index,
+                                       size_t len, const void *data);
+struct submission *submission_new_zero(struct stream *stream, int64_t index);
+struct submission *submission_new_stop(void);
 void submission_free(struct submission *sub);
 
 int stream_init(struct stream *s, int id, const struct config *config);

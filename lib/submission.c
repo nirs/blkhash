@@ -6,20 +6,49 @@
 
 #include "blkhash-internal.h"
 
-struct submission *submission_new(enum submission_type type, struct stream *stream,
-                             int64_t index, size_t len, const void *data)
+struct submission *submission_new_data(struct stream *stream, int64_t index,
+                                       size_t len, const void *data)
 {
-    struct submission *sub = malloc(sizeof(*sub) + len);
+    struct submission *sub;
+
+    sub = malloc(sizeof(*sub) + len);
     if (sub == NULL)
         return NULL;
 
-    sub->type = type;
+    sub->type = DATA;
     sub->stream = stream;
     sub->index = index;
     sub->len = len;
 
-    if (len)
-        memcpy(sub->data, data, len);
+    memcpy(sub->data, data, len);
+
+    return sub;
+}
+
+struct submission *submission_new_zero(struct stream *stream, int64_t index)
+{
+    struct submission *sub;
+
+    sub = malloc(sizeof(*sub));
+    if (sub == NULL)
+        return NULL;
+
+    sub->type = ZERO;
+    sub->stream = stream;
+    sub->index = index;
+
+    return sub;
+}
+
+struct submission *submission_new_stop(void)
+{
+    struct submission *sub;
+
+    sub = malloc(sizeof(*sub));
+    if (sub == NULL)
+        return NULL;
+
+    sub->type = STOP;
 
     return sub;
 }
