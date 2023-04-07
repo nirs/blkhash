@@ -427,13 +427,9 @@ int blkhash_update(struct blkhash *h, const void *buf, size_t len)
     }
 
     /* Copy rest of the data to the internal buffer. */
-    if (len > 0) {
-        size_t n = add_pending_data(h, buf, len);
-        buf += n;
-        len -= n;
-    }
+    if (len > 0)
+        add_pending_data(h, buf, len);
 
-    assert(len == 0);
     return 0;
 }
 
@@ -460,11 +456,9 @@ int blkhash_zero(struct blkhash *h, size_t len)
     }
 
     /* Save the rest in the pending buffer. */
-    if (len > 0) {
-        len -= add_pending_zeros(h, len);
-    }
+    if (len > 0)
+        add_pending_zeros(h, len);
 
-    assert(len == 0);
     return 0;
 }
 
