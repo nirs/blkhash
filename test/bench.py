@@ -19,6 +19,8 @@ KiB = 1 << 10
 MiB = 1 << 20
 GiB = 1 << 30
 TiB = 1 << 40
+PiB = 1 << 50
+EiB = 1 << 60
 
 
 def blkhash(
@@ -79,7 +81,7 @@ def openssl(
 
 
 def format_humansize(n):
-    for unit in ("bytes", "KiB", "MiB", "GiB", "TiB"):
+    for unit in ("bytes", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB"):
         if n < KiB:
             break
         n /= KiB
