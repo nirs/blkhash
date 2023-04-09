@@ -50,6 +50,23 @@ struct blkhash *blkhash_new_opts(const struct blkhash_opts *opts);
 int blkhash_update(struct blkhash *h, const void *buf, size_t len);
 
 /*
+ * Callback invoked when blkhash_async_update() completes. The error
+ * argument is 0 on success and errno value on errors.
+ */
+typedef void (*blkhash_callback)(void *user_data, int error);
+
+/*
+ * Starts asynchronous update returning before the buffer is processed.
+ * When blkhash completes the update, the completion callback is called
+ * with the provided user data. The buffer must not be modified by the
+ * caller before the completion callback is invoked.
+ *
+ * Return 0 if the update was started and errno value on errors.
+ */
+int blkhash_async_update(struct blkhash *h, const void *buf, size_t len,
+                         blkhash_callback cb, void *user_data);
+
+/*
  * Hash len bytes of zeros efficiently into the hash h. This function
  * can be called several times on the same hash to hash additional
  * zeros. For best performance, len should be aligned to the block size

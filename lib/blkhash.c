@@ -258,7 +258,7 @@ static int submit_zero_block(struct blkhash *h)
  * Submit one data block to the worker handling this block.
  */
 static int submit_data_block(struct blkhash *h, const void *buf, size_t len,
-                             struct completion *completion)
+                             struct completion *completion, uint8_t flags)
 {
     struct stream *s;
     struct worker *w;
@@ -268,7 +268,7 @@ static int submit_data_block(struct blkhash *h, const void *buf, size_t len,
     s = stream_for_block(h, h->block_index);
     w = worker_for_stream(h, s->id);
 
-    sub = submission_new_data(s, h->block_index, len, buf, completion);
+    sub = submission_new_data(s, h->block_index, len, buf, completion, flags);
     if (sub == NULL)
         return set_error(h, errno);
 
@@ -360,14 +360,14 @@ static inline bool is_zero_block(struct blkhash *h, const void *buf, size_t len)
  * order of magnitude faster compared with computing a message digest.
  */
 static int consume_data_block(struct blkhash *h, const void *buf, size_t len,
-                              struct completion *completion)
+                              struct completion *completion, uint8_t flags)
 {
     if (is_zero_block(h, buf, len)) {
         /* Fast path. */
         return consume_zero_blocks(h, 1);
     } else {
         /* Slow path. */
-        return submit_data_block(h, buf, len, completion);
+        return submit_data_block(h, buf, len, completion, flags);
     }
 }
 
@@ -388,19 +388,74 @@ static int consume_pending(struct blkhash *h, struct completion *completion)
         /*
          * Slow path if pending is partial block, fast path is pending
          * is full block and pending data is zeros.
+         *
+         * NOTE: The completion does not protect our pending buffer, so we
+         * must use the SUBMIT_COPY_DATA flag.
          */
+
         if (h->pending.zero) {
             /* Convert partial block of zeros to data. */
             memset(h->pending.data, 0, h->pending.len);
         }
 
-        if (consume_data_block(h, h->pending.data, h->pending.len, completion))
+        if (consume_data_block(h, h->pending.data, h->pending.len, completion,
+                               SUBMIT_COPY_DATA))
             return -1;
     }
 
     h->pending.len = 0;
     h->pending.zero = false;
     return 0;
+}
+
+int blkhash_async_update(struct blkhash *h, const void *buf, size_t len,
+                         blkhash_callback cb, void *user_data)
+{
+    struct completion *completion;
+
+    if (h->error)
+        return h->error;
+
+    completion = completion_new(cb, user_data);
+    if (completion == NULL)
+        return errno;
+
+    /* Try to fill the pending buffer and consume it. */
+    if (h->pending.len > 0) {
+        size_t n = add_pending_data(h, buf, len);
+        buf += n;
+        len -= n;
+        if (h->pending.len == h->config.block_size) {
+            /* Always copies the pending buffer. */
+            if (consume_pending(h, completion))
+                goto out;
+        }
+    }
+
+    /* Consume all full blocks in caller buffer *without* copying the user
+     * data. The user must not modify the buffer before receiving the
+     * completion callback. */
+    while (len >= h->config.block_size) {
+        if (consume_data_block(h, buf, h->config.block_size, completion, 0))
+            goto out;
+
+        buf += h->config.block_size;
+        len -= h->config.block_size;
+    }
+
+    /* Copy rest of the data to the internal buffer. */
+    if (len > 0)
+        add_pending_data(h, buf, len);
+
+out:
+    if (h->error)
+        completion_set_error(completion, h->error);
+
+    /* If nothing was submitted (all zero blocks), this will invoke the user
+     * callback now. The user may deadlock itself in this callback. */
+    completion_unref(completion);
+
+    return h->error;
 }
 
 int blkhash_update(struct blkhash *h, const void *buf, size_t len)
@@ -414,14 +469,17 @@ int blkhash_update(struct blkhash *h, const void *buf, size_t len)
         buf += n;
         len -= n;
         if (h->pending.len == h->config.block_size) {
+            /* Always copies the pending buffer. */
             if (consume_pending(h, NULL))
                 return h->error;
         }
     }
 
-    /* Consume all full blocks in caller buffer. */
+    /* Consume all full blocks in caller buffer, copying user data into the
+     * submission so we can return immediately after submission. */
     while (len >= h->config.block_size) {
-        if (consume_data_block(h, buf, h->config.block_size, NULL))
+        if (consume_data_block(h, buf, h->config.block_size, NULL,
+                               SUBMIT_COPY_DATA))
             return h->error;
 
         buf += h->config.block_size;
