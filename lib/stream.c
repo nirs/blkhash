@@ -69,7 +69,7 @@ int stream_init(struct stream *s, int id, const struct config *config)
     const EVP_MD *md;
     int err;
 
-    md = lookup_digest(config->digest_name);
+    md = create_digest(config->digest_name);
     if (md == NULL)
         return EINVAL;
 
@@ -134,4 +134,6 @@ void stream_destroy(struct stream *s)
 
     EVP_MD_CTX_free(s->root_ctx);
     s->root_ctx = NULL;
+
+    free_digest(s->md);
 }

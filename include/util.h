@@ -24,6 +24,7 @@ char *humansize(int64_t bytes);
 int64_t parse_humansize(const char *s);
 uint64_t gettime(void);
 bool supports_direct_io(const char *filename);
-const EVP_MD *lookup_digest(const char *name);
+const EVP_MD *create_digest(const char *name);
+void free_digest(const EVP_MD *md);
 
 #endif /* UTIL_H */

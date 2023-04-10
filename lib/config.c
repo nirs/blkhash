@@ -14,19 +14,24 @@ static int compute_zero_md(struct config *c)
     unsigned char *buf;
     int err = 0;
 
-    md = lookup_digest(c->digest_name);
+    md = create_digest(c->digest_name);
     if (md == NULL)
         return EINVAL;
 
     buf = calloc(1, c->block_size);
-    if (buf == NULL)
-        return errno;
+    if (buf == NULL) {
+        err = errno;
+        goto out;
+    }
 
     /* Returns 1 on success. */
     if (!EVP_Digest(buf, c->block_size, c->zero_md, &c->md_len, md, NULL))
         err = ENOMEM;
 
+out:
+    free_digest(md);
     free(buf);
+
     return err;
 }
 

@@ -317,7 +317,7 @@ int main(int argc, char *argv[])
 
     parse_options(argc, argv);
 
-    md = lookup_digest(opt.digest_name);
+    md = create_digest(opt.digest_name);
     if (md == NULL)
         FAIL("Unknown digest '%s'", opt.digest_name);
 
@@ -332,6 +332,8 @@ int main(int argc, char *argv[])
         checksum(s, &opt, md_value);
         src_close(s);
     }
+
+    free_digest(md);
 
     pthread_mutex_lock(&lock);
 

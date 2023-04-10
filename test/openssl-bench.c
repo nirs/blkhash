@@ -144,9 +144,9 @@ static void *worker_thread(void *arg)
 
     memset(w->buffer, 0x55, read_size);
 
-    w->md = lookup_digest(digest_name);
+    w->md = create_digest(digest_name);
     if (w->md == NULL)
-        FAIL("lookup_digest");
+        FAIL("create_digest");
 
     w->ctx = EVP_MD_CTX_new();
     if (w->ctx == NULL)
@@ -164,6 +164,7 @@ static void *worker_thread(void *arg)
         FAIL("EVP_DigestFinal_ex");
 
     EVP_MD_CTX_free(w->ctx);
+    free_digest(w->md);
     free(w->buffer);
 
     return NULL;

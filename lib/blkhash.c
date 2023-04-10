@@ -45,6 +45,7 @@ struct blkhash {
     struct worker *workers;
 
     /* For computing root digest from the streams hashes. */
+    const EVP_MD *md;
     EVP_MD_CTX *root_ctx;
 
     /* Count initialized streams and workers to allow cleanups on errors. */
@@ -153,7 +154,6 @@ struct blkhash *blkhash_new()
 struct blkhash *blkhash_new_opts(const struct blkhash_opts *opts)
 {
     struct blkhash *h;
-    const EVP_MD *md;
     int err;
 
     h = calloc(1, sizeof(*h));
@@ -192,8 +192,8 @@ struct blkhash *blkhash_new_opts(const struct blkhash_opts *opts)
         h->workers_count++;
     }
 
-    md = lookup_digest(h->config.digest_name);
-    if (md == NULL) {
+    h->md = create_digest(h->config.digest_name);
+    if (h->md == NULL) {
         err = EINVAL;
         goto  error;
     }
@@ -204,7 +204,7 @@ struct blkhash *blkhash_new_opts(const struct blkhash_opts *opts)
         goto error;
     }
 
-    if (!EVP_DigestInit_ex(h->root_ctx, md, NULL)) {
+    if (!EVP_DigestInit_ex(h->root_ctx, h->md, NULL)) {
         err = ENOMEM;
         goto error;
     }
@@ -552,6 +552,7 @@ void blkhash_free(struct blkhash *h)
 
     free(h->pending.data);
     EVP_MD_CTX_free(h->root_ctx);
+    free_digest(h->md);
     free(h->workers);
     free(h->streams);
 
