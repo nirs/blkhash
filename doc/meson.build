@@ -30,7 +30,6 @@ if not get_option('doc').disabled()
     install_dir: join_paths(get_option('prefix'), get_option('mandir'), 'man3')
   )
 
-  # Make sure the example compiles and run.
   example = executable(
     'example',
     'example.c',
@@ -41,6 +40,22 @@ if not get_option('doc').disabled()
     ],
   )
 
+  example_async = executable(
+    'example-async',
+    'example-async.c',
+    include_directories : [
+      include,
+      config_inc,
+    ],
+    link_with: blkhash_lib,
+    dependencies: [
+      openssl,
+      dependency('threads'),
+    ],
+  )
+
+  # Make sure the example compile and run.
   test('example', example)
+  test('example-async', example_async)
 
 endif

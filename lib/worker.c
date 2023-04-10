@@ -4,9 +4,10 @@
 #include <errno.h>
 
 #include "blkhash-internal.h"
+#include "threads.h"
 
-/* Maximum number of blocks to queue per worker. */
-#define MAX_BLOCKS 16
+/* Maximum number of submissions to queue per worker. */
+#define QUEUE_SIZE 16
 
 static inline void set_error(struct worker *w, int error)
 {
@@ -17,70 +18,50 @@ static inline void set_error(struct worker *w, int error)
     }
 }
 
-static struct block *pop_block(struct worker *w)
+static struct submission *pop_submission(struct worker *w)
 {
-    bool was_full;
-    struct block *block = NULL;
-    int err;
+    struct submission *sub;
+    bool was_full = false;
 
-    err = pthread_mutex_lock(&w->mutex);
-    if (err) {
-        set_error(w, err);
-        return NULL;
-    }
+    mutex_lock(&w->mutex);
 
-    while (STAILQ_EMPTY(&w->queue)) {
-        err = pthread_cond_wait(&w->not_empty, &w->mutex);
-        if (err) {
-            set_error(w, err);
-            goto out;
-        }
-    }
+    while (STAILQ_EMPTY(&w->queue))
+        cond_wait(&w->not_empty, &w->mutex);
 
-    block = STAILQ_FIRST(&w->queue);
+    sub = STAILQ_FIRST(&w->queue);
     STAILQ_REMOVE_HEAD(&w->queue, entry);
 
-    was_full = w->queue_len == MAX_BLOCKS;
+    was_full = w->queue_len == QUEUE_SIZE;
     w->queue_len--;
+    if (was_full)
+        cond_signal(&w->not_full);
 
-    if (was_full) {
-        err = pthread_cond_signal(&w->not_full);
-        if (err)
-            set_error(w, err);
-    }
+    mutex_unlock(&w->mutex);
 
-out:
-    err = pthread_mutex_unlock(&w->mutex);
-    if (err)
-        set_error(w, err);
-
-    if (w->error) {
-        block_free(block);
-        return NULL;
-    }
-
-    return block;
+    return sub;
 }
 
 /* Called during cleanup - ignore errors. */
 static void drain_queue(struct worker *w)
 {
-    struct block *block;
+    bool was_full = false;
 
-    pthread_mutex_lock(&w->mutex);
+    mutex_lock(&w->mutex);
 
     while (!STAILQ_EMPTY(&w->queue)) {
-        block = STAILQ_FIRST(&w->queue);
+        struct submission *sub;
+
+        sub = STAILQ_FIRST(&w->queue);
         STAILQ_REMOVE_HEAD(&w->queue, entry);
-        block_free(block);
+        submission_free(sub);
     }
 
-    if (w->queue_len == MAX_BLOCKS)
-        pthread_cond_signal(&w->not_full);
-
+    was_full = w->queue_len == QUEUE_SIZE;
     w->queue_len = 0;
+    if (was_full)
+        cond_signal(&w->not_full);
 
-    pthread_mutex_unlock(&w->mutex);
+    mutex_unlock(&w->mutex);
 }
 
 static void *worker_thread(void *arg)
@@ -88,22 +69,21 @@ static void *worker_thread(void *arg)
     struct worker *w = arg;
 
     while (w->running) {
-        struct block *block;
+        struct submission *sub;
 
-        block = pop_block(w);
-        if (block == NULL)
+        sub = pop_submission(w);
+        if (sub == NULL)
             break;
 
-        if (block->last)
+        if (sub->type == STOP)
             w->running = false;
-
-        if (block->stream) {
-            int err = stream_update(block->stream, block);
+        else {
+            int err = stream_update(sub->stream, sub);
             if (err)
                 set_error(w, err);
         }
 
-        block_free(block);
+        submission_free(sub);
     }
 
     drain_queue(w);
@@ -152,79 +132,61 @@ fail_not_empty:
 
 void worker_destroy(struct worker *w)
 {
-    pthread_cond_destroy(&w->not_full);
-    pthread_cond_destroy(&w->not_empty);
-    pthread_mutex_destroy(&w->mutex);
+    cond_destroy(&w->not_full);
+    cond_destroy(&w->not_empty);
+    mutex_destroy(&w->mutex);
 }
 
-int worker_submit(struct worker *w, struct block *b)
+int worker_submit(struct worker *w, struct submission *sub)
 {
     int err = 0;
-    int rv;
 
-    err = pthread_mutex_lock(&w->mutex);
-    if (err)
-        goto out;
-
-    if (w->stopped) {
-        err = EPERM;
-        goto unlock;
-    }
+    mutex_lock(&w->mutex);
 
     /* Nothing will be submitted after a worker was stopped. */
     if (w->stopped) {
         err = EPERM;
-        goto unlock;
+        goto out;
     }
 
-    /* The block will leak if the worker failed. */
+    /* The submission will leak if the worker failed. */
     if (w->error) {
         err = w->error;
-        goto unlock;
+        goto out;
     }
 
-    while (w->queue_len >= MAX_BLOCKS) {
-        err = pthread_cond_wait(&w->not_full, &w->mutex);
-        if (err)
-            goto unlock;
-    }
+    while (w->queue_len >= QUEUE_SIZE)
+        cond_wait(&w->not_full, &w->mutex);
 
-    STAILQ_INSERT_TAIL(&w->queue, b, entry);
+    STAILQ_INSERT_TAIL(&w->queue, sub, entry);
+    w->queue_len++;
 
-    /* Ensure that nothing is submitted after the last block. */
-    if (b->last)
+    /* Ensure that nothing is submitted after the last submission. */
+    if (sub->type == STOP)
         w->stopped = true;
 
-    /* The block is owned by the queue now. */
-    b = NULL;
+    /* The submission is owned by the queue now. */
+    sub = NULL;
 
-    w->queue_len++;
     if (w->queue_len == 1)
-        err = pthread_cond_signal(&w->not_empty);
-
-unlock:
-    rv = pthread_mutex_unlock(&w->mutex);
-    if (rv && !err)
-        err = rv;
+        cond_signal(&w->not_empty);
 
 out:
-    if (b)
-        block_free(b);
-
+    mutex_unlock(&w->mutex);
+    if (sub)
+        submission_free(sub);
     return err;
 }
 
 int worker_stop(struct worker *w)
 {
-    struct block *b;
+    struct submission *sub;
 
-    b = block_new(NULL, 0, 0, NULL);
-    if (b == NULL)
+    sub = submission_new_stop();
+    if (sub == NULL)
         return errno;
 
-    b->last = true;
-
-    return worker_submit(w, b);
+    return worker_submit(w, sub);
 }
 
 int worker_join(struct worker *w)

@@ -7,11 +7,19 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/queue.h>
 
 #include <openssl/evp.h>
 
+#include "blkhash.h"
 #include "blkhash-config.h"
+
+#define ABORTF(fmt, ...) do { \
+    fprintf(stderr, "blkhash: " fmt "\n", ## __VA_ARGS__); \
+    abort(); \
+} while (0)
 
 struct blkhash_opts {
     const char *digest_name;
@@ -53,25 +61,50 @@ struct stream {
     /* Align to avoid false sharing between workers. */
 } __attribute__ ((aligned (CACHE_LINE_SIZE)));
 
-struct block {
-    /* Entry in the worker queue handling this block stream. */
-    STAILQ_ENTRY(block) entry;
+struct completion {
+    blkhash_callback callback;
+    void *user_data;
+    unsigned refs;
+    int error;
+};
 
-    /* The stream handling this block. */
+/*
+ * Copy data from user buffer into the submission. When not set
+ * blkhash_update() can return immediately and the user can use the buffer for
+ * the next call or free it.  When set, the caller must wait using completion
+ * callback and must not modify the buffer before receiving the completion
+ * callback.
+ */
+#define SUBMIT_COPY_DATA 0x1
+
+enum submission_type {DATA, ZERO, STOP};
+
+struct submission {
+    enum submission_type type;
+
+    /* Entry in the worker queue handling this submission stream. */
+    STAILQ_ENTRY(submission) entry;
+
+    /* The stream handling this submission. */
     struct stream *stream;
 
+    /* Completion for DATA submission, used to wait until all submissions are
+     * handled by the workers. */
+    struct completion *completion;
+
+    /* Data for DATA submission. */
+    const void *data;
+
     int64_t index;
+
+    /* Length of data for DATA submission. */
     size_t len;
 
-    /* If true, the worker should terminate. */
-    bool last;
-
-    /* If len > 0, the block data. */
-    unsigned char data[0];
+    uint8_t flags;
 };
 
 struct worker {
-    STAILQ_HEAD(, block) queue;
+    STAILQ_HEAD(, submission) queue;
     pthread_t thread;
     pthread_mutex_t mutex;
     pthread_cond_t not_empty;
@@ -83,7 +116,7 @@ struct worker {
      * caused the failure. */
     int error;
 
-    /* Set to false when worker is stopped by the final zero length block, or
+    /* Set to false when worker is stopped by the final zero length submission, or
      * when a worker fails. */
     bool running;
 
@@ -95,17 +128,26 @@ struct worker {
 
 int config_init(struct config *c, const struct blkhash_opts *opts);
 
-struct block *block_new(struct stream *stream, uint64_t index, size_t len,
-                        const void *data);
-void block_free(struct block *b);
+struct completion *completion_new(blkhash_callback cb, void *user_data);
+void completion_set_error(struct completion *c, int error);
+void completion_ref(struct completion *c);
+void completion_unref(struct completion *c);
+
+struct submission *submission_new_data(struct stream *stream, int64_t index,
+                                       size_t len, const void *data,
+                                       struct completion *completion,
+                                       uint8_t flags);
+struct submission *submission_new_zero(struct stream *stream, int64_t index);
+struct submission *submission_new_stop(void);
+void submission_free(struct submission *sub);
 
 int stream_init(struct stream *s, int id, const struct config *config);
-int stream_update(struct stream *s, const struct block *b);
+int stream_update(struct stream *s, const struct submission *sub);
 int stream_final(struct stream *s, unsigned char *md, unsigned int *len);
 void stream_destroy(struct stream *s);
 
 int worker_init(struct worker *w);
-int worker_submit(struct worker *w, struct block *b);
+int worker_submit(struct worker *w, struct submission *sub);
 int worker_stop(struct worker *w);
 int worker_join(struct worker *w);
 void worker_destroy(struct worker *w);

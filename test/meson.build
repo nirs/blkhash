@@ -77,13 +77,23 @@ env.set('HAVE_NBD', libnbd.found() ? '1' : '')
 test('blkhash-test', blkhash_test)
 test('zero-bench', zero_bench, args: ['quick'])
 
-test(
-  'blkhash-bench',
-  find_program('blkhash-bench.py'),
-  depends: blkhash_bench,
-  env: env,
-  workdir: meson.current_source_dir(),
-)
+benchmarks = [
+  'bench-data',
+  'bench-zero',
+  'bench-hole',
+  'bench-null',
+  'bench-openssl',
+]
+
+foreach b : benchmarks
+  test(
+    b,
+    find_program(b + '.py'),
+    depends: blkhash_bench,
+    env: env,
+    workdir: meson.current_source_dir(),
+  )
+endforeach
 
 # On Centos Stream 8 pytest is installed as pytest-3
 pytest = find_program('pytest', '/usr/bin/pytest-3', required: false)

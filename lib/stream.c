@@ -13,7 +13,7 @@ static inline void set_error(struct stream *s, int error)
         s->error = error;
 }
 
-static int add_zero_blocks_before(struct stream *s, const struct block *b)
+static int add_zero_blocks_before(struct stream *s, const struct submission *sub)
 {
     int64_t index;
 
@@ -23,7 +23,7 @@ static int add_zero_blocks_before(struct stream *s, const struct block *b)
 
     index = s->last_index + s->config->streams;
 
-    while (index < b->index) {
+    while (index < sub->index) {
         if (!EVP_DigestUpdate(s->root_ctx, s->config->zero_md, s->config->md_len)) {
             set_error(s, ENOMEM);
             return -1;
@@ -35,7 +35,7 @@ static int add_zero_blocks_before(struct stream *s, const struct block *b)
     return 0;
 }
 
-static int add_data_block(struct stream *s, const struct block *b)
+static int add_data_block(struct stream *s, const struct submission *sub)
 {
     unsigned char block_md[EVP_MAX_MD_SIZE];
 
@@ -46,7 +46,7 @@ static int add_data_block(struct stream *s, const struct block *b)
     if (!EVP_DigestInit_ex(s->block_ctx, s->config->md, NULL))
         goto error;
 
-    if (!EVP_DigestUpdate(s->block_ctx, b->data, b->len))
+    if (!EVP_DigestUpdate(s->block_ctx, sub->data, sub->len))
         goto error;
 
     if (!EVP_DigestFinal_ex(s->block_ctx, block_md, NULL))
@@ -55,7 +55,7 @@ static int add_data_block(struct stream *s, const struct block *b)
     if (!EVP_DigestUpdate(s->root_ctx, block_md, s->config->md_len))
         goto error;
 
-    s->last_index = b->index;
+    s->last_index = sub->index;
     return 0;
 
 error:
@@ -96,15 +96,15 @@ error:
     return err;
 }
 
-int stream_update(struct stream *s, const struct block *b)
+int stream_update(struct stream *s, const struct submission *sub)
 {
     if (s->error)
         return s->error;
 
-    add_zero_blocks_before(s, b);
+    add_zero_blocks_before(s, sub);
 
-    if (b->len)
-        add_data_block(s, b);
+    if (sub->type == DATA)
+        add_data_block(s, sub);
 
     return s->error;
 }
