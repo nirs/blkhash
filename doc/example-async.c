@@ -3,40 +3,28 @@
 
 /* blkhash example using the async interface. */
 
-#define _GNU_SOURCE
-
 #include <errno.h>
-#include <fcntl.h>
-#include <poll.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 
 #include <blkhash.h>
-#include <blkhash-internal.h>
 
-#define KiB (1ULL << 10)
 #define MiB (1ULL << 20)
-#define GiB (1ULL << 30)
-
 #define TOTAL_SIZE (50 * MiB)
-#define BUF_SIZE (256 * KiB)
+#define BUF_SIZE (256 * 1024)
 #define QUEUE_DEPTH 16
-#define DIGEST "sha256"
-#define THREADS 16
 
 struct command {
-    void *buffer;
+    unsigned char *buffer;
     int error;
     bool ready;
-} __attribute__ ((aligned (CACHE_LINE_SIZE)));
+};
 
-static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
-static int in_flight;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 
 /*
  * blkhash callback, invoked from a blkhsh worker thread when update completes.
@@ -46,12 +34,9 @@ void update_completed(void *user_data, int error)
     struct command *cmd = user_data;
 
     pthread_mutex_lock(&mutex);
-
     cmd->error = error;
     cmd->ready = true;
-    in_flight--;
     pthread_cond_signal(&cond);
-
     pthread_mutex_unlock(&mutex);
 }
 
@@ -65,17 +50,13 @@ int main()
     unsigned int md_len;
     int err;
 
-    opts = blkhash_opts_new(DIGEST);
+    opts = blkhash_opts_new("sha256");
     if (opts == NULL) {
         err = errno;
         goto out;
     }
 
-    err = blkhash_opts_set_streams(opts, 64);
-    if (err)
-        goto out;
-
-    err = blkhash_opts_set_threads(opts, THREADS);
+    err = blkhash_opts_set_threads(opts, QUEUE_DEPTH);
     if (err)
         goto out;
 
@@ -94,8 +75,8 @@ int main()
     for (int i = 0; i < QUEUE_DEPTH; i++) {
         struct command *cmd = &commands[i];
 
-        err = posix_memalign(&cmd->buffer, CACHE_LINE_SIZE, BUF_SIZE);
-        if (err)
+        cmd->buffer = malloc(BUF_SIZE);
+        if (cmd->buffer == NULL)
             goto out;
 
         memset(cmd->buffer, 'A' + i, BUF_SIZE);
@@ -115,10 +96,6 @@ int main()
             pthread_mutex_lock(&mutex);
             error = cmd->error;
             ready = cmd->ready;
-	    if (ready && !error) {
-                cmd->ready = false;
-		in_flight++;
-	    }
             pthread_mutex_unlock(&mutex);
 
             if (error) {
@@ -140,13 +117,9 @@ int main()
          * Wait for completions.
          */
 
-	pthread_mutex_lock(&mutex);
-
-	/* Wait until at least one command finish. */
-	while (in_flight == QUEUE_DEPTH)
-            pthread_cond_wait(&cond, &mutex);
-
-	pthread_mutex_unlock(&mutex);
+        pthread_mutex_lock(&mutex);
+        pthread_cond_wait(&cond, &mutex);
+        pthread_mutex_unlock(&mutex);
     }
 
     /* Finalize the hash and print a message digest. */
