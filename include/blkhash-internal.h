@@ -13,7 +13,6 @@
 
 #include <openssl/evp.h>
 
-#include "blkhash.h"
 #include "blkhash-config.h"
 
 #define ABORTF(fmt, ...) do { \
@@ -61,21 +60,13 @@ struct stream {
     /* Align to avoid false sharing between workers. */
 } __attribute__ ((aligned (CACHE_LINE_SIZE)));
 
+typedef void (*completion_callback)(void *user_data);
+
 struct completion {
-    blkhash_callback callback;
+    completion_callback callback;
     void *user_data;
     unsigned refs;
-    int error;
 };
-
-/*
- * Copy data from user buffer into the submission. When not set
- * blkhash_update() can return immediately and the user can use the buffer for
- * the next call or free it.  When set, the caller must wait using completion
- * callback and must not modify the buffer before receiving the completion
- * callback.
- */
-#define SUBMIT_COPY_DATA 0x1
 
 enum submission_type {DATA, ZERO, STOP};
 
@@ -92,15 +83,13 @@ struct submission {
      * handled by the workers. */
     struct completion *completion;
 
-    /* Data for DATA submission. */
-    const void *data;
-
     int64_t index;
 
     /* Length of data for DATA submission. */
     size_t len;
 
-    uint8_t flags;
+    /* Data for DATA submission. */
+    unsigned char data[0];
 };
 
 struct worker {
@@ -128,15 +117,14 @@ struct worker {
 
 int config_init(struct config *c, const struct blkhash_opts *opts);
 
-struct completion *completion_new(blkhash_callback cb, void *user_data);
-void completion_set_error(struct completion *c, int error);
+void completion_init(struct completion *c, completion_callback cb,
+                     void *user_data);
 void completion_ref(struct completion *c);
 void completion_unref(struct completion *c);
 
 struct submission *submission_new_data(struct stream *stream, int64_t index,
                                        size_t len, const void *data,
-                                       struct completion *completion,
-                                       uint8_t flags);
+                                       struct completion *completion);
 struct submission *submission_new_zero(struct stream *stream, int64_t index);
 struct submission *submission_new_stop(void);
 void submission_free(struct submission *sub);
