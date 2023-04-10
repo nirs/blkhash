@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 #include "blkhash-internal.h"
+#include "util.h"
 
 static inline void set_error(struct stream *s, int error)
 {
@@ -43,7 +44,7 @@ static int add_data_block(struct stream *s, const struct submission *sub)
     if (s->error)
         return -1;
 
-    if (!EVP_DigestInit_ex(s->block_ctx, s->config->md, NULL))
+    if (!EVP_DigestInit_ex(s->block_ctx, s->md, NULL))
         goto error;
 
     if (!EVP_DigestUpdate(s->block_ctx, sub->data, sub->len))
@@ -65,9 +66,15 @@ error:
 
 int stream_init(struct stream *s, int id, const struct config *config)
 {
+    const EVP_MD *md;
     int err;
 
+    md = lookup_digest(config->digest_name);
+    if (md == NULL)
+        return EINVAL;
+
     s->config = config;
+    s->md = md;
     s->root_ctx = NULL;
     s->block_ctx = NULL;
     s->last_index = id - (int)config->streams;
@@ -78,7 +85,7 @@ int stream_init(struct stream *s, int id, const struct config *config)
     if (s->root_ctx == NULL)
         return ENOMEM;
 
-    if (!EVP_DigestInit_ex(s->root_ctx, config->md, NULL)) {
+    if (!EVP_DigestInit_ex(s->root_ctx, md, NULL)) {
         err = ENOMEM;
         goto error;
     }

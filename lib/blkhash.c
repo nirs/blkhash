@@ -153,6 +153,7 @@ struct blkhash *blkhash_new()
 struct blkhash *blkhash_new_opts(const struct blkhash_opts *opts)
 {
     struct blkhash *h;
+    const EVP_MD *md;
     int err;
 
     h = calloc(1, sizeof(*h));
@@ -191,13 +192,19 @@ struct blkhash *blkhash_new_opts(const struct blkhash_opts *opts)
         h->workers_count++;
     }
 
+    md = lookup_digest(h->config.digest_name);
+    if (md == NULL) {
+        err = EINVAL;
+        goto  error;
+    }
+
     h->root_ctx = EVP_MD_CTX_new();
     if (h->root_ctx == NULL) {
         err = ENOMEM;
         goto error;
     }
 
-    if (!EVP_DigestInit_ex(h->root_ctx, h->config.md, NULL)) {
+    if (!EVP_DigestInit_ex(h->root_ctx, md, NULL)) {
         err = ENOMEM;
         goto error;
     }
