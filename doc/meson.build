@@ -43,7 +43,10 @@ if not get_option('doc').disabled()
   example_async = executable(
     'example-async',
     'example-async.c',
-    include_directories : include,
+    include_directories : [
+      include,
+      config_inc,
+    ],
     link_with: blkhash_lib,
     dependencies: [
       openssl,
