@@ -13,24 +13,25 @@ static enum input_type input_type = DATA;
 static const char *digest_name = "sha256";
 static int timeout_seconds = 1;
 static int64_t input_size = 0;
+static int threads = 4;
+static int streams = BLKHASH_STREAMS;
 static int block_size = 64 * KiB;
 static int read_size = 1 * MiB;
 static int64_t hole_size = (int64_t)MIN(16 * GiB, SIZE_MAX);
-static int threads = 4;
-static int streams = BLKHASH_STREAMS;
+
 static unsigned char *buffer;
 static int64_t chunk_size;
 
-static const char *short_options = ":hi:d:T:t:S:s:b:r:z:";
+static const char *short_options = ":hi:d:T:s:t:S:b:r:z:";
 
 static struct option long_options[] = {
     {"help",                no_argument,        0,  'h'},
     {"input-type",          required_argument,  0,  'i'},
     {"digest-name",         required_argument,  0,  'd'},
     {"timeout-seconds",     required_argument,  0,  'T'},
+    {"input-size",          required_argument,  0,  's'},
     {"threads",             required_argument,  0,  't'},
     {"streams",             required_argument,  0,  'S'},
-    {"input-size",          required_argument,  0,  's'},
     {"block-size",          required_argument,  0,  'b'},
     {"read-size",           required_argument,  0,  'r'},
     {"hole-size",           required_argument,  0,  'z'},
