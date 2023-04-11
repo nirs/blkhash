@@ -34,7 +34,9 @@ if not get_option('doc').disabled()
   example = executable(
     'example',
     'example.c',
-    include_directories : include,
+    include_directories: [
+      include_inc,
+    ],
     link_with: blkhash_lib,
     dependencies: [
       openssl,

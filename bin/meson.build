@@ -17,8 +17,9 @@ blksum = executable(
     'src.c',
   ],
   include_directories : [
-    include,
+    common_inc,
     config_inc,
+    include_inc,
   ],
   link_with: [
     blkhash_lib,
