@@ -96,10 +96,27 @@ bool supports_direct_io(const char *filename)
 #endif
 }
 
-const EVP_MD *lookup_digest(const char *name)
+const EVP_MD *create_digest(const char *name)
 {
     if (strcmp(name, "null") == 0)
         return EVP_md_null();
 
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    /*
+     * Aovids implicit fetching on each call to EVP_DigestInit_ex()
+     * https://www.openssl.org/docs/man3.1/man7/crypto.html#Explicit-fetching.
+     */
+    return EVP_MD_fetch(NULL, name, NULL);
+#else
     return EVP_get_digestbyname(name);
+#endif
+}
+
+void free_digest(const EVP_MD *md)
+{
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    EVP_MD_free((EVP_MD *)md);
+#else
+    (void)md;
+#endif
 }

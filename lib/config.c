@@ -10,27 +10,34 @@
 
 static int compute_zero_md(struct config *c)
 {
+    const EVP_MD *md;
     unsigned char *buf;
     int err = 0;
 
+    md = create_digest(c->digest_name);
+    if (md == NULL)
+        return EINVAL;
+
     buf = calloc(1, c->block_size);
-    if (buf == NULL)
-        return errno;
+    if (buf == NULL) {
+        err = errno;
+        goto out;
+    }
 
     /* Returns 1 on success. */
-    if (!EVP_Digest(buf, c->block_size, c->zero_md, &c->md_len, c->md, NULL))
+    if (!EVP_Digest(buf, c->block_size, c->zero_md, &c->md_len, md, NULL))
         err = ENOMEM;
 
+out:
+    free_digest(md);
     free(buf);
+
     return err;
 }
 
 int config_init(struct config *c, const struct blkhash_opts *opts)
 {
-    c->md = lookup_digest(opts->digest_name);
-    if (c->md == NULL)
-        return EINVAL;
-
+    c->digest_name = opts->digest_name;
     c->block_size = opts->block_size;
     c->workers = opts->threads;
     c->streams = opts->streams;

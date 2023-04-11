@@ -29,7 +29,7 @@ struct blkhash_opts {
 
 struct config {
     unsigned char zero_md[EVP_MAX_MD_SIZE];
-    const EVP_MD *md;
+    const char *digest_name;
     size_t block_size;
     unsigned int md_len;
     unsigned streams;
@@ -40,6 +40,9 @@ struct config {
 
 struct stream {
     const struct config *config;
+
+    /* Used to intialize root_ctx and block_ctx. */
+    const EVP_MD *md;
 
     /* The stream hash context consuming block digests. */
     EVP_MD_CTX *root_ctx;
