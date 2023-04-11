@@ -23,7 +23,6 @@ libnbd = dependency(
 )
 conf_data.set('HAVE_NBD', libnbd.found())
 
-include = include_directories('include')
 openssl = dependency('openssl')
 
 compiler = meson.get_compiler('c')

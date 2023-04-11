@@ -7,8 +7,10 @@ blkhash_test = executable(
   'blkhash-test',
   'blkhash-test.c',
   include_directories : [
+    blkhash_inc,
+    common_inc,
     config_inc,
-    include,
+    include_inc,
   ],
   link_with: [
     blkhash_lib,
@@ -23,9 +25,11 @@ blkhash_test = executable(
 zero_bench = executable(
   'zero-bench',
   'zero-bench.c',
-  include_directories : [
+  include_directories: [
+    blkhash_inc,
+    common_inc,
     config_inc,
-    include,
+    include_inc,
   ],
   link_with: [
     blkhash_lib,
@@ -41,7 +45,10 @@ blkhash_bench = executable(
   'blkhash-bench',
   'blkhash-bench.c',
   'benchmark.c',
-  include_directories : include,
+  include_directories: [
+    common_inc,
+    include_inc,
+  ],
   link_with: [
     blkhash_lib,
     common_lib,
@@ -55,9 +62,10 @@ openssl_bench = executable(
   'openssl-bench',
   'openssl-bench.c',
   'benchmark.c',
-  include_directories : [
-    include,
+  include_directories: [
+    common_inc,
     config_inc,
+    include_inc,
   ],
   link_with: [
     common_lib,
