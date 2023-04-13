@@ -4,6 +4,9 @@
 import pytest
 import bench
 
+DIGEST = "sha256"
+INPUT_SIZE = "1m"
+STREAMS = 32
 threads_params = pytest.mark.parametrize("threads", [1, 2, 4, 8, 16, 32])
 
 
@@ -11,9 +14,10 @@ threads_params = pytest.mark.parametrize("threads", [1, 2, 4, 8, 16, 32])
 def test_blkhash_data_sha256(threads):
     r = bench.blkhash(
         input_type="data",
-        input_size="1m",
-        digest_name="sha256",
+        input_size=INPUT_SIZE,
+        digest_name=DIGEST,
         threads=threads,
+        streams=STREAMS,
     )["checksum"]
     assert r == "f596205d1108c4752339b76f7a046fc9b40ed096c393cc1a9a32b052f679eef6"
 
@@ -22,9 +26,10 @@ def test_blkhash_data_sha256(threads):
 def test_blkhash_zero_sha256(threads):
     r = bench.blkhash(
         input_type="zero",
-        input_size="1m",
-        digest_name="sha256",
+        input_size=INPUT_SIZE,
+        digest_name=DIGEST,
         threads=threads,
+        streams=STREAMS,
     )["checksum"]
     assert r == "146db9301db0c190f877b31668c71f9eeedd23b76b0349e66e8d04ad023b2cd2"
 
@@ -33,9 +38,10 @@ def test_blkhash_zero_sha256(threads):
 def test_blkhash_hole_sha256(threads):
     r = bench.blkhash(
         input_type="hole",
-        input_size="1m",
-        digest_name="sha256",
+        input_size=INPUT_SIZE,
+        digest_name=DIGEST,
         threads=threads,
+        streams=STREAMS,
     )["checksum"]
     assert r == "146db9301db0c190f877b31668c71f9eeedd23b76b0349e66e8d04ad023b2cd2"
 
@@ -44,9 +50,10 @@ def test_blkhash_hole_sha256(threads):
 def test_blkhash_data_null(threads):
     r = bench.blkhash(
         input_type="data",
-        input_size="1m",
+        input_size=INPUT_SIZE,
         digest_name="null",
         threads=threads,
+        streams=STREAMS,
     )["checksum"]
     assert r == ""
 
@@ -55,9 +62,10 @@ def test_blkhash_data_null(threads):
 def test_blkhash_zero_null(threads):
     r = bench.blkhash(
         input_type="zero",
-        input_size="1m",
+        input_size=INPUT_SIZE,
         digest_name="null",
         threads=threads,
+        streams=STREAMS,
     )["checksum"]
     assert r == ""
 
@@ -66,18 +74,19 @@ def test_blkhash_zero_null(threads):
 def test_blkhash_hole_null(threads):
     r = bench.blkhash(
         input_type="hole",
-        input_size="1m",
+        input_size=INPUT_SIZE,
         digest_name="null",
         threads=threads,
+        streams=STREAMS,
     )["checksum"]
     assert r == ""
 
 
 def test_openssl_sha256():
-    r = bench.openssl(digest_name="sha256", input_size="1m")["checksum"]
+    r = bench.openssl(digest_name=DIGEST, input_size=INPUT_SIZE)["checksum"]
     assert r == "dab852c11ae8f79aa478e168d108ee88a49c1c1bc7fd2154833a9fbfeb46de28"
 
 
 def test_openssl_null():
-    r = bench.openssl(digest_name="null", input_size="1m")["checksum"]
+    r = bench.openssl(digest_name="null", input_size=INPUT_SIZE)["checksum"]
     assert r == ""
