@@ -22,21 +22,25 @@ TiB = 1 << 40
 PiB = 1 << 50
 EiB = 1 << 60
 
+DIGEST = "sha256"
+STREAMS = 64
+TIMEOUT = 0 if "QUICK" in os.environ else 10
 
-def threads(streams):
+
+def threads(limit=STREAMS):
     n = 1
-    while n <= streams:
+    while n <= limit:
         yield n
         n *= 2
 
 
 def blkhash(
     input_type,
-    digest_name="sha256",
-    timeout_seconds=1,
+    digest_name=DIGEST,
+    timeout_seconds=TIMEOUT,
     input_size=None,
     threads=4,
-    streams=32,
+    streams=STREAMS,
 ):
     cmd = [
         BLKHASH_BENCH,
@@ -62,8 +66,8 @@ def blkhash(
 
 
 def openssl(
-    digest_name="sha256",
-    timeout_seconds=1,
+    digest_name=DIGEST,
+    timeout_seconds=TIMEOUT,
     input_size=None,
     threads=1,
 ):
