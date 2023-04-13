@@ -58,6 +58,12 @@ struct submission *submission_new_stop(void)
     return sub;
 }
 
+void submission_set_error(struct submission *sub, int error)
+{
+    if (sub->completion)
+        completion_set_error(sub->completion, error);
+}
+
 void submission_free(struct submission *sub)
 {
     if (sub == NULL)

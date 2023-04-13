@@ -131,10 +131,11 @@ struct submission *submission_new_data(struct stream *stream, int64_t index,
                                        struct completion *completion);
 struct submission *submission_new_zero(struct stream *stream, int64_t index);
 struct submission *submission_new_stop(void);
+void submission_set_error(struct submission *sub, int error);
 void submission_free(struct submission *sub);
 
 int stream_init(struct stream *s, int id, const struct config *config);
-int stream_update(struct stream *s, const struct submission *sub);
+int stream_update(struct stream *s, struct submission *sub);
 int stream_final(struct stream *s, unsigned char *md, unsigned int *len);
 void stream_destroy(struct stream *s);
 

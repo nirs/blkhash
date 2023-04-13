@@ -103,7 +103,7 @@ error:
     return err;
 }
 
-int stream_update(struct stream *s, const struct submission *sub)
+int stream_update(struct stream *s, struct submission *sub)
 {
     if (s->error)
         return s->error;
@@ -113,7 +113,12 @@ int stream_update(struct stream *s, const struct submission *sub)
     if (sub->type == DATA)
         add_data_block(s, sub);
 
-    return s->error;
+    if (s->error) {
+        submission_set_error(sub, s->error);
+        return s->error;
+    }
+
+    return 0;
 }
 
 int stream_final(struct stream *s, unsigned char *md, unsigned int *len)
