@@ -63,11 +63,12 @@ struct stream {
     /* Align to avoid false sharing between workers. */
 } __attribute__ ((aligned (CACHE_LINE_SIZE)));
 
-typedef void (*completion_callback)(void *user_data);
+typedef void (*completion_callback)(void *user_data, int error);
 
 struct completion {
     completion_callback callback;
     void *user_data;
+    int error;
     unsigned refs;
 };
 
@@ -120,8 +121,8 @@ struct worker {
 
 int config_init(struct config *c, const struct blkhash_opts *opts);
 
-void completion_init(struct completion *c, completion_callback cb,
-                     void *user_data);
+struct completion *completion_new(completion_callback cb, void *user_data);
+void completion_set_error(struct completion *c, int error);
 void completion_ref(struct completion *c);
 void completion_unref(struct completion *c);
 
