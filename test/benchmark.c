@@ -67,6 +67,19 @@ int parse_threads(const char *name, const char *arg)
     return value;
 }
 
+int parse_count(const char *name, const char *arg)
+{
+    char *end;
+    long value;
+
+    value = strtol(arg, &end, 10);
+    if (*end != '\0' || value < 1) {
+        FAILF("Negative value for option %s: '%s'", name, arg);
+    }
+
+    return value;
+}
+
 int64_t parse_size(const char *name, const char *arg)
 {
     int64_t value;
