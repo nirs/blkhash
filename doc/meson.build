@@ -30,7 +30,8 @@ if not get_option('doc').disabled()
     install_dir: join_paths(get_option('prefix'), get_option('mandir'), 'man3')
   )
 
-  # Make sure the example compiles and run.
+  # Make sure the examples compile and run.
+
   example = executable(
     'example',
     'example.c',
@@ -43,6 +44,19 @@ if not get_option('doc').disabled()
     ],
   )
 
+  example_aio = executable(
+    'example-aio',
+    'example-aio.c',
+    include_directories : [
+      include_inc,
+    ],
+    link_with: blkhash_lib,
+    dependencies: [
+      openssl,
+    ],
+  )
+
   test('example', example)
+  test('example-aio', example_aio)
 
 endif
