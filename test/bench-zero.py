@@ -7,3 +7,7 @@ import bench
 print(f"\nblkhash-bench --digest-name {bench.DIGEST} --input-type zero\n")
 for n in bench.threads():
     bench.blkhash("zero", threads=n)
+
+print(f"\nblkhash-bench --digest-name {bench.DIGEST} --input-type zero --aio\n")
+for n in bench.threads():
+    bench.blkhash("zero", threads=n, aio=True)
