@@ -151,7 +151,7 @@ int worker_submit(struct worker *w, struct submission *sub)
 
     /* The submission will leak if the worker failed. */
     if (w->error) {
-        err = w->error;
+        err = sub->type == STOP ? 0: w->error;
         goto out;
     }
 
