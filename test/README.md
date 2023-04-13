@@ -24,6 +24,7 @@ kind of input and configuration options.
         blkhash-bench [-i TYPE|--input-type TYPE]
                       [-d DIGEST|--digest-name=DIGEST]
                       [-T N|--timeout-seconds N] [-s N|--input-size N]
+                      [-a|--aio] [-q N|--queue-depth N]
                       [-t N|--threads N] [-S N|--streams N]
                       [-b N|--block-size N] [-r N|--read-size N]
                       [-z N|--hole-size N] [-h|--help]
@@ -43,15 +44,17 @@ Measure hashing throughput for non-zero data using 16 threads:
       "digest-name": "sha256",
       "timeout-seconds": 1,
       "input-size": 0,
+      "aio": false,
+      "queue-depth": 16,
       "block-size": 65536,
-      "read-size": 1048576,
+      "read-size": 262144,
       "hole-size": 17179869184,
       "threads": 16,
       "streams": 32,
-      "total-size": 3463446528,
-      "elapsed": 1.004,
-      "throughput": 3450792472,
-      "checksum": "00cfa392d29e721583243ec4bd4c0f19fe47fe87d96969fa1fed66e94c57ba00"
+      "total-size": 6123159552,
+      "elapsed": 1.003,
+      "throughput": 6102697208,
+      "checksum": "363f6eb4139b59a955b2cb15229c65c693db0185bff7fe1834f5fd57cd3fb753"
     }
 
 Measure hashing throughput for unallocated data using 16 threads:
@@ -62,15 +65,17 @@ Measure hashing throughput for unallocated data using 16 threads:
       "digest-name": "sha256",
       "timeout-seconds": 1,
       "input-size": 0,
+      "aio": false,
+      "queue-depth": 16,
       "block-size": 65536,
-      "read-size": 1048576,
+      "read-size": 262144,
       "hole-size": 17179869184,
       "threads": 16,
       "streams": 32,
-      "total-size": 5600637353984,
-      "elapsed": 1.032,
-      "throughput": 5428983745905,
-      "checksum": "6ff9cb9d47f2a9418f7a7315a3c4720d1fb3de2a657f5fae017d44c6c3344ed1"
+      "total-size": 7627861917696,
+      "elapsed": 1.029,
+      "throughput": 7409583011752,
+      "checksum": "1bc6b0c013f50d34e0e1589137a55bfc8d06cc4bc710264a0e828a7f7425a4f9"
     }
 
 Validate the checksum for 1 MiB of data with different number of

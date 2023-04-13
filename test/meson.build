@@ -47,6 +47,7 @@ blkhash_bench = executable(
   'benchmark.c',
   include_directories: [
     common_inc,
+    config_inc,
     include_inc,
   ],
   link_with: [
