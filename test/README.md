@@ -89,38 +89,40 @@ threads:
     "f596205d1108c4752339b76f7a046fc9b40ed096c393cc1a9a32b052f679eef6"
     "f596205d1108c4752339b76f7a046fc9b40ed096c393cc1a9a32b052f679eef6"
 
-The json output can be used by another program to create graphs.
+The JSON output can be used by another program to create graphs.
 
 ### Profiling blkhash
 
 You can use `perf` to profile specific scenarios. In this example we
 profile `blkhash` with `sha256` digest, hashing 4 TiB hole.
 
-    $ perf record -g --call-graph dwarf build/test/blkhash-bench -i hole -s 4t
+    $ perf record --call-graph lbr build/test/blkhash-bench -i hole -s 4t
     ...
 
     $ perf report --stdio
 
-    # Children      Self  Command        Shared Object         Symbol
-    # ........  ........  .............  ....................  .....................................
+    # Children      Self  Command        Shared Object        Symbol
+    # ........  ........  .............  ...................  ....................................
     #
-        12.29%     0.99%  blkhash-bench  libblkhash.so.0.8.0   [.] worker_thread
-                |
-                |--11.34%--worker_thread
-                |          |
-                |           --11.32%--add_zero_blocks_before (inlined)
-                |                     |
-                |                     |--10.14%--SHA256_Update
-                |                     |          |
-                |                     |           --0.54%--0x7f7c2b4fc0fd
-                |                     |
-                |                      --0.83%--EVP_DigestUpdate
-                |
-                 --0.95%--__clone3 (inlined)
-                           start_thread
-                           worker_thread
-                           |
-                            --0.95%--add_zero_blocks_before (inlined)
+        99.95%     0.00%  blkhash-bench  libc-2.28.so         [.] __clone
+            |
+             --99.95%--__clone
+                       |
+                        --99.95%--start_thread
+                                  |
+                                   --99.95%--worker_thread
+                                             |
+                                             |--83.41%--stream_update
+                                             |          |
+                                             |          |--74.85%--SHA256_Update
+                                             |          |          |
+                                             |          |          |--74.21%--0x7ff3f884ea80
+                                             |          |          |
+                                             |          |           --0.64%--0x7ff3f86ee120
+                                             |          |
+                                             |           --7.70%--EVP_DigestUpdate@plt
+                                             |
+                                              --16.52%--stream_update@plt
     ...
 
 ## The openssl-bench program
