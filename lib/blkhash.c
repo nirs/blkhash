@@ -265,7 +265,7 @@ static int submit_zero_block(struct blkhash *h)
  * Submit one data block to the worker handling this block.
  */
 static int submit_data_block(struct blkhash *h, const void *buf, size_t len,
-                             struct completion *completion)
+                             struct completion *completion, uint8_t flags)
 {
     struct stream *s;
     struct worker *w;
@@ -275,7 +275,7 @@ static int submit_data_block(struct blkhash *h, const void *buf, size_t len,
     s = stream_for_block(h, h->block_index);
     w = worker_for_stream(h, s->id);
 
-    sub = submission_new_data(s, h->block_index, len, buf, completion);
+    sub = submission_new_data(s, h->block_index, len, buf, completion, flags);
     if (sub == NULL)
         return set_error(h, errno);
 
@@ -367,14 +367,14 @@ static inline bool is_zero_block(struct blkhash *h, const void *buf, size_t len)
  * order of magnitude faster compared with computing a message digest.
  */
 static int consume_data_block(struct blkhash *h, const void *buf, size_t len,
-                              struct completion *completion)
+                              struct completion *completion, uint8_t flags)
 {
     if (is_zero_block(h, buf, len)) {
         /* Fast path. */
         return consume_zero_blocks(h, 1);
     } else {
         /* Slow path. */
-        return submit_data_block(h, buf, len, completion);
+        return submit_data_block(h, buf, len, completion, flags);
     }
 }
 
@@ -395,13 +395,18 @@ static int consume_pending(struct blkhash *h, struct completion *completion)
         /*
          * Slow path if pending is partial block, fast path is pending
          * is full block and pending data is zeros.
+         *
+         * NOTE: The completion does not protect our pending buffer, so we
+         * must use the SUBMIT_COPY_DATA flag.
          */
+
         if (h->pending.zero) {
             /* Convert partial block of zeros to data. */
             memset(h->pending.data, 0, h->pending.len);
         }
 
-        if (consume_data_block(h, h->pending.data, h->pending.len, completion))
+        if (consume_data_block(h, h->pending.data, h->pending.len, completion,
+                               SUBMIT_COPY_DATA))
             return -1;
     }
 
@@ -410,25 +415,24 @@ static int consume_pending(struct blkhash *h, struct completion *completion)
     return 0;
 }
 
-int blkhash_update(struct blkhash *h, const void *buf, size_t len)
+static int do_update(struct blkhash *h, const void *buf, size_t len,
+                     struct completion *completion, uint8_t flags)
 {
-    if (h->error)
-        return h->error;
-
     /* Try to fill the pending buffer and consume it. */
     if (h->pending.len > 0) {
         size_t n = add_pending_data(h, buf, len);
         buf += n;
         len -= n;
         if (h->pending.len == h->config.block_size) {
-            if (consume_pending(h, NULL))
+            if (consume_pending(h, completion))
                 return h->error;
         }
     }
 
     /* Consume all full blocks in caller buffer. */
     while (len >= h->config.block_size) {
-        if (consume_data_block(h, buf, h->config.block_size, NULL))
+        if (consume_data_block(h, buf, h->config.block_size, completion,
+                               flags))
             return h->error;
 
         buf += h->config.block_size;
@@ -440,6 +444,16 @@ int blkhash_update(struct blkhash *h, const void *buf, size_t len)
         add_pending_data(h, buf, len);
 
     return 0;
+}
+
+int blkhash_update(struct blkhash *h, const void *buf, size_t len)
+{
+    if (h->error)
+        return h->error;
+
+    /* We copy user data to simplify the interface. Users that want higher
+     * performance should use the async interface. */
+    return do_update(h, buf, len, NULL, SUBMIT_COPY_DATA);
 }
 
 int blkhash_zero(struct blkhash *h, size_t len)
