@@ -15,6 +15,14 @@
 struct blkhash;
 struct blkhash_opts;
 
+struct blkhash_completion {
+    /* User data passed to blkhash_async_* functions. */
+    void *user_data;
+
+    /* 0 if the async request completed succesfully , errno value on errors. */
+    int error;
+};
+
 /*
  * Allocate and initialize a block hash for creating one message digest
  * using the default options. To create a hash with non-default options
@@ -66,6 +74,50 @@ int blkhash_update(struct blkhash *h, const void *buf, size_t len);
 int blkhash_zero(struct blkhash *h, size_t len);
 
 /*
+ * Starts asynchronous update returning before the hash is updated.  When the
+ * update completes blkhash will write a 8 bytes value to the event fd. The
+ * buffer must not be modified by the caller before the update complets.
+ *
+ * To wait for completion poll the event fd, and use blkhash_completions()
+ * to get the completed completions.
+ *
+ * Fail if the event fd option was not set.
+ *
+ * Return 0 if the update was started and errno value otherwise.
+ */
+int blkhash_aio_update(struct blkhash *h, const void *buf, size_t len,
+                       void *user_data);
+
+/*
+ * Return file descriptor for polling completions availability. The
+ * returned file descriptor becomes readable when async updates are
+ * complected.
+ *
+ * The application must read all pending data from the completion file
+ * descriptor before calling blkhash_aio_completions(). The contents of
+ * the bytes are undefined. The amount of pending data depends on the
+ * implementation, always 8 bytes when using eventfd() and up to one
+ * byte per inflight request when using a pipe().
+ *
+ * The returned file descriptor has O_NONBLOCK set. The application may
+ * switch the file descriptor to blocking mode.
+ *
+ * Returns -1 if the hash was not configured to use completion fd.
+ */
+int blkhash_aio_completion_fd(struct blkhash *h);
+
+/*
+ * Return up to count completions. Call this after the completion fd
+ * became readable, and you read all pending data. The call fills in up
+ * to count completions in the out array.
+ *
+ * Return the number of completions in the completions array on success,
+ * and negative errno value on errors.
+ */
+int blkhash_aio_completions(struct blkhash *h, struct blkhash_completion *out,
+                            unsigned count);
+
+/*
  * Finalize a hash and store the message digest in md_value.  At most
  * BLKHASH_MAX_MD_SIZE bytes will be written.
  *
@@ -114,6 +166,15 @@ int blkhash_opts_set_block_size(struct blkhash_opts *o, size_t block_size);
 int blkhash_opts_set_threads(struct blkhash_opts *o, uint8_t threads);
 
 /*
+ * Set the maximum number of inflight async updates supported by the
+ * hash and enable the async API. If not set, the async APIs will fail
+ * with ENOTSUP.
+ *
+ * Return EINVAL if the value is invalid.
+ */
+int blkhash_opts_set_queue_depth(struct blkhash_opts *o, unsigned queue_depth);
+
+/*
  * Set the number of hash streams, enabling parallel hashing. The number
  * of streams limits the number of threads. The defualt value (32)
  * allows up to 32 threads. If you want to use more threads you need to
@@ -142,6 +203,12 @@ size_t blkhash_opts_get_block_size(struct blkhash_opts *o);
  * Return the number of threads.
  */
 uint8_t blkhash_opts_get_threads(struct blkhash_opts *o);
+
+/*
+ * Return the maximum number of inflight async updates supported by the
+ * hash.
+ */
+unsigned blkhash_opts_get_queue_depth(struct blkhash_opts *o);
 
 /*
  * Return the number of streams.

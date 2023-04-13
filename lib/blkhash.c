@@ -11,8 +11,10 @@
 
 #include <openssl/evp.h>
 
-#include "blkhash.h"
 #include "blkhash-internal.h"
+#include "blkhash.h"
+#include "event.h"
+#include "threads.h"
 #include "util.h"
 
 /* Number of consecutive zero blocks per stream to consume before submitting
@@ -25,8 +27,18 @@ struct buffer {
     bool zero;
 };
 
+/* Used if queue_depth > 0 for blkhash_aio_update calls. accessed both by
+ * worker threads and caller threads. */
+struct completion_queue {
+    pthread_mutex_t mutex;
+    struct blkhash_completion *array;
+    struct event *event;
+    unsigned count;
+} __attribute__ ((aligned (CACHE_LINE_SIZE)));
+
 struct blkhash {
     struct config config;
+    struct completion_queue cq;
 
     /* For keeping partial blocks when user call blkhash_update() with buffer
      * that is not aligned to block size. */
@@ -52,6 +64,13 @@ struct blkhash {
     unsigned streams_count;
     unsigned workers_count;
 
+    /*
+     * Number of updates started and not reaped yet. Increased when submitting
+     * an async update, and decreased when reaping completions. Modified only
+     * by the caller thread.
+     */
+    unsigned inflight;
+
     /* The first error. Once set, any operation will fail quickly with this
      * error. */
     int error;
@@ -65,6 +84,7 @@ static const struct blkhash_opts default_opts = {
     .block_size = 64 * KiB,
     .threads = 4,
     .streams = BLKHASH_STREAMS,
+    .queue_depth = 0,
 };
 
 struct blkhash_opts *blkhash_opts_new(const char *digest_name)
@@ -102,6 +122,12 @@ int blkhash_opts_set_threads(struct blkhash_opts *o, uint8_t threads)
     return 0;
 }
 
+int blkhash_opts_set_queue_depth(struct blkhash_opts *o, unsigned queue_depth)
+{
+    o->queue_depth = queue_depth;
+    return 0;
+}
+
 int blkhash_opts_set_streams(struct blkhash_opts *o, uint8_t streams)
 {
     if (streams < o->threads)
@@ -124,6 +150,11 @@ size_t blkhash_opts_get_block_size(struct blkhash_opts *o)
 uint8_t blkhash_opts_get_threads(struct blkhash_opts *o)
 {
     return o->threads;
+}
+
+unsigned blkhash_opts_get_queue_depth(struct blkhash_opts *o)
+{
+    return o->queue_depth;
 }
 
 uint8_t blkhash_opts_get_streams(struct blkhash_opts *o)
@@ -163,6 +194,24 @@ struct blkhash *blkhash_new_opts(const struct blkhash_opts *opts)
     err = config_init(&h->config, opts);
     if (err)
         goto error;
+
+    if (h->config.queue_depth > 0) {
+        err = pthread_mutex_init(&h->cq.mutex, NULL);
+        if (err)
+            goto error;
+
+        h->cq.array = calloc(h->config.queue_depth, sizeof(*h->cq.array));
+        if (h->cq.array == NULL) {
+            err = errno;
+            goto error;
+        }
+
+        err = event_open(&h->cq.event, EVENT_CLOEXEC | EVENT_NONBLOCK);
+        if (err) {
+            err = -err;
+            goto error;
+        }
+    }
 
     h->streams = calloc(h->config.streams, sizeof(*h->streams));
     if (h->streams == NULL) {
@@ -456,6 +505,99 @@ int blkhash_update(struct blkhash *h, const void *buf, size_t len)
     return do_update(h, buf, len, NULL, SUBMIT_COPY_DATA);
 }
 
+static void update_completed(struct blkhash *h, void *user_data, int error)
+{
+    struct blkhash_completion *c;
+    int err;
+
+    mutex_lock(&h->cq.mutex);
+
+    assert(h->cq.count < h->config.queue_depth);
+    c = &h->cq.array[h->cq.count++];
+    c->user_data = user_data;
+    c->error = error;
+
+    mutex_unlock(&h->cq.mutex);
+
+    /* If we cannot noitify, the caller may get stuck waiting for completions.
+     * Setting the error will fail the next request. */
+    err = event_signal(h->cq.event);
+    if (err)
+        set_error(h, -err);
+}
+
+int blkhash_aio_update(struct blkhash *h, const void *buf, size_t len,
+                       void *user_data)
+{
+    struct completion *completion;
+
+    if (h->error)
+        return h->error;
+
+    /* Accessed only by caller thread, no locking needed. */
+    if (h->inflight >= h->config.queue_depth)
+        return EAGAIN;
+
+    h->inflight++;
+
+    completion = completion_new(update_completed, h, user_data);
+    if (completion == NULL) {
+        set_error(h, errno);
+        return h->error;
+    }
+
+    /* We don't copy user data, and the user must wait for completion before
+     * using or freeing the buffer. Users that want simpler interface should
+     * use simpler the blocking API. */
+    if (do_update(h, buf, len, completion, 0))
+        completion_set_error(completion, h->error);
+
+    completion_unref(completion);
+
+    return 0;
+}
+
+int blkhash_aio_completion_fd(struct blkhash *h)
+{
+    if (h->cq.event == NULL)
+        return -ENOTSUP;
+
+    return h->cq.event->read_fd;
+}
+
+int blkhash_aio_completions(struct blkhash *h, struct blkhash_completion *out,
+                            unsigned count)
+{
+    if (h->error)
+        return -h->error;
+
+    mutex_lock(&h->cq.mutex);
+
+    count = MIN(count, h->cq.count);
+    if (count > 0) {
+        size_t bytes = count * sizeof(*h->cq.array);
+        memcpy(out, h->cq.array, bytes);
+        h->cq.count -= count;
+
+        if (h->cq.count > 0) {
+            /* There is no reason to call with count < queue_depth, so this
+             * should not happen. */
+            size_t bytes = h->cq.count * sizeof(*h->cq.array);
+            memmove(&h->cq.array[0], &h->cq.array[count], bytes);
+        }
+    }
+
+    mutex_unlock(&h->cq.mutex);
+
+    /* Accessed only by caller thread, no locking needed. */
+    if (count > 0) {
+        assert(h->inflight >= count);
+        h->inflight -= count;
+    }
+
+    return count;
+}
+
 int blkhash_zero(struct blkhash *h, size_t len)
 {
     if (h->error)
@@ -569,6 +711,12 @@ void blkhash_free(struct blkhash *h)
     free_digest(h->md);
     free(h->workers);
     free(h->streams);
+
+    if (h->config.queue_depth) {
+        event_close(h->cq.event);
+        free(h->cq.array);
+        mutex_destroy(&h->cq.mutex);
+    }
 
     free(h);
 }

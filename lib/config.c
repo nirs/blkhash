@@ -41,6 +41,7 @@ int config_init(struct config *c, const struct blkhash_opts *opts)
     c->block_size = opts->block_size;
     c->workers = opts->threads;
     c->streams = opts->streams;
+    c->queue_depth = opts->queue_depth;
 
     return compute_zero_md(c);
 }
