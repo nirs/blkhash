@@ -36,6 +36,13 @@ static int add_zero_blocks_before(struct stream *s, const struct submission *sub
     return 0;
 }
 
+static inline bool is_zero_block(struct stream *s, const struct submission *sub)
+{
+    return !(sub->flags & SUBMIT_COPY_DATA) &&
+        sub->len == s->config->block_size &&
+        is_zero(sub->data, sub->len);
+}
+
 static int add_data_block(struct stream *s, const struct submission *sub)
 {
     unsigned char block_md[EVP_MAX_MD_SIZE];
@@ -44,17 +51,24 @@ static int add_data_block(struct stream *s, const struct submission *sub)
     if (s->error)
         return -1;
 
-    if (!EVP_DigestInit_ex(s->block_ctx, s->md, NULL))
-        goto error;
+    if (is_zero_block(s, sub)) {
+        /* Fast path */
+        if (!EVP_DigestUpdate(s->root_ctx, s->config->zero_md, s->config->md_len))
+            goto error;
+    } else {
+        /* Slow path */
+        if (!EVP_DigestInit_ex(s->block_ctx, s->md, NULL))
+            goto error;
 
-    if (!EVP_DigestUpdate(s->block_ctx, sub->data, sub->len))
-        goto error;
+        if (!EVP_DigestUpdate(s->block_ctx, sub->data, sub->len))
+            goto error;
 
-    if (!EVP_DigestFinal_ex(s->block_ctx, block_md, NULL))
-        goto error;
+        if (!EVP_DigestFinal_ex(s->block_ctx, block_md, NULL))
+            goto error;
 
-    if (!EVP_DigestUpdate(s->root_ctx, block_md, s->config->md_len))
-        goto error;
+        if (!EVP_DigestUpdate(s->root_ctx, block_md, s->config->md_len))
+            goto error;
+    }
 
     s->last_index = sub->index;
     return 0;

@@ -418,7 +418,9 @@ static inline bool is_zero_block(struct blkhash *h, const void *buf, size_t len)
 static int consume_data_block(struct blkhash *h, const void *buf, size_t len,
                               struct completion *completion, uint8_t flags)
 {
-    if (is_zero_block(h, buf, len)) {
+    /* If we copy data, it worth to eliminate zero blocks now. Otherwise it is
+     * better to do this work in the worker. */
+    if ((flags & SUBMIT_COPY_DATA) && is_zero_block(h, buf, len)) {
         /* Fast path. */
         return consume_zero_blocks(h, 1);
     } else {
