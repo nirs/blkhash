@@ -13,7 +13,7 @@
 #include "util.h"
 
 struct request {
-    const void *data;
+    unsigned char *data;
     size_t len;
     bool ready;
 } __attribute__ ((aligned (CACHE_LINE_SIZE)));
@@ -30,7 +30,6 @@ static int block_size = 64 * KiB;
 static int read_size = 256 * KiB;
 static int64_t hole_size = (int64_t)MIN(16 * GiB, SIZE_MAX);
 
-static unsigned char *buffer;
 static struct request *requests;
 static unsigned current;
 static struct blkhash_completion *completions;
@@ -58,26 +57,33 @@ static void teardown_aio(void)
 
 static void setup_requests(void)
 {
-    buffer = malloc(read_size);
-    if (buffer == NULL)
-        FAILF("malloc: %s", strerror(errno));
-
-    memset(buffer, input_type == DATA ? 0x55 : 0x00, read_size);
+    long page_size;
 
     requests = calloc(queue_depth, sizeof(*requests));
     if (requests == NULL)
         FAILF("calloc: %s", strerror(errno));
 
+    /* When using direct I/O, buffers are aligned to page size. */
+    page_size = sysconf(_SC_PAGESIZE);
+    if (page_size == -1)
+        FAILF("sysconf(_SC_PAGESIZE): %s", strerror(errno));
+
     for (int i = 0; i < queue_depth; i++) {
-        requests[i].data = buffer;
-        requests[i].ready = true;
+        struct request *req = &requests[i];
+        int err;
+
+        err = posix_memalign((void **)&req->data, page_size, read_size);
+        if (err)
+            FAILF("posix_memalign: %s", strerror(err));
+
+        memset(req->data, input_type == DATA ? 0x55 : 0x00, read_size);
+        req->ready = true;
     }
 }
 
 static void teardown_requests(void)
 {
     free(requests);
-    free(buffer);
 }
 
 static const char *short_options = ":hi:d:T:s:aq:t:S:b:r:z:";
