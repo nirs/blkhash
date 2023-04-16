@@ -28,9 +28,24 @@ TIMEOUT = 0 if "QUICK" in os.environ else 10
 
 
 def threads(limit=STREAMS):
+    """
+    Geneate powers of 2 up to limit. The value is also also limited by the
+    number of online cpus to the first nuber equal or larger than the nuber of
+    oneline cpus.
+
+    For example on laptop with 12 cores:
+
+        list(threads(limit=32)) -> [1, 2, 4, 8, 16]
+
+    Typically using 16 threads is faster than 12 due to the way blkhash
+    distribute work to threads.
+    """
+    online_cpus = os.sysconf("SC_NPROCESSORS_ONLN")
     n = 1
     while n <= limit:
         yield n
+        if n >= online_cpus:
+            break
         n *= 2
 
 
