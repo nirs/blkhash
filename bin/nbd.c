@@ -140,31 +140,6 @@ static int nbd_ops_aio_pread(struct src *s, void *buf, size_t len,
     return 0;
 }
 
-static int nbd_ops_aio_run(struct src *s, int timeout)
-{
-    struct nbd_src *ns = (struct nbd_src *)s;
-    int res;
-    int in_flight;
-
-    in_flight = nbd_aio_in_flight(ns->h);
-
-    if (in_flight == 0)
-        return 1;
-
-    /*
-     * Testing shows that we need to poll 1-7 times before a command
-     * complete.
-     */
-    do {
-        res = nbd_poll(ns->h, timeout);
-    } while (res == 1 && nbd_aio_in_flight(ns->h) >= in_flight);
-
-    if (res == -1)
-        FAIL_NBD();
-
-    return res;
-}
-
 static int nbd_ops_aio_prepare(struct src *s, struct pollfd *pfd)
 {
     struct nbd_src *ns = (struct nbd_src *)s;
@@ -239,7 +214,6 @@ static struct src_ops nbd_ops = {
     .pread = nbd_ops_pread,
     .extents = nbd_ops_extents,
     .aio_pread = nbd_ops_aio_pread,
-    .aio_run = nbd_ops_aio_run,
     .aio_prepare = nbd_ops_aio_prepare,
     .aio_notify = nbd_ops_aio_notify,
     .close = nbd_ops_close,

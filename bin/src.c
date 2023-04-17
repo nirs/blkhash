@@ -70,11 +70,6 @@ int src_aio_pread(struct src *s, void *buf, size_t len, int64_t offset,
     return s->ops->aio_pread(s, buf, len, offset, cb, user_data);
 }
 
-int src_aio_run(struct src *s, int timeout)
-{
-    return s->ops->aio_run(s, timeout);
-}
-
 int src_aio_prepare(struct src *s, struct pollfd *pfd)
 {
     if (s->ops->aio_prepare)

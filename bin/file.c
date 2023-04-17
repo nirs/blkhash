@@ -54,13 +54,6 @@ static int file_ops_aio_pread(struct src *s, void *buf, size_t len,
     return 0;
 }
 
-/* Fake async implementaion to keep callers happy. */
-static int file_ops_aio_run(struct src *s __attribute__ ((unused)),
-                            int timeout __attribute__ ((unused)))
-{
-    return 1;
-}
-
 static void file_ops_close(struct src *s)
 {
     struct file_src *fs = (struct file_src *)s;
@@ -74,7 +67,6 @@ static void file_ops_close(struct src *s)
 static struct src_ops file_ops = {
     .pread = file_ops_pread,
     .aio_pread = file_ops_aio_pread,
-    .aio_run = file_ops_aio_run,
     .close = file_ops_close,
 };
 
