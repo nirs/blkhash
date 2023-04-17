@@ -54,6 +54,10 @@ struct command_queue {
 
 struct worker {
     pthread_t thread;
+
+    /* Watched fd for detecting source I/O events. */
+    struct pollfd poll_fds[1];
+
     int id;
     struct job *job;
     struct src *s;
@@ -428,6 +432,33 @@ static void next_extent(struct worker *w, int64_t offset,
         w->extents.index++;
 }
 
+static int wait_for_events(struct worker *w)
+{
+    int n;
+
+    if (src_aio_prepare(w->s, &w->poll_fds[0]))
+        return -1;
+
+    /* If the fd is -1, the source does not need polling in this iteration.
+     * Polling on this fd blocks until the timeout expires. */
+    if (w->poll_fds[0].fd == -1)
+        return 0;
+
+    do {
+        n = poll(w->poll_fds, 1, -1);
+    } while (n == -1 && errno == EINTR);
+
+    if (n == -1) {
+        ERROR("Polling failed: %s", strerror(errno));
+        return -1;
+    }
+
+    if (w->poll_fds[0].revents)
+        return src_aio_notify(w->s, &w->poll_fds[0]);
+
+    return 0;
+}
+
 static void process_image(struct worker *w)
 {
     struct job *job = w->job;
@@ -450,7 +481,8 @@ static void process_image(struct worker *w)
             extent.length = 0;
         }
 
-        src_aio_run(w->s, 1000);
+        if (wait_for_events(w))
+            FAIL("worker %d failed", w->id);
 
         while (has_ready_command(w))
             finish_command(w);

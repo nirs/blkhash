@@ -75,6 +75,20 @@ int src_aio_run(struct src *s, int timeout)
     return s->ops->aio_run(s, timeout);
 }
 
+int src_aio_prepare(struct src *s, struct pollfd *pfd)
+{
+    if (s->ops->aio_prepare)
+        return s->ops->aio_prepare(s, pfd);
+
+    pfd->fd = -1; /* Don't poll in this iteration. */
+    return 0;
+}
+
+int src_aio_notify(struct src *s, struct pollfd *pfd)
+{
+    return s->ops->aio_notify(s, pfd);
+}
+
 void src_close(struct src *s)
 {
     s->ops->close(s);
