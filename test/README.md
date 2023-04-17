@@ -176,7 +176,7 @@ Example run of the benchmark script:
 
     $ test/bench-data.py
 
-    blkhash-bench --input-type data --digest-name sha256
+    blkhash-bench --digest-name sha256 --input-type data
 
      1 threads, 64 streams: 4.65 GiB in 10.004 s (476.43 MiB/s)
      2 threads, 64 streams: 9.01 GiB in 10.003 s (921.89 MiB/s)
@@ -195,7 +195,7 @@ Example run of the benchmark script:
 
 $ test/bench-zero.py
 
-    blkhash-bench --input-type zero --digest-name sha256
+    blkhash-bench --digest-name sha256 --input-type zero
 
      1 threads, 64 streams: 380.86 GiB in 10.078 s (37.79 GiB/s)
      2 threads, 64 streams: 420.76 GiB in 10.025 s (41.97 GiB/s)
@@ -214,7 +214,7 @@ Example run of the benchmark script:
 
     $ test/bench-hole.py
 
-    blkhash-bench --input-type hole --digest-name sha256
+    blkhash-bench --digest-name sha256 --input-type hole
 
      1 threads, 64 streams: 7.50 TiB in 10.040 s (764.98 GiB/s)
      2 threads, 64 streams: 14.50 TiB in 10.024 s (1.45 TiB/s)

@@ -4,6 +4,6 @@
 
 import bench
 
-print(f"\nblkhash-bench --input-type zero --digest-name {bench.DIGEST}\n")
+print(f"\nblkhash-bench --digest-name {bench.DIGEST} --input-type zero\n")
 for n in bench.threads():
     bench.blkhash("zero", threads=n)
