@@ -24,9 +24,9 @@ struct extent_array {
 
 struct command {
     STAILQ_ENTRY(command) entry;
-    uint64_t seq;
-    uint64_t started;
     void *buf;
+    int64_t offset;
+    uint64_t started;
     uint32_t length;
     bool ready;
     bool zero;
@@ -53,9 +53,6 @@ struct worker {
     struct blkhash *h;
     struct extent_array extents;
     struct command_queue queue;
-
-    /* Ensure that we process commands in order. */
-    uint64_t commands_started;
 
     /* The computed checksum. */
     unsigned char *out;
@@ -180,7 +177,7 @@ static void optimize(const char *filename, struct options *opt,
     }
 }
 
-static struct command *create_command(struct extent *extent, uint64_t seq)
+static struct command *create_command(int64_t offset, struct extent *extent)
 {
     struct command *c;
 
@@ -194,14 +191,13 @@ static struct command *create_command(struct extent *extent, uint64_t seq)
             FAIL_ERRNO("malloc");
     }
 
-    c->seq = seq;
-
-    if (debug)
-        c->started = gettime();
-
+    c->offset = offset;
     c->length = extent->length;
     c->ready = extent->zero;
     c->zero = extent->zero;
+
+    if (debug)
+        c->started = gettime();
 
     return c;
 }
@@ -217,8 +213,8 @@ static int read_completed(void *user_data, int *error)
     if (*error)
         FAIL("Read failed: %s", strerror(*error));
 
-    DEBUG("Command %" PRIu64 " ready in %" PRIu64 " usec",
-          cmd->seq, gettime() - cmd->started);
+    DEBUG("Command offset=%" PRIu64 " ready in %" PRIu64 " usec",
+          cmd->offset, gettime() - cmd->started);
 
     cmd->ready = true;
 
@@ -238,13 +234,11 @@ static void start_command(struct worker *w, int64_t offset, struct extent *exten
 {
     struct command *cmd;
 
-    DEBUG("Command %" PRIu64 " started offset=%" PRIi64
-          " length=%" PRIu32 " zero=%d",
-          w->commands_started, offset, extent->length, extent->zero);
+    DEBUG("Command started offset=%" PRIi64 " length=%" PRIu32 " zero=%d",
+          offset, extent->length, extent->zero);
 
-    cmd = create_command(extent, w->commands_started);
+    cmd = create_command(offset, extent);
     queue_push(&w->queue, cmd);
-    w->commands_started++;
 
     if (!cmd->zero)
         src_aio_pread(w->s, cmd->buf, extent->length, offset, read_completed, cmd);
@@ -272,9 +266,9 @@ static void finish_command(struct worker *w)
     if (w->opt->progress)
         progress_update(cmd->length);
 
-    DEBUG("Command %" PRIu64 " finished in %" PRIu64 " usec "
+    DEBUG("Command offset=%" PRIu64 " finished in %" PRIu64 " usec "
           "length=%" PRIu32 " zero=%d",
-          cmd->seq, gettime() - cmd->started, cmd->length, cmd->zero);
+          cmd->offset, gettime() - cmd->started, cmd->length, cmd->zero);
 
     free_command(cmd);
 }
