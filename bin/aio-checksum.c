@@ -177,6 +177,11 @@ static void optimize(const char *filename, struct options *opt,
     }
 }
 
+static inline const char *command_name(struct command *cmd)
+{
+    return cmd->zero ? "Zero" : "Read";
+}
+
 static struct command *create_command(int64_t offset, struct extent *extent)
 {
     struct command *c;
@@ -211,10 +216,13 @@ static int read_completed(void *user_data, int *error)
      * the NBD server error.
      */
     if (*error)
-        FAIL("Read failed: %s", strerror(*error));
+        FAIL("%s offset=%" PRIu64 " length=%" PRIu32 " failed: %s",
+             command_name(cmd), cmd->offset, cmd->length, strerror(*error));
 
-    DEBUG("Command offset=%" PRIu64 " ready in %" PRIu64 " usec",
-          cmd->offset, gettime() - cmd->started);
+    DEBUG("%s offset=%" PRIu64 " length=%" PRIu32 " ready in %" PRIu64
+          " usec",
+          command_name(cmd), cmd->offset, cmd->length,
+          gettime() - cmd->started);
 
     cmd->ready = true;
 
@@ -234,14 +242,14 @@ static void start_command(struct worker *w, int64_t offset, struct extent *exten
 {
     struct command *cmd;
 
-    DEBUG("Command started offset=%" PRIi64 " length=%" PRIu32 " zero=%d",
-          offset, extent->length, extent->zero);
-
     cmd = create_command(offset, extent);
     queue_push(&w->queue, cmd);
 
     if (!cmd->zero)
-        src_aio_pread(w->s, cmd->buf, extent->length, offset, read_completed, cmd);
+        src_aio_pread(w->s, cmd->buf, cmd->length, cmd->offset, read_completed, cmd);
+
+    DEBUG("%s offset=%" PRIi64 " length=%" PRIu32 " started",
+          command_name(cmd), cmd->offset, cmd->length);
 }
 
 static void finish_command(struct worker *w)
@@ -266,9 +274,10 @@ static void finish_command(struct worker *w)
     if (w->opt->progress)
         progress_update(cmd->length);
 
-    DEBUG("Command offset=%" PRIu64 " finished in %" PRIu64 " usec "
-          "length=%" PRIu32 " zero=%d",
-          cmd->offset, gettime() - cmd->started, cmd->length, cmd->zero);
+    DEBUG("%s offset=%" PRIu64 " length=%" PRIu32 " finished in %" PRIu64
+          " usec ",
+          command_name(cmd), cmd->offset, cmd->length,
+          gettime() - cmd->started);
 
     free_command(cmd);
 }
