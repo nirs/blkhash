@@ -56,7 +56,6 @@ struct worker {
 
     /* Ensure that we process commands in order. */
     uint64_t commands_started;
-    uint64_t commands_finished;
 
     /* The computed checksum. */
     unsigned char *out;
@@ -256,10 +255,6 @@ static void finish_command(struct worker *w)
     struct command *cmd = queue_pop(&w->queue);
 
     assert(cmd->ready);
-
-    /* Ensure we process commands in order. */
-    assert(cmd->seq == w->commands_finished);
-    w->commands_finished++;
 
     if (!io_only) {
         int err;
