@@ -183,62 +183,6 @@ static void optimize(const char *filename, struct options *opt,
     }
 }
 
-static void init_worker(struct worker *w, const char *filename,
-                        struct options *opt, unsigned char *out)
-{
-    w->opt = opt;
-    w->out = out;
-
-    if (is_nbd_uri(filename)) {
-        /* Use user provided nbd server. */
-        w->uri = strdup(filename);
-        if (w->uri == NULL)
-            FAIL_ERRNO("strdup");
-    } else {
-        struct file_info fi = {0};
-        /*
-         * If we have NBD, start nbd server and use nbd uri. Otherwise use file
-         * directly if it is a raw format.
-         */
-        probe_file(filename, &fi);
-
-#ifdef HAVE_NBD
-        optimize(filename, opt, &fi);
-
-        struct server_options options = {
-            .filename=filename,
-            .format=fi.format,
-            .aio=opt->aio,
-            .cache=opt->cache,
-        };
-
-        w->nbd_server = start_nbd_server(&options);
-        w->uri = nbd_server_uri(w->nbd_server);
-#else
-        if (strcmp(fi.format, "raw") != 0)
-            FAIL("%s format requires NBD", fi.format);
-
-        w->uri = strdup(filename);
-        if (w->uri == NULL)
-            FAIL_ERRNO("strdup");
-#endif
-    }
-
-    queue_init(&w->queue, w->opt->queue_size);
-}
-
-static void destroy_worker(struct worker *w)
-{
-    free(w->uri);
-
-#ifdef HAVE_NBD
-    if (w->nbd_server) {
-        stop_nbd_server(w->nbd_server);
-        free(w->nbd_server);
-    }
-#endif
-}
-
 static struct command *create_command(struct extent *extent, int wid,
                                       uint64_t seq)
 {
@@ -523,23 +467,89 @@ static void *worker_thread(void *arg)
     return NULL;
 }
 
+static void init_worker(struct worker *w, const char *filename,
+                        struct options *opt, unsigned char *out)
+{
+    w->opt = opt;
+    w->out = out;
+
+    if (is_nbd_uri(filename)) {
+        /* Use user provided nbd server. */
+        w->uri = strdup(filename);
+        if (w->uri == NULL)
+            FAIL_ERRNO("strdup");
+    } else {
+        struct file_info fi = {0};
+        /*
+         * If we have NBD, start nbd server and use nbd uri. Otherwise use file
+         * directly if it is a raw format.
+         */
+        probe_file(filename, &fi);
+
+#ifdef HAVE_NBD
+        optimize(filename, opt, &fi);
+
+        struct server_options options = {
+            .filename=filename,
+            .format=fi.format,
+            .aio=opt->aio,
+            .cache=opt->cache,
+        };
+
+        w->nbd_server = start_nbd_server(&options);
+        w->uri = nbd_server_uri(w->nbd_server);
+#else
+        if (strcmp(fi.format, "raw") != 0)
+            FAIL("%s format requires NBD", fi.format);
+
+        w->uri = strdup(filename);
+        if (w->uri == NULL)
+            FAIL_ERRNO("strdup");
+#endif
+    }
+
+    queue_init(&w->queue, w->opt->queue_size);
+}
+
+static void start_worker(struct worker *w)
+{
+    int err;
+
+    DEBUG("starting worker");
+    err = pthread_create(&w->thread, NULL, worker_thread, w);
+    if (err)
+        FAIL("pthread_create: %s", strerror(err));
+}
+
+static void join_worker(struct worker *w)
+{
+    int err;
+
+    DEBUG("joining worker");
+    err = pthread_join(w->thread, NULL);
+    if (err)
+        FAIL("pthread_join: %s", strerror(err));
+}
+
+static void destroy_worker(struct worker *w)
+{
+    free(w->uri);
+
+#ifdef HAVE_NBD
+    if (w->nbd_server) {
+        stop_nbd_server(w->nbd_server);
+        free(w->nbd_server);
+    }
+#endif
+}
+
 void aio_checksum(const char *filename, struct options *opt,
                   unsigned char *out)
 {
     struct worker w = {0};
-    int err;
 
     init_worker(&w, filename, opt, out);
-
-    DEBUG("starting worker");
-    err = pthread_create(&w.thread, NULL, worker_thread, &w);
-    if (err)
-        FAIL("pthread_create: %s", strerror(err));
-
-    DEBUG("joining worker");
-    err = pthread_join(w.thread, NULL);
-    if (err)
-        FAIL("pthread_join: %s", strerror(err));
-
+    start_worker(&w);
+    join_worker(&w);
     destroy_worker(&w);
 }
