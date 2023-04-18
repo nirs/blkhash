@@ -223,6 +223,8 @@ static void init_worker(struct worker *w, const char *filename,
             FAIL_ERRNO("strdup");
 #endif
     }
+
+    queue_init(&w->queue, w->opt->queue_size);
 }
 
 static void destroy_worker(struct worker *w)
@@ -528,8 +530,6 @@ void aio_checksum(const char *filename, struct options *opt,
     int err;
 
     init_worker(&w, filename, opt, out);
-
-    queue_init(&w.queue, opt->queue_size);
 
     DEBUG("starting worker");
     err = pthread_create(&w.thread, NULL, worker_thread, &w);
