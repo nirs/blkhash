@@ -16,14 +16,6 @@
 /* qemu-nbd process up to 16 in-flight commands per connection. */
 #define MAX_COMMANDS 16
 
-struct job {
-    char *uri;
-    struct options *opt;
-
-    /* Set if job started a nbd server to serve filename. */
-    struct nbd_server *nbd_server;
-};
-
 struct extent_array {
     struct extent *array;
     size_t count;
@@ -55,7 +47,9 @@ struct worker {
     struct pollfd poll_fds[1];
 
     int id;
-    struct job *job;
+    char *uri;
+    struct nbd_server *nbd_server;
+    struct options *opt;
     struct src *s;
     int64_t image_size;
     struct blkhash *h;
@@ -189,13 +183,16 @@ static void optimize(const char *filename, struct options *opt,
     }
 }
 
-static void init_job(struct job *job, const char *filename,
-                     struct options *opt)
+static void init_worker(struct worker *w, const char *filename,
+                        struct options *opt, unsigned char *out)
 {
+    w->opt = opt;
+    w->out = out;
+
     if (is_nbd_uri(filename)) {
         /* Use user provided nbd server. */
-        job->uri = strdup(filename);
-        if (job->uri == NULL)
+        w->uri = strdup(filename);
+        if (w->uri == NULL)
             FAIL_ERRNO("strdup");
     } else {
         struct file_info fi = {0};
@@ -215,32 +212,27 @@ static void init_job(struct job *job, const char *filename,
             .cache=opt->cache,
         };
 
-        job->nbd_server = start_nbd_server(&options);
-        job->uri = nbd_server_uri(job->nbd_server);
+        w->nbd_server = start_nbd_server(&options);
+        w->uri = nbd_server_uri(w->nbd_server);
 #else
         if (strcmp(fi.format, "raw") != 0)
             FAIL("%s format requires NBD", fi.format);
 
-        job->uri = strdup(filename);
-        if (job->uri == NULL)
+        w->uri = strdup(filename);
+        if (w->uri == NULL)
             FAIL_ERRNO("strdup");
 #endif
     }
-
-    /* Initialize job. */
-    job->opt = opt;
 }
 
-static void destroy_job(struct job *job)
+static void destroy_worker(struct worker *w)
 {
-    free(job->uri);
-    job->uri = NULL;
+    free(w->uri);
 
 #ifdef HAVE_NBD
-    if (job->nbd_server) {
-        stop_nbd_server(job->nbd_server);
-        free(job->nbd_server);
-        job->nbd_server = NULL;
+    if (w->nbd_server) {
+        stop_nbd_server(w->nbd_server);
+        free(w->nbd_server);
     }
 #endif
 }
@@ -340,7 +332,7 @@ static void finish_command(struct worker *w)
         }
     }
 
-    if (w->job->opt->progress)
+    if (w->opt->progress)
         progress_update(cmd->length);
 
     DEBUG("worker %d command %" PRIu64 " finished in %" PRIu64 " usec "
@@ -385,11 +377,10 @@ static inline bool need_extents(struct worker *w)
 static void next_extent(struct worker *w, int64_t offset,
                         struct extent *extent)
 {
-    struct options *opt = w->job->opt;
     struct extent *current;
 
     if (need_extents(w)) {
-        uint32_t length = MIN(opt->extents_size, w->image_size - offset);
+        uint32_t length = MIN(w->opt->extents_size, w->image_size - offset);
         fetch_extents(w, offset, length);
     }
 
@@ -402,8 +393,8 @@ static void next_extent(struct worker *w, int64_t offset,
     if (extent->zero)
         extent->length = current->length;
     else
-        extent->length = current->length < opt->read_size ?
-            current->length : opt->read_size;
+        extent->length = current->length < w->opt->read_size ?
+            current->length : w->opt->read_size;
 
     current->length -= extent->length;
 
@@ -483,35 +474,33 @@ static void process_image(struct worker *w)
 static void *worker_thread(void *arg)
 {
     struct worker *w = (struct worker *)arg;
-    struct job *job = w->job;
-    struct options *opt = job->opt;
     struct blkhash_opts *ho;
     int err = 0;
 
     DEBUG("worker %d started", w->id);
 
-    ho = blkhash_opts_new(opt->digest_name);
+    ho = blkhash_opts_new(w->opt->digest_name);
     if (ho == NULL)
         FAIL_ERRNO("blkhash_opts_new");
 
-    if (blkhash_opts_set_block_size(ho, opt->block_size))
-        FAIL("Invalid block size value: %zu", opt->block_size);
+    if (blkhash_opts_set_block_size(ho, w->opt->block_size))
+        FAIL("Invalid block size value: %zu", w->opt->block_size);
 
-    if (blkhash_opts_set_streams(ho, opt->streams))
-        FAIL("Invalid streams value: %zu", opt->streams);
+    if (blkhash_opts_set_streams(ho, w->opt->streams))
+        FAIL("Invalid streams value: %zu", w->opt->streams);
 
-    if (blkhash_opts_set_threads(ho, opt->threads))
-        FAIL("Invalid threads value: %zu", opt->threads);
+    if (blkhash_opts_set_threads(ho, w->opt->threads))
+        FAIL("Invalid threads value: %zu", w->opt->threads);
 
     w->h = blkhash_new_opts(ho);
     blkhash_opts_free(ho);
     if (w->h == NULL)
         FAIL_ERRNO("blkhash_new");
 
-    w->s = open_src(job->uri);
+    w->s = open_src(w->uri);
     w->image_size = w->s->size;
 
-    if (opt->progress)
+    if (w->opt->progress)
         progress_init(w->image_size);
 
     process_image(w);
@@ -522,7 +511,7 @@ static void *worker_thread(void *arg)
     blkhash_free(w->h);
     src_close(w->s);
 
-    if (opt->progress)
+    if (w->opt->progress)
         progress_clear();
 
     if (err)
@@ -535,23 +524,22 @@ static void *worker_thread(void *arg)
 void aio_checksum(const char *filename, struct options *opt,
                   unsigned char *out)
 {
-    struct job job = {0};
-    struct worker worker = {.job=&job, .out=out};
+    struct worker w = {0};
     int err;
 
-    init_job(&job, filename, opt);
+    init_worker(&w, filename, opt, out);
 
-    queue_init(&worker.queue, opt->queue_size);
+    queue_init(&w.queue, opt->queue_size);
 
     DEBUG("starting worker");
-    err = pthread_create(&worker.thread, NULL, worker_thread, &worker);
+    err = pthread_create(&w.thread, NULL, worker_thread, &w);
     if (err)
         FAIL("pthread_create: %s", strerror(err));
 
     DEBUG("joining worker");
-    err = pthread_join(worker.thread, NULL);
+    err = pthread_join(w.thread, NULL);
     if (err)
         FAIL("pthread_join: %s", strerror(err));
 
-    destroy_job(&job);
+    destroy_worker(&w);
 }
