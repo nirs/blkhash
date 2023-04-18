@@ -22,9 +22,6 @@ struct job {
 
     /* Set if job started a nbd server to serve filename. */
     struct nbd_server *nbd_server;
-
-    /* The computed checksum. */
-    unsigned char *out;
 };
 
 struct extent_array {
@@ -68,6 +65,9 @@ struct worker {
     /* Ensure that we process commands in order. */
     uint64_t commands_started;
     uint64_t commands_finished;
+
+    /* The computed checksum. */
+    unsigned char *out;
 };
 
 static inline uint32_t cost(bool zero, uint32_t len)
@@ -190,10 +190,8 @@ static void optimize(const char *filename, struct options *opt,
 }
 
 static void init_job(struct job *job, const char *filename,
-                     struct options *opt, unsigned char *out)
+                     struct options *opt)
 {
-    job->out = out;
-
     if (is_nbd_uri(filename)) {
         /* Use user provided nbd server. */
         job->uri = strdup(filename);
@@ -519,7 +517,7 @@ static void *worker_thread(void *arg)
     process_image(w);
 
     if (running())
-        err = blkhash_final(w->h, job->out, NULL);
+        err = blkhash_final(w->h, w->out, NULL);
 
     blkhash_free(w->h);
     src_close(w->s);
@@ -538,10 +536,10 @@ void aio_checksum(const char *filename, struct options *opt,
                   unsigned char *out)
 {
     struct job job = {0};
-    struct worker worker = {.job=&job};
+    struct worker worker = {.job=&job, .out=out};
     int err;
 
-    init_job(&job, filename, opt, out);
+    init_job(&job, filename, opt);
 
     queue_init(&worker.queue, opt->queue_size);
 
