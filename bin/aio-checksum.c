@@ -28,7 +28,6 @@ struct command {
     uint64_t started;
     void *buf;
     uint32_t length;
-    int wid;
     bool ready;
     bool zero;
 };
@@ -46,7 +45,6 @@ struct worker {
     /* Watched fd for detecting source I/O events. */
     struct pollfd poll_fds[1];
 
-    int id;
     char *uri;
     struct nbd_server *nbd_server;
     struct options *opt;
@@ -183,8 +181,7 @@ static void optimize(const char *filename, struct options *opt,
     }
 }
 
-static struct command *create_command(struct extent *extent, int wid,
-                                      uint64_t seq)
+static struct command *create_command(struct extent *extent, uint64_t seq)
 {
     struct command *c;
 
@@ -204,7 +201,6 @@ static struct command *create_command(struct extent *extent, int wid,
         c->started = gettime();
 
     c->length = extent->length;
-    c->wid = wid;
     c->ready = extent->zero;
     c->zero = extent->zero;
 
@@ -222,8 +218,8 @@ static int read_completed(void *user_data, int *error)
     if (*error)
         FAIL("Read failed: %s", strerror(*error));
 
-    DEBUG("worker %d command %" PRIu64 " ready in %" PRIu64 " usec",
-          cmd->wid, cmd->seq, gettime() - cmd->started);
+    DEBUG("Command %" PRIu64 " ready in %" PRIu64 " usec",
+          cmd->seq, gettime() - cmd->started);
 
     cmd->ready = true;
 
@@ -243,11 +239,11 @@ static void start_command(struct worker *w, int64_t offset, struct extent *exten
 {
     struct command *cmd;
 
-    DEBUG("worker %d command %" PRIu64 " started offset=%" PRIi64
+    DEBUG("Command %" PRIu64 " started offset=%" PRIi64
           " length=%" PRIu32 " zero=%d",
-          w->id, w->commands_started, offset, extent->length, extent->zero);
+          w->commands_started, offset, extent->length, extent->zero);
 
-    cmd = create_command(extent, w->id, w->commands_started);
+    cmd = create_command(extent, w->commands_started);
     queue_push(&w->queue, cmd);
     w->commands_started++;
 
@@ -281,9 +277,9 @@ static void finish_command(struct worker *w)
     if (w->opt->progress)
         progress_update(cmd->length);
 
-    DEBUG("worker %d command %" PRIu64 " finished in %" PRIu64 " usec "
+    DEBUG("Command %" PRIu64 " finished in %" PRIu64 " usec "
           "length=%" PRIu32 " zero=%d",
-          w->id, cmd->seq, gettime() - cmd->started, cmd->length, cmd->zero);
+          cmd->seq, gettime() - cmd->started, cmd->length, cmd->zero);
 
     free_command(cmd);
 }
@@ -303,16 +299,16 @@ static void fetch_extents(struct worker *w, int64_t offset, uint32_t length)
     uint64_t start = 0;
     clear_extents(w);
 
-    DEBUG("worker %d get extents offset=%" PRIi64 " length=%" PRIu32,
-          w->id, offset, length);
+    DEBUG("Get extents offset=%" PRIi64 " length=%" PRIu32,
+          offset, length);
 
     if (debug)
         start = gettime();
 
     src_extents(w->s, offset, length, &w->extents.array, &w->extents.count);
 
-    DEBUG("worker %d got %lu extents in %" PRIu64 " usec",
-          w->id, w->extents.count, gettime() - start);
+    DEBUG("Got %lu extents in %" PRIu64 " usec",
+          w->extents.count, gettime() - start);
 }
 
 static inline bool need_extents(struct worker *w)
@@ -344,8 +340,8 @@ static void next_extent(struct worker *w, int64_t offset,
 
     current->length -= extent->length;
 
-    DEBUG("worker %d extent %ld zero=%d take=%u left=%u",
-          w->id, w->extents.index, extent->zero, extent->length,
+    DEBUG("Extent %ld zero=%d take=%u left=%u",
+          w->extents.index, extent->zero, extent->length,
           current->length);
 
     /* Advance to next extent if current is consumed. */
@@ -403,13 +399,13 @@ static void process_image(struct worker *w)
         }
 
         if (wait_for_events(w))
-            FAIL("worker %d failed", w->id);
+            FAIL("Worker failed");
 
         while (has_ready_command(w))
             finish_command(w);
 
         if (!running()) {
-            DEBUG("worker %d aborting", w->id);
+            DEBUG("Worker aborting");
             break;
         }
     }
@@ -422,7 +418,7 @@ static void *worker_thread(void *arg)
     struct worker *w = (struct worker *)arg;
     int err = 0;
 
-    DEBUG("worker %d started", w->id);
+    DEBUG("Worker started");
 
     w->s = open_src(w->uri);
     w->image_size = w->s->size;
@@ -443,7 +439,7 @@ static void *worker_thread(void *arg)
     if (err)
         FAIL("blkhash_final: %s", strerror(err));
 
-    DEBUG("worker %d finished", w->id);
+    DEBUG("Worker finished");
     return NULL;
 }
 
