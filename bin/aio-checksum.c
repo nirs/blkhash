@@ -420,10 +420,36 @@ static void process_image(struct worker *w)
 static void *worker_thread(void *arg)
 {
     struct worker *w = (struct worker *)arg;
-    struct blkhash_opts *ho;
     int err = 0;
 
     DEBUG("worker %d started", w->id);
+
+    w->s = open_src(w->uri);
+    w->image_size = w->s->size;
+
+    if (w->opt->progress)
+        progress_init(w->image_size);
+
+    process_image(w);
+
+    if (running())
+        err = blkhash_final(w->h, w->out, NULL);
+
+    src_close(w->s);
+
+    if (w->opt->progress)
+        progress_clear();
+
+    if (err)
+        FAIL("blkhash_final: %s", strerror(err));
+
+    DEBUG("worker %d finished", w->id);
+    return NULL;
+}
+
+static void create_hash(struct worker *w)
+{
+    struct blkhash_opts *ho;
 
     ho = blkhash_opts_new(w->opt->digest_name);
     if (ho == NULL)
@@ -442,29 +468,6 @@ static void *worker_thread(void *arg)
     blkhash_opts_free(ho);
     if (w->h == NULL)
         FAIL_ERRNO("blkhash_new");
-
-    w->s = open_src(w->uri);
-    w->image_size = w->s->size;
-
-    if (w->opt->progress)
-        progress_init(w->image_size);
-
-    process_image(w);
-
-    if (running())
-        err = blkhash_final(w->h, w->out, NULL);
-
-    blkhash_free(w->h);
-    src_close(w->s);
-
-    if (w->opt->progress)
-        progress_clear();
-
-    if (err)
-        FAIL("blkhash_final: %s", strerror(err));
-
-    DEBUG("worker %d finished", w->id);
-    return NULL;
 }
 
 static void init_worker(struct worker *w, const char *filename,
@@ -509,6 +512,7 @@ static void init_worker(struct worker *w, const char *filename,
     }
 
     queue_init(&w->queue, w->opt->queue_size);
+    create_hash(w);
 }
 
 static void start_worker(struct worker *w)
@@ -533,6 +537,7 @@ static void join_worker(struct worker *w)
 
 static void destroy_worker(struct worker *w)
 {
+    blkhash_free(w->h);
     free(w->uri);
 
 #ifdef HAVE_NBD
