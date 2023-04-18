@@ -18,7 +18,6 @@
 
 struct job {
     char *uri;
-    int64_t size;
     struct options *opt;
 
     /* Set if job started a nbd server to serve filename. */
@@ -61,6 +60,7 @@ struct worker {
     int id;
     struct job *job;
     struct src *s;
+    int64_t image_size;
     struct blkhash *h;
     struct extent_array extents;
     struct command_queue queue;
@@ -192,8 +192,6 @@ static void optimize(const char *filename, struct options *opt,
 static void init_job(struct job *job, const char *filename,
                      struct options *opt, unsigned char *out)
 {
-    struct src *src;
-
     job->out = out;
 
     if (is_nbd_uri(filename)) {
@@ -231,16 +229,8 @@ static void init_job(struct job *job, const char *filename,
 #endif
     }
 
-    /* Connect to source for getting size. */
-    src = open_src(job->uri);
-    job->size = src->size;
-    src_close(src);
-
     /* Initialize job. */
     job->opt = opt;
-
-    if (opt->progress)
-        progress_init(job->size);
 }
 
 static void destroy_job(struct job *job)
@@ -255,9 +245,6 @@ static void destroy_job(struct job *job)
         job->nbd_server = NULL;
     }
 #endif
-
-    if (job->opt->progress)
-        progress_clear();
 }
 
 static struct command *create_command(struct extent *extent, int wid,
@@ -404,7 +391,7 @@ static void next_extent(struct worker *w, int64_t offset,
     struct extent *current;
 
     if (need_extents(w)) {
-        uint32_t length = MIN(opt->extents_size, w->job->size - offset);
+        uint32_t length = MIN(opt->extents_size, w->image_size - offset);
         fetch_extents(w, offset, length);
     }
 
@@ -461,13 +448,12 @@ static int wait_for_events(struct worker *w)
 
 static void process_image(struct worker *w)
 {
-    struct job *job = w->job;
     int64_t offset = 0;
     struct extent extent = {0};
 
-    while (has_commands(w) || offset < job->size) {
+    while (has_commands(w) || offset < w->image_size) {
 
-        while (offset < job->size) {
+        while (offset < w->image_size) {
 
             if (extent.length == 0)
                 next_extent(w, offset, &extent);
@@ -477,7 +463,7 @@ static void process_image(struct worker *w)
 
             start_command(w, offset, &extent);
             offset += extent.length;
-            assert(offset <= job->size);
+            assert(offset <= w->image_size);
             extent.length = 0;
         }
 
@@ -525,6 +511,10 @@ static void *worker_thread(void *arg)
         FAIL_ERRNO("blkhash_new");
 
     w->s = open_src(job->uri);
+    w->image_size = w->s->size;
+
+    if (opt->progress)
+        progress_init(w->image_size);
 
     process_image(w);
 
@@ -533,6 +523,9 @@ static void *worker_thread(void *arg)
 
     blkhash_free(w->h);
     src_close(w->s);
+
+    if (opt->progress)
+        progress_clear();
 
     if (err)
         FAIL("blkhash_final: %s", strerror(err));
