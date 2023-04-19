@@ -29,11 +29,6 @@ struct command {
     bool zero;
 };
 
-struct command_queue {
-    STAILQ_HEAD(, command) head;
-    size_t len;       /* Number of items in queue. */
-};
-
 struct worker {
     pthread_t thread;
 
@@ -47,7 +42,8 @@ struct worker {
     int64_t image_size;
     struct blkhash *h;
     struct extent_array extents;
-    struct command_queue queue;
+    STAILQ_HEAD(, command) read_queue;
+    unsigned commands_in_flight;
 
     /* The computed checksum. */
     unsigned char *out;
@@ -55,38 +51,37 @@ struct worker {
 
 static inline void push_command(struct worker *w, struct command *cmd)
 {
-    assert(w->queue.len < w->opt->queue_depth);
-    STAILQ_INSERT_TAIL(&w->queue.head, cmd, entry);
-    w->queue.len++;
+    assert(w->commands_in_flight < w->opt->queue_depth);
+    STAILQ_INSERT_TAIL(&w->read_queue, cmd, entry);
+    w->commands_in_flight++;
 }
 
 static inline struct command *pop_command(struct worker *w)
 {
     struct command *cmd;
 
-    assert(w->queue.len > 0);
-    cmd = STAILQ_FIRST(&w->queue.head);
-    STAILQ_REMOVE_HEAD(&w->queue.head, entry);
-    w->queue.len--;
+    assert(w->commands_in_flight > 0);
+    cmd = STAILQ_FIRST(&w->read_queue);
+    STAILQ_REMOVE_HEAD(&w->read_queue, entry);
+    w->commands_in_flight--;
 
     return cmd;
 }
 
 static inline bool has_commands(struct worker *w)
 {
-    return w->queue.len > 0;
+    return w->commands_in_flight > 0;
 }
 
 static inline bool has_ready_command(struct worker *w)
 {
-    struct command_queue *q = &w->queue;
-
-    return q->len > 0 && STAILQ_FIRST(&q->head)->ready;
+    struct command *next = STAILQ_FIRST(&w->read_queue);
+    return next && next->ready;
 }
 
 static inline bool queue_full(struct worker *w)
 {
-    return w->queue.len >= w->opt->queue_depth;
+    return w->commands_in_flight >= w->opt->queue_depth;
 }
 
 static void optimize(const char *filename, struct options *opt,
@@ -476,8 +471,8 @@ static void init_worker(struct worker *w, const char *filename,
 #endif
     }
 
-    STAILQ_INIT(&w->queue.head);
-    w->queue.len = 0;
+    STAILQ_INIT(&w->read_queue);
+    w->commands_in_flight = 0;
 
     create_hash(w);
 }
