@@ -69,7 +69,7 @@ static inline struct command *pop_command(struct worker *w)
     return cmd;
 }
 
-static inline bool has_ready_command(struct worker *w)
+static inline bool has_data(struct worker *w)
 {
     struct command *next = STAILQ_FIRST(&w->read_queue);
     return next && next->ready;
@@ -214,7 +214,7 @@ static void start_command(struct worker *w, int64_t offset, struct extent *exten
           command_name(cmd), cmd->offset, cmd->length);
 }
 
-static void finish_command(struct worker *w)
+static void hash_more_data(struct worker *w)
 {
     struct command *cmd = pop_command(w);
 
@@ -362,8 +362,8 @@ static void process_image(struct worker *w)
         if (wait_for_events(w))
             FAIL("Worker failed");
 
-        while (has_ready_command(w))
-            finish_command(w);
+        while (has_data(w))
+            hash_more_data(w);
 
         if (!running()) {
             DEBUG("Worker aborting");
