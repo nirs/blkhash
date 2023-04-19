@@ -342,18 +342,15 @@ static int wait_for_events(struct worker *w)
 
 static void process_image(struct worker *w)
 {
-    struct extent extent = {0};
-
     while (w->bytes_hashed < w->image_size) {
 
         while (w->read_offset < w->image_size && can_read(w)) {
-            if (extent.length == 0)
-                next_extent(w, &extent);
+            struct extent extent;
 
+            next_extent(w, &extent);
             start_command(w, &extent);
             w->read_offset += extent.length;
             assert(w->read_offset <= w->image_size);
-            extent.length = 0;
         }
 
         if (wait_for_events(w))
