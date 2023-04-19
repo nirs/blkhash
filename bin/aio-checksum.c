@@ -76,9 +76,9 @@ static inline bool has_data(struct worker *w)
     return next && next->ready;
 }
 
-static inline bool queue_full(struct worker *w)
+static inline bool can_read(struct worker *w)
 {
-    return w->commands_in_flight >= w->opt->queue_depth;
+    return w->commands_in_flight < w->opt->queue_depth;
 }
 
 static void optimize(const char *filename, struct options *opt,
@@ -346,13 +346,9 @@ static void process_image(struct worker *w)
 
     while (w->bytes_hashed < w->image_size) {
 
-        while (w->read_offset < w->image_size) {
-
+        while (w->read_offset < w->image_size && can_read(w)) {
             if (extent.length == 0)
                 next_extent(w, &extent);
-
-            if (queue_full(w))
-                break;
 
             start_command(w, &extent);
             w->read_offset += extent.length;
