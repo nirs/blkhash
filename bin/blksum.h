@@ -6,11 +6,12 @@
 
 #include <errno.h>
 #include <inttypes.h>
+#include <poll.h>
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <pthread.h>
 #include <unistd.h>
 
 #include "util.h"
@@ -120,12 +121,22 @@ struct src_ops {
                      completion_callback cb, void *user_data);
 
     /*
-     * Run source event loop until at least one in-flight command completes.
-     * Must be implemented if aio_pread() is available.
+     * Called before polling for events. The source must set the fd for
+     * polling and the wanted events (POLLIN, POLLOUT). The function can
+     * set fd to -1 to to disable polling in this iteration.
      *
-     * Return 0 on timeout, 1 if at least one command completed.
+     * Return 0 on success, -1 on error.
      */
-    int (*aio_run)(struct src *s, int timeout);
+    int (*aio_prepare)(struct src *s, struct pollfd *pfd);
+
+    /*
+     * Called after polling when one or more events set in ev_prepare()
+     * are available, or when an error was detected (POLLERR, POLLHUP,
+     * POLLNVAL).
+     *
+     * Return 0 on success, -1 on error.
+     */
+    int (*aio_notify)(struct src *s, struct pollfd *pfd);
 
     /*
      * Get image extents for a byte range. Caller must free the returned
@@ -163,7 +174,9 @@ ssize_t src_read(struct src *s, void *buf, size_t len);
 ssize_t src_pread(struct src *s, void *buf, size_t len, int64_t offset);
 int src_aio_pread(struct src *s, void *buf, size_t len, int64_t offset,
                   completion_callback cb, void* user_data);
-int src_aio_run(struct src *s, int timeout);
+int src_aio_prepare(struct src *s, struct pollfd *pfd);
+int src_aio_notify(struct src *s, struct pollfd *pfd);
+
 void src_close(struct src *s);
 
 void checksum(struct src *s, struct options *opt, unsigned char *out);

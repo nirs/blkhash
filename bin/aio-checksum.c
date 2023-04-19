@@ -16,18 +16,6 @@
 /* qemu-nbd process up to 16 in-flight commands per connection. */
 #define MAX_COMMANDS 16
 
-struct job {
-    char *uri;
-    int64_t size;
-    struct options *opt;
-
-    /* Set if job started a nbd server to serve filename. */
-    struct nbd_server *nbd_server;
-
-    /* The computed checksum. */
-    unsigned char *out;
-};
-
 struct extent_array {
     struct extent *array;
     size_t count;
@@ -36,11 +24,10 @@ struct extent_array {
 
 struct command {
     STAILQ_ENTRY(command) entry;
-    uint64_t seq;
-    uint64_t started;
     void *buf;
+    int64_t offset;
+    uint64_t started;
     uint32_t length;
-    int wid;
     bool ready;
     bool zero;
 };
@@ -54,16 +41,21 @@ struct command_queue {
 
 struct worker {
     pthread_t thread;
-    int id;
-    struct job *job;
+
+    /* Watched fd for detecting source I/O events. */
+    struct pollfd poll_fds[1];
+
+    char *uri;
+    struct nbd_server *nbd_server;
+    struct options *opt;
     struct src *s;
+    int64_t image_size;
     struct blkhash *h;
     struct extent_array extents;
     struct command_queue queue;
 
-    /* Ensure that we process commands in order. */
-    uint64_t commands_started;
-    uint64_t commands_finished;
+    /* The computed checksum. */
+    unsigned char *out;
 };
 
 static inline uint32_t cost(bool zero, uint32_t len)
@@ -185,79 +177,12 @@ static void optimize(const char *filename, struct options *opt,
     }
 }
 
-static void init_job(struct job *job, const char *filename,
-                     struct options *opt, unsigned char *out)
+static inline const char *command_name(struct command *cmd)
 {
-    struct src *src;
-
-    job->out = out;
-
-    if (is_nbd_uri(filename)) {
-        /* Use user provided nbd server. */
-        job->uri = strdup(filename);
-        if (job->uri == NULL)
-            FAIL_ERRNO("strdup");
-    } else {
-        struct file_info fi = {0};
-        /*
-         * If we have NBD, start nbd server and use nbd uri. Otherwise use file
-         * directly if it is a raw format.
-         */
-        probe_file(filename, &fi);
-
-#ifdef HAVE_NBD
-        optimize(filename, opt, &fi);
-
-        struct server_options options = {
-            .filename=filename,
-            .format=fi.format,
-            .aio=opt->aio,
-            .cache=opt->cache,
-        };
-
-        job->nbd_server = start_nbd_server(&options);
-        job->uri = nbd_server_uri(job->nbd_server);
-#else
-        if (strcmp(fi.format, "raw") != 0)
-            FAIL("%s format requires NBD", fi.format);
-
-        job->uri = strdup(filename);
-        if (job->uri == NULL)
-            FAIL_ERRNO("strdup");
-#endif
-    }
-
-    /* Connect to source for getting size. */
-    src = open_src(job->uri);
-    job->size = src->size;
-    src_close(src);
-
-    /* Initialize job. */
-    job->opt = opt;
-
-    if (opt->progress)
-        progress_init(job->size);
+    return cmd->zero ? "Zero" : "Read";
 }
 
-static void destroy_job(struct job *job)
-{
-    free(job->uri);
-    job->uri = NULL;
-
-#ifdef HAVE_NBD
-    if (job->nbd_server) {
-        stop_nbd_server(job->nbd_server);
-        free(job->nbd_server);
-        job->nbd_server = NULL;
-    }
-#endif
-
-    if (job->opt->progress)
-        progress_clear();
-}
-
-static struct command *create_command(struct extent *extent, int wid,
-                                      uint64_t seq)
+static struct command *create_command(int64_t offset, struct extent *extent)
 {
     struct command *c;
 
@@ -271,15 +196,13 @@ static struct command *create_command(struct extent *extent, int wid,
             FAIL_ERRNO("malloc");
     }
 
-    c->seq = seq;
+    c->offset = offset;
+    c->length = extent->length;
+    c->ready = extent->zero;
+    c->zero = extent->zero;
 
     if (debug)
         c->started = gettime();
-
-    c->length = extent->length;
-    c->wid = wid;
-    c->ready = extent->zero;
-    c->zero = extent->zero;
 
     return c;
 }
@@ -293,10 +216,13 @@ static int read_completed(void *user_data, int *error)
      * the NBD server error.
      */
     if (*error)
-        FAIL("Read failed: %s", strerror(*error));
+        FAIL("%s offset=%" PRIu64 " length=%" PRIu32 " failed: %s",
+             command_name(cmd), cmd->offset, cmd->length, strerror(*error));
 
-    DEBUG("worker %d command %" PRIu64 " ready in %" PRIu64 " usec",
-          cmd->wid, cmd->seq, gettime() - cmd->started);
+    DEBUG("%s offset=%" PRIu64 " length=%" PRIu32 " ready in %" PRIu64
+          " usec",
+          command_name(cmd), cmd->offset, cmd->length,
+          gettime() - cmd->started);
 
     cmd->ready = true;
 
@@ -316,16 +242,14 @@ static void start_command(struct worker *w, int64_t offset, struct extent *exten
 {
     struct command *cmd;
 
-    DEBUG("worker %d command %" PRIu64 " started offset=%" PRIi64
-          " length=%" PRIu32 " zero=%d",
-          w->id, w->commands_started, offset, extent->length, extent->zero);
-
-    cmd = create_command(extent, w->id, w->commands_started);
+    cmd = create_command(offset, extent);
     queue_push(&w->queue, cmd);
-    w->commands_started++;
 
     if (!cmd->zero)
-        src_aio_pread(w->s, cmd->buf, extent->length, offset, read_completed, cmd);
+        src_aio_pread(w->s, cmd->buf, cmd->length, cmd->offset, read_completed, cmd);
+
+    DEBUG("%s offset=%" PRIi64 " length=%" PRIu32 " started",
+          command_name(cmd), cmd->offset, cmd->length);
 }
 
 static void finish_command(struct worker *w)
@@ -333,10 +257,6 @@ static void finish_command(struct worker *w)
     struct command *cmd = queue_pop(&w->queue);
 
     assert(cmd->ready);
-
-    /* Ensure we process commands in order. */
-    assert(cmd->seq == w->commands_finished);
-    w->commands_finished++;
 
     if (!io_only) {
         int err;
@@ -351,12 +271,13 @@ static void finish_command(struct worker *w)
         }
     }
 
-    if (w->job->opt->progress)
+    if (w->opt->progress)
         progress_update(cmd->length);
 
-    DEBUG("worker %d command %" PRIu64 " finished in %" PRIu64 " usec "
-          "length=%" PRIu32 " zero=%d",
-          w->id, cmd->seq, gettime() - cmd->started, cmd->length, cmd->zero);
+    DEBUG("%s offset=%" PRIu64 " length=%" PRIu32 " finished in %" PRIu64
+          " usec ",
+          command_name(cmd), cmd->offset, cmd->length,
+          gettime() - cmd->started);
 
     free_command(cmd);
 }
@@ -376,16 +297,16 @@ static void fetch_extents(struct worker *w, int64_t offset, uint32_t length)
     uint64_t start = 0;
     clear_extents(w);
 
-    DEBUG("worker %d get extents offset=%" PRIi64 " length=%" PRIu32,
-          w->id, offset, length);
+    DEBUG("Get extents offset=%" PRIi64 " length=%" PRIu32,
+          offset, length);
 
     if (debug)
         start = gettime();
 
     src_extents(w->s, offset, length, &w->extents.array, &w->extents.count);
 
-    DEBUG("worker %d got %lu extents in %" PRIu64 " usec",
-          w->id, w->extents.count, gettime() - start);
+    DEBUG("Got %lu extents in %" PRIu64 " usec",
+          w->extents.count, gettime() - start);
 }
 
 static inline bool need_extents(struct worker *w)
@@ -396,11 +317,10 @@ static inline bool need_extents(struct worker *w)
 static void next_extent(struct worker *w, int64_t offset,
                         struct extent *extent)
 {
-    struct options *opt = w->job->opt;
     struct extent *current;
 
     if (need_extents(w)) {
-        uint32_t length = MIN(opt->extents_size, w->job->size - offset);
+        uint32_t length = MIN(w->opt->extents_size, w->image_size - offset);
         fetch_extents(w, offset, length);
     }
 
@@ -413,13 +333,13 @@ static void next_extent(struct worker *w, int64_t offset,
     if (extent->zero)
         extent->length = current->length;
     else
-        extent->length = current->length < opt->read_size ?
-            current->length : opt->read_size;
+        extent->length = current->length < w->opt->read_size ?
+            current->length : w->opt->read_size;
 
     current->length -= extent->length;
 
-    DEBUG("worker %d extent %ld zero=%d take=%u left=%u",
-          w->id, w->extents.index, extent->zero, extent->length,
+    DEBUG("Extent %ld zero=%d take=%u left=%u",
+          w->extents.index, extent->zero, extent->length,
           current->length);
 
     /* Advance to next extent if current is consumed. */
@@ -428,15 +348,41 @@ static void next_extent(struct worker *w, int64_t offset,
         w->extents.index++;
 }
 
+static int wait_for_events(struct worker *w)
+{
+    int n;
+
+    if (src_aio_prepare(w->s, &w->poll_fds[0]))
+        return -1;
+
+    /* If the fd is -1, the source does not need polling in this iteration.
+     * Polling on this fd blocks until the timeout expires. */
+    if (w->poll_fds[0].fd == -1)
+        return 0;
+
+    do {
+        n = poll(w->poll_fds, 1, -1);
+    } while (n == -1 && errno == EINTR);
+
+    if (n == -1) {
+        ERROR("Polling failed: %s", strerror(errno));
+        return -1;
+    }
+
+    if (w->poll_fds[0].revents)
+        return src_aio_notify(w->s, &w->poll_fds[0]);
+
+    return 0;
+}
+
 static void process_image(struct worker *w)
 {
-    struct job *job = w->job;
     int64_t offset = 0;
     struct extent extent = {0};
 
-    while (has_commands(w) || offset < job->size) {
+    while (has_commands(w) || offset < w->image_size) {
 
-        while (offset < job->size) {
+        while (offset < w->image_size) {
 
             if (extent.length == 0)
                 next_extent(w, offset, &extent);
@@ -446,17 +392,18 @@ static void process_image(struct worker *w)
 
             start_command(w, offset, &extent);
             offset += extent.length;
-            assert(offset <= job->size);
+            assert(offset <= w->image_size);
             extent.length = 0;
         }
 
-        src_aio_run(w->s, 1000);
+        if (wait_for_events(w))
+            FAIL("Worker failed");
 
         while (has_ready_command(w))
             finish_command(w);
 
         if (!running()) {
-            DEBUG("worker %d aborting", w->id);
+            DEBUG("Worker aborting");
             break;
         }
     }
@@ -467,68 +414,141 @@ static void process_image(struct worker *w)
 static void *worker_thread(void *arg)
 {
     struct worker *w = (struct worker *)arg;
-    struct job *job = w->job;
-    struct options *opt = job->opt;
-    struct blkhash_opts *ho;
     int err = 0;
 
-    DEBUG("worker %d started", w->id);
+    DEBUG("Worker started");
 
-    ho = blkhash_opts_new(opt->digest_name);
+    w->s = open_src(w->uri);
+    w->image_size = w->s->size;
+
+    if (w->opt->progress)
+        progress_init(w->image_size);
+
+    process_image(w);
+
+    if (running())
+        err = blkhash_final(w->h, w->out, NULL);
+
+    src_close(w->s);
+
+    if (w->opt->progress)
+        progress_clear();
+
+    if (err)
+        FAIL("blkhash_final: %s", strerror(err));
+
+    DEBUG("Worker finished");
+    return NULL;
+}
+
+static void create_hash(struct worker *w)
+{
+    struct blkhash_opts *ho;
+
+    ho = blkhash_opts_new(w->opt->digest_name);
     if (ho == NULL)
         FAIL_ERRNO("blkhash_opts_new");
 
-    if (blkhash_opts_set_block_size(ho, opt->block_size))
-        FAIL("Invalid block size value: %zu", opt->block_size);
+    if (blkhash_opts_set_block_size(ho, w->opt->block_size))
+        FAIL("Invalid block size value: %zu", w->opt->block_size);
 
-    if (blkhash_opts_set_streams(ho, opt->streams))
-        FAIL("Invalid streams value: %zu", opt->streams);
+    if (blkhash_opts_set_streams(ho, w->opt->streams))
+        FAIL("Invalid streams value: %zu", w->opt->streams);
 
-    if (blkhash_opts_set_threads(ho, opt->threads))
-        FAIL("Invalid threads value: %zu", opt->threads);
+    if (blkhash_opts_set_threads(ho, w->opt->threads))
+        FAIL("Invalid threads value: %zu", w->opt->threads);
 
     w->h = blkhash_new_opts(ho);
     blkhash_opts_free(ho);
     if (w->h == NULL)
         FAIL_ERRNO("blkhash_new");
+}
 
-    w->s = open_src(job->uri);
+static void init_worker(struct worker *w, const char *filename,
+                        struct options *opt, unsigned char *out)
+{
+    w->opt = opt;
+    w->out = out;
 
-    process_image(w);
+    if (is_nbd_uri(filename)) {
+        /* Use user provided nbd server. */
+        w->uri = strdup(filename);
+        if (w->uri == NULL)
+            FAIL_ERRNO("strdup");
+    } else {
+        struct file_info fi = {0};
+        /*
+         * If we have NBD, start nbd server and use nbd uri. Otherwise use file
+         * directly if it is a raw format.
+         */
+        probe_file(filename, &fi);
 
-    if (running())
-        err = blkhash_final(w->h, job->out, NULL);
+#ifdef HAVE_NBD
+        optimize(filename, opt, &fi);
 
-    blkhash_free(w->h);
-    src_close(w->s);
+        struct server_options options = {
+            .filename=filename,
+            .format=fi.format,
+            .aio=opt->aio,
+            .cache=opt->cache,
+        };
 
+        w->nbd_server = start_nbd_server(&options);
+        w->uri = nbd_server_uri(w->nbd_server);
+#else
+        if (strcmp(fi.format, "raw") != 0)
+            FAIL("%s format requires NBD", fi.format);
+
+        w->uri = strdup(filename);
+        if (w->uri == NULL)
+            FAIL_ERRNO("strdup");
+#endif
+    }
+
+    queue_init(&w->queue, w->opt->queue_size);
+    create_hash(w);
+}
+
+static void start_worker(struct worker *w)
+{
+    int err;
+
+    DEBUG("starting worker");
+    err = pthread_create(&w->thread, NULL, worker_thread, w);
     if (err)
-        FAIL("blkhash_final: %s", strerror(err));
+        FAIL("pthread_create: %s", strerror(err));
+}
 
-    DEBUG("worker %d finished", w->id);
-    return NULL;
+static void join_worker(struct worker *w)
+{
+    int err;
+
+    DEBUG("joining worker");
+    err = pthread_join(w->thread, NULL);
+    if (err)
+        FAIL("pthread_join: %s", strerror(err));
+}
+
+static void destroy_worker(struct worker *w)
+{
+    blkhash_free(w->h);
+    free(w->uri);
+
+#ifdef HAVE_NBD
+    if (w->nbd_server) {
+        stop_nbd_server(w->nbd_server);
+        free(w->nbd_server);
+    }
+#endif
 }
 
 void aio_checksum(const char *filename, struct options *opt,
                   unsigned char *out)
 {
-    struct job job = {0};
-    struct worker worker = {.job=&job};
-    int err;
+    struct worker w = {0};
 
-    init_job(&job, filename, opt, out);
-
-    queue_init(&worker.queue, opt->queue_size);
-
-    DEBUG("starting worker");
-    err = pthread_create(&worker.thread, NULL, worker_thread, &worker);
-    if (err)
-        FAIL("pthread_create: %s", strerror(err));
-
-    DEBUG("joining worker");
-    err = pthread_join(worker.thread, NULL);
-    if (err)
-        FAIL("pthread_join: %s", strerror(err));
-
-    destroy_job(&job);
+    init_worker(&w, filename, opt, out);
+    start_worker(&w);
+    join_worker(&w);
+    destroy_worker(&w);
 }

@@ -140,29 +140,62 @@ static int nbd_ops_aio_pread(struct src *s, void *buf, size_t len,
     return 0;
 }
 
-static int nbd_ops_aio_run(struct src *s, int timeout)
+static int nbd_ops_aio_prepare(struct src *s, struct pollfd *pfd)
 {
     struct nbd_src *ns = (struct nbd_src *)s;
-    int res;
-    int in_flight;
 
-    in_flight = nbd_aio_in_flight(ns->h);
+    /* If we don't have in flight commands, polling on the socket will
+     * block forever - disable polling in for this iteration. This is
+     * an expected condition when we finished reading. */
+    if (nbd_aio_in_flight(ns->h) == 0) {
+        pfd->fd = -1;
+        return 0;
+    }
 
-    if (in_flight == 0)
-        return 1;
+    pfd->fd = nbd_aio_get_fd(ns->h);
+
+    switch (nbd_aio_get_direction(ns->h)) {
+    case LIBNBD_AIO_DIRECTION_READ:
+        pfd->events = POLLIN;
+        break;
+    case LIBNBD_AIO_DIRECTION_WRITE:
+        pfd->events = POLLOUT;
+        break;
+    case LIBNBD_AIO_DIRECTION_BOTH:
+        pfd->events = POLLIN | POLLOUT;
+        break;
+    default:
+        /* Based on libnbd/poll.c this should never happen. */
+        ERROR("Nothing to poll for in-flight requests");
+        return -1;
+    }
+
+    return 0;
+}
+
+static int nbd_ops_aio_notify(struct src *s, struct pollfd *pfd)
+{
+    struct nbd_src *ns = (struct nbd_src *)s;
 
     /*
-     * Testing shows that we need to poll 1-7 times before a command
-     * complete.
+     * Based on libnbd/lib/poll.c, we need to prefer read over write,
+     * and avoid invoking both notify_read() and notify_write(), since
+     * notify_read() may change the state of the handle.
+     *
+     * We notify read on POLLHUP since nbd_poll does the same and it
+     * works so far.
      */
-    do {
-        res = nbd_poll(ns->h, timeout);
-    } while (res == 1 && nbd_aio_in_flight(ns->h) >= in_flight);
 
-    if (res == -1)
-        FAIL_NBD();
+    if (pfd->revents & (POLLIN | POLLHUP)) {
+        return nbd_aio_notify_read(ns->h);
+    } else if (pfd->revents & POLLOUT) {
+        return nbd_aio_notify_write(ns->h);
+    } else if (pfd->revents & (POLLERR | POLLNVAL)) {
+        ERROR("NBD server closed the connection unexpectedly");
+        return -1;
+    }
 
-    return res;
+    return 0;
 }
 
 static void nbd_ops_close(struct src *s)
@@ -181,7 +214,8 @@ static struct src_ops nbd_ops = {
     .pread = nbd_ops_pread,
     .extents = nbd_ops_extents,
     .aio_pread = nbd_ops_aio_pread,
-    .aio_run = nbd_ops_aio_run,
+    .aio_prepare = nbd_ops_aio_prepare,
+    .aio_notify = nbd_ops_aio_notify,
     .close = nbd_ops_close,
 };
 
