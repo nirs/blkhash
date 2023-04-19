@@ -40,6 +40,7 @@ struct worker {
     struct options *opt;
     struct src *s;
     int64_t image_size;
+    int64_t read_offset;
     int64_t bytes_hashed;
     struct blkhash *h;
     struct extent_array extents;
@@ -200,11 +201,11 @@ static void free_command(struct command *c)
     }
 }
 
-static void start_command(struct worker *w, int64_t offset, struct extent *extent)
+static void start_command(struct worker *w, struct extent *extent)
 {
     struct command *cmd;
 
-    cmd = create_command(offset, extent);
+    cmd = create_command(w->read_offset, extent);
     push_command(w, cmd);
 
     if (!cmd->zero)
@@ -255,18 +256,19 @@ static void clear_extents(struct worker *w)
     }
 }
 
-static void fetch_extents(struct worker *w, int64_t offset, uint32_t length)
+static void fetch_extents(struct worker *w, uint32_t length)
 {
     uint64_t start = 0;
     clear_extents(w);
 
     DEBUG("Get extents offset=%" PRIi64 " length=%" PRIu32,
-          offset, length);
+          w->read_offset, length);
 
     if (debug)
         start = gettime();
 
-    src_extents(w->s, offset, length, &w->extents.array, &w->extents.count);
+    src_extents(w->s, w->read_offset, length, &w->extents.array,
+                &w->extents.count);
 
     DEBUG("Got %lu extents in %" PRIu64 " usec",
           w->extents.count, gettime() - start);
@@ -277,14 +279,14 @@ static inline bool need_extents(struct worker *w)
     return w->extents.index == w->extents.count;
 }
 
-static void next_extent(struct worker *w, int64_t offset,
-                        struct extent *extent)
+static void next_extent(struct worker *w, struct extent *extent)
 {
     struct extent *current;
 
     if (need_extents(w)) {
-        uint32_t length = MIN(w->opt->extents_size, w->image_size - offset);
-        fetch_extents(w, offset, length);
+        uint32_t length = MIN(w->opt->extents_size,
+                              w->image_size - w->read_offset);
+        fetch_extents(w, length);
     }
 
     assert(w->extents.index < w->extents.count);
@@ -340,22 +342,21 @@ static int wait_for_events(struct worker *w)
 
 static void process_image(struct worker *w)
 {
-    int64_t offset = 0;
     struct extent extent = {0};
 
     while (w->bytes_hashed < w->image_size) {
 
-        while (offset < w->image_size) {
+        while (w->read_offset < w->image_size) {
 
             if (extent.length == 0)
-                next_extent(w, offset, &extent);
+                next_extent(w, &extent);
 
             if (queue_full(w))
                 break;
 
-            start_command(w, offset, &extent);
-            offset += extent.length;
-            assert(offset <= w->image_size);
+            start_command(w, &extent);
+            w->read_offset += extent.length;
+            assert(w->read_offset <= w->image_size);
             extent.length = 0;
         }
 
