@@ -203,6 +203,9 @@ static void start_command(struct worker *w, struct extent *extent)
     cmd = create_command(w->read_offset, extent);
     push_command(w, cmd);
 
+    w->read_offset += cmd->length;
+    assert(w->read_offset <= w->image_size);
+
     if (!cmd->zero)
         src_aio_pread(w->s, cmd->buf, cmd->length, cmd->offset, read_completed, cmd);
 
@@ -316,8 +319,6 @@ static void read_more_data(struct worker *w)
 
         next_extent(w, &extent);
         start_command(w, &extent);
-        w->read_offset += extent.length;
-        assert(w->read_offset <= w->image_size);
     }
 }
 
