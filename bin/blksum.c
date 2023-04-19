@@ -17,9 +17,10 @@
 #include "blkhash.h"
 #include "blksum.h"
 
-#define MAX_QUEUE_SIZE (8 * 1024 * 1024)
+/* 16 is typically best, allow larger number for testing. */
+#define MAX_QUEUE_DEPTH 128
 
-/* Using larger number to allow testing on big machines. */
+/* 32 is the default, allow larger number for testing on big machines. */
 #define MAX_STREAMS 128
 
 bool debug = false;
@@ -44,12 +45,9 @@ static struct options opt = {
     .read_size = 256 * 1024,
 
     /*
-     * Maximum number of bytes to queue for inflight async reads. With
-     * the default read_size (256k) this will queue up to 8 inflight
-     * requests with 256k length, or up to 16 inflight requests with 4k
-     * length.
+     * Maximum number of of inflight async reads.
      */
-    .queue_size = 2 * 1024 * 1024,
+    .queue_depth = 16,
 
     /*
      * Smaller size is optimal for hashing and detecting holes.
@@ -94,7 +92,7 @@ static struct options opt = {
 };
 
 enum {
-    QUEUE_SIZE=CHAR_MAX + 1,
+    QUEUE_DEPTH=CHAR_MAX + 1,
     READ_SIZE,
 };
 
@@ -109,7 +107,7 @@ static struct option long_options[] = {
    {"cache",        no_argument,        0,  'c'},
    {"threads",      required_argument,  0,  't'},
    {"streams",      required_argument,  0,  'S'},
-   {"queue-size",   required_argument,  0,  QUEUE_SIZE},
+   {"queue-depth",  required_argument,  0,  QUEUE_DEPTH},
    {"read-size",    required_argument,  0,  READ_SIZE},
    {0,              0,                  0,  0}
 };
@@ -122,7 +120,7 @@ static void usage(int code)
         "\n"
         "    blksum [-d DIGEST|--digest=DIGEST] [-p|--progress]\n"
         "           [-c|--cache] [-t N|--threads N] [-S N|--streams=N]\n"
-        "           [--queue-size=N] [--read-size=N]\n"
+        "           [--queue-depth=N] [--read-size=N]\n"
         "           [-l|--list-digests] [-h|--help]\n"
         "           [filename]\n"
         "\n"
@@ -170,7 +168,8 @@ static void parse_options(int argc, char *argv[])
         case 't': {
             int value = parse_humansize(optarg);
             if (value == -EINVAL || value < 1)
-                FAIL("Invalid value for option %s: '%s'", optname, optarg);
+                FAIL("Invalid value for option %s: '%s' (valid range 1-%d)",
+                     optname, optarg, MAX_STREAMS);
 
             opt.threads = value;
             break;
@@ -178,18 +177,20 @@ static void parse_options(int argc, char *argv[])
         case 'S': {
             int value = parse_humansize(optarg);
             if (value == -EINVAL || value < 1)
-                FAIL("Invalid value for option %s: '%s'", optname, optarg);
+                FAIL("Invalid value for option %s: '%s' (valid range 1-%d)",
+                     optname, optarg, MAX_STREAMS);
 
             opt.streams = value;
             break;
         }
-        case QUEUE_SIZE: {
+        case QUEUE_DEPTH: {
             int value = parse_humansize(optarg);
-            if (value == -EINVAL)
-                FAIL("Invalid value for option %s: '%s'", optname, optarg);
+            if (value == -EINVAL || value > MAX_QUEUE_DEPTH)
+                FAIL("Invalid value for option %s: '%s' (valid range 1-%d)",
+                     optname, optarg, MAX_QUEUE_DEPTH);
 
-            opt.queue_size = value;
-            opt.flags |= USER_QUEUE_SIZE;
+            opt.queue_depth = value;
+            opt.flags |= USER_QUEUE_DEPTH;
             break;
         }
         case READ_SIZE: {
@@ -224,16 +225,8 @@ static void parse_options(int argc, char *argv[])
              opt.block_size);
 
     if (opt.read_size < opt.block_size)
-        FAIL("read-size %ld is larger than block size %ld",
+        FAIL("read-size %ld is smaller than block size %ld",
              opt.read_size, opt.block_size);
-
-    if (opt.read_size > opt.queue_size)
-        FAIL("read-size %ld is larger than queue-size %ld",
-             opt.read_size, opt.queue_size);
-
-    if (opt.queue_size > MAX_QUEUE_SIZE)
-        FAIL("queue-size %ld is larger than maximum queue size %d",
-             opt.queue_size, MAX_QUEUE_SIZE);
 
     /* Parse arguments */
 

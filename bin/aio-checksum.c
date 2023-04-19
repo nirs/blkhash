@@ -13,9 +13,6 @@
 #include "blksum.h"
 #include "util.h"
 
-/* qemu-nbd process up to 16 in-flight commands per connection. */
-#define MAX_COMMANDS 16
-
 struct extent_array {
     struct extent *array;
     size_t count;
@@ -34,9 +31,7 @@ struct command {
 
 struct command_queue {
     STAILQ_HEAD(, command) head;
-    int len;       /* Number of items in queue. */
-    size_t bytes;  /* Total length of non-zero commands. */
-    size_t size;   /* Maximum length of non-zero commands. */
+    size_t len;       /* Number of items in queue. */
 };
 
 struct worker {
@@ -58,44 +53,21 @@ struct worker {
     unsigned char *out;
 };
 
-static inline uint32_t cost(bool zero, uint32_t len)
+static inline void push_command(struct worker *w, struct command *cmd)
 {
-    return zero ? 0 : len;
+    assert(w->queue.len < w->opt->queue_depth);
+    STAILQ_INSERT_TAIL(&w->queue.head, cmd, entry);
+    w->queue.len++;
 }
 
-static inline void queue_init(struct command_queue *q, int size)
-{
-    STAILQ_INIT(&q->head);
-    q->len = 0;
-    q->bytes = 0;
-    q->size = size;
-}
-
-static inline void queue_push(struct command_queue *q, struct command *cmd)
-{
-    assert(q->len < MAX_COMMANDS);
-    q->len++;
-
-    q->bytes += cost(cmd->zero, cmd->length);
-    assert(q->bytes <= q->size);
-
-    STAILQ_INSERT_TAIL(&q->head, cmd, entry);
-}
-
-static inline struct command *queue_pop(struct command_queue *q)
+static inline struct command *pop_command(struct worker *w)
 {
     struct command *cmd;
-    uint32_t cmd_cost;
 
-    cmd = STAILQ_FIRST(&q->head);
-    STAILQ_REMOVE_HEAD(&q->head, entry);
-
-    assert(q->len > 0);
-    q->len--;
-
-    cmd_cost = cost(cmd->zero, cmd->length);
-    assert(q->bytes >= cmd_cost);
-    q->bytes -= cmd_cost;
+    assert(w->queue.len > 0);
+    cmd = STAILQ_FIRST(&w->queue.head);
+    STAILQ_REMOVE_HEAD(&w->queue.head, entry);
+    w->queue.len--;
 
     return cmd;
 }
@@ -112,12 +84,9 @@ static inline bool has_ready_command(struct worker *w)
     return q->len > 0 && STAILQ_FIRST(&q->head)->ready;
 }
 
-static inline int can_process(struct worker *w, struct extent *extent)
+static inline bool queue_full(struct worker *w)
 {
-    struct command_queue *q = &w->queue;
-
-    return q->len < MAX_COMMANDS &&
-	   q->size - q->bytes >= cost(extent->zero, extent->length);
+    return w->queue.len >= w->opt->queue_depth;
 }
 
 static void optimize(const char *filename, struct options *opt,
@@ -140,19 +109,21 @@ static void optimize(const char *filename, struct options *opt,
          * faster. For qcow2, the default values give best performance.
          */
         if (strcmp(fi->format, "raw") == 0) {
+            /* If user did not specify read size, use larger value. */
             if ((opt->flags & USER_READ_SIZE) == 0) {
                 opt->read_size = 2 * 1024 * 1024;
                 DEBUG("Optimize for 'raw' image on 'nfs': read_size=%ld",
                       opt->read_size);
+
+                /* If user did not specify queue depth, adapt queue size to
+                 * read size. */
+                if ((opt->flags & USER_QUEUE_DEPTH) == 0) {
+                    opt->queue_depth = 4;
+                    DEBUG("Optimize for 'raw' image on 'nfs': queue_depth=%ld",
+                          opt->queue_depth);
+                }
             }
 
-            if ((opt->flags & USER_QUEUE_SIZE) == 0) {
-                opt->queue_size = 4 * 1024 * 1024;
-                if (opt->queue_size < opt->read_size)
-                    opt->queue_size = opt->read_size;
-                DEBUG("Optimize for 'raw' image on 'nfs': queue_size=%ld",
-                      opt->queue_size);
-            }
         }
     } else {
         /*
@@ -243,7 +214,7 @@ static void start_command(struct worker *w, int64_t offset, struct extent *exten
     struct command *cmd;
 
     cmd = create_command(offset, extent);
-    queue_push(&w->queue, cmd);
+    push_command(w, cmd);
 
     if (!cmd->zero)
         src_aio_pread(w->s, cmd->buf, cmd->length, cmd->offset, read_completed, cmd);
@@ -254,7 +225,7 @@ static void start_command(struct worker *w, int64_t offset, struct extent *exten
 
 static void finish_command(struct worker *w)
 {
-    struct command *cmd = queue_pop(&w->queue);
+    struct command *cmd = pop_command(w);
 
     assert(cmd->ready);
 
@@ -387,7 +358,7 @@ static void process_image(struct worker *w)
             if (extent.length == 0)
                 next_extent(w, offset, &extent);
 
-            if (!can_process(w, &extent))
+            if (queue_full(w))
                 break;
 
             start_command(w, offset, &extent);
@@ -505,7 +476,9 @@ static void init_worker(struct worker *w, const char *filename,
 #endif
     }
 
-    queue_init(&w->queue, w->opt->queue_size);
+    STAILQ_INIT(&w->queue.head);
+    w->queue.len = 0;
+
     create_hash(w);
 }
 
