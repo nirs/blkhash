@@ -40,6 +40,7 @@ struct worker {
     struct options *opt;
     struct src *s;
     int64_t image_size;
+    int64_t bytes_hashed;
     struct blkhash *h;
     struct extent_array extents;
     STAILQ_HEAD(, command) read_queue;
@@ -66,11 +67,6 @@ static inline struct command *pop_command(struct worker *w)
     w->commands_in_flight--;
 
     return cmd;
-}
-
-static inline bool has_commands(struct worker *w)
-{
-    return w->commands_in_flight > 0;
 }
 
 static inline bool has_ready_command(struct worker *w)
@@ -237,6 +233,7 @@ static void finish_command(struct worker *w)
         }
     }
 
+    w->bytes_hashed += cmd->length;
     if (w->opt->progress)
         progress_update(cmd->length);
 
@@ -346,7 +343,7 @@ static void process_image(struct worker *w)
     int64_t offset = 0;
     struct extent extent = {0};
 
-    while (has_commands(w) || offset < w->image_size) {
+    while (w->bytes_hashed < w->image_size) {
 
         while (offset < w->image_size) {
 
