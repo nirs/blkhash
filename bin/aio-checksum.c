@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: Red Hat Inc
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+#include <assert.h>
+#include <openssl/evp.h>
 #include <pthread.h>
 #include <stdlib.h>
-#include <openssl/evp.h>
-#include <assert.h>
 #include <sys/queue.h>
 #include <unistd.h>
 
