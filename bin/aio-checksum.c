@@ -51,65 +51,6 @@ struct worker {
     unsigned char *out;
 };
 
-static void optimize(const char *filename, struct options *opt,
-                     struct file_info *fi)
-{
-    if (fi->fs_name && strcmp(fi->fs_name, "nfs") == 0) {
-        /*
-         * cache=false aio=native can be up to 1180% slower. cache=false
-         * aio=threads can be 36% slower, but may be wanted to avoid
-         * polluting the page cache with data that is not going to be
-         * used.
-         */
-        if (strcmp(opt->aio, "native") == 0) {
-            opt->aio = "threads";
-            DEBUG("Optimize for 'nfs': aio=threads");
-        }
-
-        /*
-         * For raw format large queue and read sizes can be 2.5x times
-         * faster. For qcow2, the default values give best performance.
-         */
-        if (strcmp(fi->format, "raw") == 0) {
-            /* If user did not specify read size, use larger value. */
-            if ((opt->flags & USER_READ_SIZE) == 0) {
-                opt->read_size = 2 * 1024 * 1024;
-                DEBUG("Optimize for 'raw' image on 'nfs': read_size=%ld",
-                      opt->read_size);
-
-                /* If user did not specify queue depth, adapt queue size to
-                 * read size. */
-                if ((opt->flags & USER_QUEUE_DEPTH) == 0) {
-                    opt->queue_depth = 4;
-                    DEBUG("Optimize for 'raw' image on 'nfs': queue_depth=%ld",
-                          opt->queue_depth);
-                }
-            }
-
-        }
-    } else {
-        /*
-         * For other storage, direct I/O is required for correctness on
-         * some cases (e.g. LUN connected to multiple hosts), and typically
-         * faster and more consistent. However it is not supported on all
-         * file systems so we must check if file can be used with direct
-         * I/O.
-         */
-        if (!opt->cache && !supports_direct_io(filename)) {
-            opt->cache = true;
-            DEBUG("Optimize for '%s' image on '%s': cache=yes",
-                  fi->format, fi->fs_name);
-        }
-
-        /* Cache is not compatible with aio=native. */
-        if (opt->cache && strcmp(opt->aio, "native") == 0) {
-            opt->aio = "threads";
-            DEBUG("Optimize for '%s' image on '%s': aio=threads",
-                  fi->format, fi->fs_name);
-        }
-    }
-}
-
 static struct command *create_command(int64_t offset, uint32_t length, bool zero)
 {
     struct command *c;
@@ -135,48 +76,12 @@ static struct command *create_command(int64_t offset, uint32_t length, bool zero
     return c;
 }
 
-static int read_completed(void *user_data, int *error)
-{
-    struct command *cmd = user_data;
-
-    /*
-     * This is not documented, but *error is errno value translated from
-     * the NBD server error.
-     */
-    if (*error)
-        FAIL("Read offset=%" PRIu64 " length=%" PRIu32 " failed: %s",
-             cmd->offset, cmd->length, strerror(*error));
-
-    DEBUG("Read offset=%" PRIu64 " length=%" PRIu32 " completed in %" PRIu64
-          " usec",
-          cmd->offset, cmd->length, gettime() - cmd->started);
-
-    cmd->completed = true;
-
-    /* Required for linbd to "retire" the command. */
-    return 1;
-}
-
 static void free_command(struct command *c)
 {
     if (c) {
         free(c->buf);
         free(c);
     }
-}
-
-static void start_read(struct worker *w, struct command *cmd)
-{
-    src_aio_pread(w->s, cmd->buf, cmd->length, cmd->offset, read_completed, cmd);
-
-    DEBUG("Read offset=%" PRIi64 " length=%" PRIu32 " started",
-          cmd->offset, cmd->length);
-}
-
-static void start_zero(struct worker *w __attribute__ ((unused)), struct command *cmd)
-{
-    DEBUG("Zero offset=%" PRIi64 " length=%" PRIu32 " started",
-          cmd->offset, cmd->length);
 }
 
 static void run_update(struct worker *w, struct command *cmd)
@@ -306,6 +211,42 @@ static void next_extent(struct worker *w, struct extent *extent)
         w->extents.index++;
 }
 
+static int read_completed(void *user_data, int *error)
+{
+    struct command *cmd = user_data;
+
+    /*
+     * This is not documented, but *error is errno value translated from
+     * the NBD server error.
+     */
+    if (*error)
+        FAIL("Read offset=%" PRIu64 " length=%" PRIu32 " failed: %s",
+             cmd->offset, cmd->length, strerror(*error));
+
+    DEBUG("Read offset=%" PRIu64 " length=%" PRIu32 " completed in %" PRIu64
+          " usec",
+          cmd->offset, cmd->length, gettime() - cmd->started);
+
+    cmd->completed = true;
+
+    /* Required for linbd to "retire" the command. */
+    return 1;
+}
+
+static void start_read(struct worker *w, struct command *cmd)
+{
+    src_aio_pread(w->s, cmd->buf, cmd->length, cmd->offset, read_completed, cmd);
+
+    DEBUG("Read offset=%" PRIi64 " length=%" PRIu32 " started",
+          cmd->offset, cmd->length);
+}
+
+static void start_zero(struct worker *w __attribute__ ((unused)), struct command *cmd)
+{
+    DEBUG("Zero offset=%" PRIi64 " length=%" PRIu32 " started",
+          cmd->offset, cmd->length);
+}
+
 static void read_more_data(struct worker *w)
 {
     while (w->read_offset < w->image_size &&
@@ -425,6 +366,65 @@ static void create_hash(struct worker *w)
     blkhash_opts_free(ho);
     if (w->h == NULL)
         FAIL_ERRNO("blkhash_new");
+}
+
+static void optimize(const char *filename, struct options *opt,
+                     struct file_info *fi)
+{
+    if (fi->fs_name && strcmp(fi->fs_name, "nfs") == 0) {
+        /*
+         * cache=false aio=native can be up to 1180% slower. cache=false
+         * aio=threads can be 36% slower, but may be wanted to avoid
+         * polluting the page cache with data that is not going to be
+         * used.
+         */
+        if (strcmp(opt->aio, "native") == 0) {
+            opt->aio = "threads";
+            DEBUG("Optimize for 'nfs': aio=threads");
+        }
+
+        /*
+         * For raw format large queue and read sizes can be 2.5x times
+         * faster. For qcow2, the default values give best performance.
+         */
+        if (strcmp(fi->format, "raw") == 0) {
+            /* If user did not specify read size, use larger value. */
+            if ((opt->flags & USER_READ_SIZE) == 0) {
+                opt->read_size = 2 * 1024 * 1024;
+                DEBUG("Optimize for 'raw' image on 'nfs': read_size=%ld",
+                      opt->read_size);
+
+                /* If user did not specify queue depth, adapt queue size to
+                 * read size. */
+                if ((opt->flags & USER_QUEUE_DEPTH) == 0) {
+                    opt->queue_depth = 4;
+                    DEBUG("Optimize for 'raw' image on 'nfs': queue_depth=%ld",
+                          opt->queue_depth);
+                }
+            }
+
+        }
+    } else {
+        /*
+         * For other storage, direct I/O is required for correctness on
+         * some cases (e.g. LUN connected to multiple hosts), and typically
+         * faster and more consistent. However it is not supported on all
+         * file systems so we must check if file can be used with direct
+         * I/O.
+         */
+        if (!opt->cache && !supports_direct_io(filename)) {
+            opt->cache = true;
+            DEBUG("Optimize for '%s' image on '%s': cache=yes",
+                  fi->format, fi->fs_name);
+        }
+
+        /* Cache is not compatible with aio=native. */
+        if (opt->cache && strcmp(opt->aio, "native") == 0) {
+            opt->aio = "threads";
+            DEBUG("Optimize for '%s' image on '%s': aio=threads",
+                  fi->format, fi->fs_name);
+        }
+    }
 }
 
 static void init_worker(struct worker *w, const char *filename,
