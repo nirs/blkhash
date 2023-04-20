@@ -22,6 +22,7 @@ struct extent_array {
 struct command {
     STAILQ_ENTRY(command) read_entry;
     TAILQ_ENTRY(command) hash_entry;
+    struct worker *w;
     void *buf;
     int64_t offset;
     uint64_t started;
@@ -64,6 +65,8 @@ static struct command *create_command(struct worker *w)
     c->buf = malloc(w->opt->read_size);
     if (c->buf == NULL)
         FAIL_ERRNO("malloc");
+
+    c->w = w;
 
     return c;
 }
@@ -130,9 +133,6 @@ static void hash_more_data(struct worker *w)
 
         STAILQ_REMOVE_HEAD(&w->read_queue, read_entry);
         TAILQ_INSERT_TAIL(&w->hash_queue, cmd, hash_entry);
-
-        assert(w->commands_in_flight > 0);
-        w->commands_in_flight--;
 
         if (!io_only) {
             if (cmd->zero)
@@ -234,6 +234,9 @@ static int read_completed(void *user_data, int *error)
 
     cmd->completed = true;
 
+    assert(cmd->w->commands_in_flight > 0);
+    cmd->w->commands_in_flight--;
+
     /* Required for linbd to "retire" the command. */
     return 1;
 }
@@ -241,6 +244,9 @@ static int read_completed(void *user_data, int *error)
 static void start_read(struct worker *w, struct command *cmd)
 {
     src_aio_pread(w->s, cmd->buf, cmd->length, cmd->offset, read_completed, cmd);
+
+    assert(w->commands_in_flight < w->opt->queue_depth);
+    w->commands_in_flight++;
 
     DEBUG("Read offset=%" PRIi64 " length=%" PRIu32 " started",
           cmd->offset, cmd->length);
@@ -276,7 +282,6 @@ static void read_more_data(struct worker *w)
                 start_read(w, cmd);
 
             w->read_offset += cmd->length;
-            w->commands_in_flight++;
         }
 
         cmd = next;
