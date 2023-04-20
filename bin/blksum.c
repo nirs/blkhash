@@ -24,7 +24,6 @@
 #define MAX_STREAMS 128
 
 bool debug = false;
-bool io_only = false;
 uint64_t started = 0;
 
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
@@ -303,7 +302,6 @@ int main(int argc, char *argv[])
     main_thread = pthread_self();
 
     debug = getenv("BLKSUM_DEBUG") != NULL;
-    io_only = getenv("BLKSUM_IO_ONLY") != NULL;
 
     if (debug)
         started = gettime();

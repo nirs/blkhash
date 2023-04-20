@@ -34,7 +34,6 @@ bool running(void);
 #define FAIL_ERRNO(msg) FAIL("%s: %s", msg, strerror(errno))
 
 extern bool debug;
-extern bool io_only;
 extern uint64_t started;
 
 /* Options flags. */

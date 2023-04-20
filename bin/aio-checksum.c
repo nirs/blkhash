@@ -134,12 +134,10 @@ static void hash_more_data(struct worker *w)
         STAILQ_REMOVE_HEAD(&w->read_queue, read_entry);
         TAILQ_INSERT_TAIL(&w->hash_queue, cmd, hash_entry);
 
-        if (!io_only) {
-            if (cmd->zero)
-                run_zero(w, cmd);
-            else
-                run_update(w, cmd);
-        }
+        if (cmd->zero)
+            run_zero(w, cmd);
+        else
+            run_update(w, cmd);
 
         w->bytes_hashed += cmd->length;
         if (w->opt->progress)

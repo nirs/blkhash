@@ -42,12 +42,10 @@ void checksum(struct src *s, struct options *opt, unsigned char *out)
         if (count == 0)
             break;
 
-        if (!io_only) {
-            err = blkhash_update(h, buf, count);
-            if (err) {
-                ERROR("blkhash_update: %s", strerror(err));
-                goto out;
-            }
+        err = blkhash_update(h, buf, count);
+        if (err) {
+            ERROR("blkhash_update: %s", strerror(err));
+            goto out;
         }
     }
 
