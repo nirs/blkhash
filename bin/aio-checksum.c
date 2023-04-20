@@ -51,31 +51,6 @@ struct worker {
     unsigned char *out;
 };
 
-static inline void push_command(struct worker *w, struct command *cmd)
-{
-    assert(w->commands_in_flight < w->opt->queue_depth);
-    STAILQ_INSERT_TAIL(&w->read_queue, cmd, entry);
-    w->commands_in_flight++;
-}
-
-static inline struct command *pop_command(struct worker *w)
-{
-    struct command *cmd;
-
-    assert(w->commands_in_flight > 0);
-    cmd = STAILQ_FIRST(&w->read_queue);
-    STAILQ_REMOVE_HEAD(&w->read_queue, entry);
-    w->commands_in_flight--;
-
-    return cmd;
-}
-
-static inline bool has_data(struct worker *w)
-{
-    struct command *next = STAILQ_FIRST(&w->read_queue);
-    return next && next->completed;
-}
-
 static void optimize(const char *filename, struct options *opt,
                      struct file_info *fi)
 {
@@ -190,28 +165,16 @@ static void free_command(struct command *c)
     }
 }
 
-static void start_read(struct worker *w, uint32_t length)
+static void start_read(struct worker *w, struct command *cmd)
 {
-    struct command *cmd;
-
-    cmd = create_command(w->read_offset, length, false);
-    push_command(w, cmd);
-    w->read_offset += cmd->length;
-
     src_aio_pread(w->s, cmd->buf, cmd->length, cmd->offset, read_completed, cmd);
 
     DEBUG("Read offset=%" PRIi64 " length=%" PRIu32 " started",
           cmd->offset, cmd->length);
 }
 
-static void start_zero(struct worker *w, uint32_t length)
+static void start_zero(struct worker *w __attribute__ ((unused)), struct command *cmd)
 {
-    struct command *cmd;
-
-    cmd = create_command(w->read_offset, length, true);
-    push_command(w, cmd);
-    w->read_offset += cmd->length;
-
     DEBUG("Zero offset=%" PRIi64 " length=%" PRIu32 " started",
           cmd->offset, cmd->length);
 }
@@ -250,23 +213,30 @@ static void run_zero(struct worker *w, struct command *cmd)
 
 static void hash_more_data(struct worker *w)
 {
-    struct command *cmd = pop_command(w);
+    struct command *cmd, *next;
 
-    assert(cmd->completed);
+    cmd = STAILQ_FIRST(&w->read_queue);
 
-    if (!io_only) {
-        if (cmd->zero)
-            run_zero(w, cmd);
-        else
-            run_update(w, cmd);
+    while (cmd != NULL && cmd->completed) {
+        next = STAILQ_NEXT(cmd, entry);
+        STAILQ_REMOVE_HEAD(&w->read_queue, entry);
+
+        assert(w->commands_in_flight > 0);
+        w->commands_in_flight--;
+
+        if (!io_only) {
+            if (cmd->zero)
+                run_zero(w, cmd);
+            else
+                run_update(w, cmd);
+        }
+
+        w->bytes_hashed += cmd->length;
+        if (w->opt->progress)
+            progress_update(cmd->length);
+        free_command(cmd);
+        cmd = next;
     }
-
-    w->bytes_hashed += cmd->length;
-
-    if (w->opt->progress)
-        progress_update(cmd->length);
-
-    free_command(cmd);
 }
 
 static void clear_extents(struct worker *w)
@@ -340,14 +310,20 @@ static void read_more_data(struct worker *w)
 {
     while (w->read_offset < w->image_size &&
            w->commands_in_flight < w->opt->queue_depth) {
+        struct command *cmd;
         struct extent extent;
 
         next_extent(w, &extent);
+        cmd = create_command(w->read_offset, extent.length, extent.zero);
+        STAILQ_INSERT_TAIL(&w->read_queue, cmd, entry);
 
-        if (extent.zero)
-            start_zero(w, extent.length);
+        if (cmd->zero)
+            start_zero(w, cmd);
         else
-            start_read(w, extent.length);
+            start_read(w, cmd);
+
+        w->read_offset += cmd->length;
+        w->commands_in_flight++;
     }
 }
 
@@ -387,8 +363,7 @@ static void process_image(struct worker *w)
         if (wait_for_events(w))
             FAIL("Worker failed");
 
-        while (has_data(w))
-            hash_more_data(w);
+        hash_more_data(w);
 
         if (!running()) {
             DEBUG("Worker aborting");
