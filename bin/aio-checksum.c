@@ -174,13 +174,12 @@ static int read_completed(void *user_data, int *error)
      * the NBD server error.
      */
     if (*error)
-        FAIL("%s offset=%" PRIu64 " length=%" PRIu32 " failed: %s",
-             command_name(cmd), cmd->offset, cmd->length, strerror(*error));
+        FAIL("Read offset=%" PRIu64 " length=%" PRIu32 " failed: %s",
+             cmd->offset, cmd->length, strerror(*error));
 
-    DEBUG("%s offset=%" PRIu64 " length=%" PRIu32 " completed in %" PRIu64
+    DEBUG("Read offset=%" PRIu64 " length=%" PRIu32 " completed in %" PRIu64
           " usec",
-          command_name(cmd), cmd->offset, cmd->length,
-          gettime() - cmd->started);
+          cmd->offset, cmd->length, gettime() - cmd->started);
 
     cmd->completed = true;
 
