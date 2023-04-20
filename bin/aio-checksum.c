@@ -140,7 +140,7 @@ static inline const char *command_name(struct command *cmd)
     return cmd->zero ? "Zero" : "Read";
 }
 
-static struct command *create_command(int64_t offset, struct extent *extent)
+static struct command *create_command(int64_t offset, uint32_t length, bool zero)
 {
     struct command *c;
 
@@ -148,16 +148,16 @@ static struct command *create_command(int64_t offset, struct extent *extent)
     if (c == NULL)
         FAIL_ERRNO("calloc");
 
-    if (!extent->zero) {
-        c->buf = malloc(extent->length);
+    if (!zero) {
+        c->buf = malloc(length);
         if (c->buf == NULL)
             FAIL_ERRNO("malloc");
     }
 
     c->offset = offset;
-    c->length = extent->length;
-    c->completed = extent->zero;
-    c->zero = extent->zero;
+    c->length = length;
+    c->completed = zero;
+    c->zero = zero;
 
     if (debug)
         c->started = gettime();
@@ -195,21 +195,30 @@ static void free_command(struct command *c)
     }
 }
 
-static void start_command(struct worker *w, struct extent *extent)
+static void start_read(struct worker *w, uint32_t length)
 {
     struct command *cmd;
 
-    cmd = create_command(w->read_offset, extent);
+    cmd = create_command(w->read_offset, length, false);
     push_command(w, cmd);
-
     w->read_offset += cmd->length;
-    assert(w->read_offset <= w->image_size);
 
-    if (!cmd->zero)
-        src_aio_pread(w->s, cmd->buf, cmd->length, cmd->offset, read_completed, cmd);
+    src_aio_pread(w->s, cmd->buf, cmd->length, cmd->offset, read_completed, cmd);
 
-    DEBUG("%s offset=%" PRIi64 " length=%" PRIu32 " started",
-          command_name(cmd), cmd->offset, cmd->length);
+    DEBUG("Read offset=%" PRIi64 " length=%" PRIu32 " started",
+          cmd->offset, cmd->length);
+}
+
+static void start_zero(struct worker *w, uint32_t length)
+{
+    struct command *cmd;
+
+    cmd = create_command(w->read_offset, length, true);
+    push_command(w, cmd);
+    w->read_offset += cmd->length;
+
+    DEBUG("Zero offset=%" PRIi64 " length=%" PRIu32 " started",
+          cmd->offset, cmd->length);
 }
 
 static void hash_more_data(struct worker *w)
@@ -317,7 +326,11 @@ static void read_more_data(struct worker *w)
         struct extent extent;
 
         next_extent(w, &extent);
-        start_command(w, &extent);
+
+        if (extent.zero)
+            start_zero(w, extent.length);
+        else
+            start_read(w, extent.length);
     }
 }
 
