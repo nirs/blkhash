@@ -20,7 +20,8 @@ struct extent_array {
 };
 
 struct command {
-    STAILQ_ENTRY(command) entry;
+    STAILQ_ENTRY(command) read_entry;
+    TAILQ_ENTRY(command) hash_entry;
     void *buf;
     int64_t offset;
     uint64_t started;
@@ -45,13 +46,14 @@ struct worker {
     struct blkhash *h;
     struct extent_array extents;
     STAILQ_HEAD(, command) read_queue;
+    TAILQ_HEAD(, command) hash_queue;
     unsigned commands_in_flight;
 
     /* The computed checksum. */
     unsigned char *out;
 };
 
-static struct command *create_command(int64_t offset, uint32_t length, bool zero)
+static struct command *create_command(struct worker *w)
 {
     struct command *c;
 
@@ -59,21 +61,22 @@ static struct command *create_command(int64_t offset, uint32_t length, bool zero
     if (c == NULL)
         FAIL_ERRNO("calloc");
 
-    if (!zero) {
-        c->buf = malloc(length);
-        if (c->buf == NULL)
-            FAIL_ERRNO("malloc");
-    }
+    c->buf = malloc(w->opt->read_size);
+    if (c->buf == NULL)
+        FAIL_ERRNO("malloc");
 
+    return c;
+}
+
+static void init_command(struct command *c, int64_t offset, uint32_t length, bool zero)
+{
     c->offset = offset;
     c->length = length;
-    c->completed = zero;
     c->zero = zero;
+    c->completed = zero;
 
     if (debug)
         c->started = gettime();
-
-    return c;
 }
 
 static void free_command(struct command *c)
@@ -123,8 +126,10 @@ static void hash_more_data(struct worker *w)
     cmd = STAILQ_FIRST(&w->read_queue);
 
     while (cmd != NULL && cmd->completed) {
-        next = STAILQ_NEXT(cmd, entry);
-        STAILQ_REMOVE_HEAD(&w->read_queue, entry);
+        next = STAILQ_NEXT(cmd, read_entry);
+
+        STAILQ_REMOVE_HEAD(&w->read_queue, read_entry);
+        TAILQ_INSERT_TAIL(&w->hash_queue, cmd, hash_entry);
 
         assert(w->commands_in_flight > 0);
         w->commands_in_flight--;
@@ -139,7 +144,7 @@ static void hash_more_data(struct worker *w)
         w->bytes_hashed += cmd->length;
         if (w->opt->progress)
             progress_update(cmd->length);
-        free_command(cmd);
+
         cmd = next;
     }
 }
@@ -249,22 +254,32 @@ static void start_zero(struct worker *w __attribute__ ((unused)), struct command
 
 static void read_more_data(struct worker *w)
 {
-    while (w->read_offset < w->image_size &&
-           w->commands_in_flight < w->opt->queue_depth) {
-        struct command *cmd;
-        struct extent extent;
+    struct command *cmd, *next;
 
-        next_extent(w, &extent);
-        cmd = create_command(w->read_offset, extent.length, extent.zero);
-        STAILQ_INSERT_TAIL(&w->read_queue, cmd, entry);
+    cmd = TAILQ_FIRST(&w->hash_queue);
 
-        if (cmd->zero)
-            start_zero(w, cmd);
-        else
-            start_read(w, cmd);
+    while (cmd != NULL && w->read_offset < w->image_size) {
+        next = TAILQ_NEXT(cmd, hash_entry);
 
-        w->read_offset += cmd->length;
-        w->commands_in_flight++;
+        if (cmd->completed) {
+            struct extent extent;
+
+            TAILQ_REMOVE(&w->hash_queue, cmd, hash_entry);
+            STAILQ_INSERT_TAIL(&w->read_queue, cmd, read_entry);
+
+            next_extent(w, &extent);
+            init_command(cmd, w->read_offset, extent.length, extent.zero);
+
+            if (cmd->zero)
+                start_zero(w, cmd);
+            else
+                start_read(w, cmd);
+
+            w->read_offset += cmd->length;
+            w->commands_in_flight++;
+        }
+
+        cmd = next;
     }
 }
 
@@ -469,6 +484,16 @@ static void init_worker(struct worker *w, const char *filename,
     }
 
     STAILQ_INIT(&w->read_queue);
+    TAILQ_INIT(&w->hash_queue);
+
+    /* Fill the hash queue with "completed" commands. The process loop will
+     * move them to the read queue. */
+    for (size_t i = 0; i < w->opt->queue_depth; i++) {
+        struct command *cmd = create_command(w);
+        cmd->completed = true;
+        TAILQ_INSERT_TAIL(&w->hash_queue, cmd, hash_entry);
+    }
+
     w->commands_in_flight = 0;
 
     create_hash(w);
@@ -494,10 +519,32 @@ static void join_worker(struct worker *w)
         FAIL("pthread_join: %s", strerror(err));
 }
 
+static void destroy_commands(struct worker *w)
+{
+    struct command *cmd, *next;
+
+    cmd = STAILQ_FIRST(&w->read_queue);
+    while (cmd != NULL) {
+        next = STAILQ_NEXT(cmd, read_entry);
+        STAILQ_REMOVE_HEAD(&w->read_queue, read_entry);
+        free_command(cmd);
+        cmd = next;
+    }
+
+    cmd = TAILQ_FIRST(&w->hash_queue);
+    while (cmd != NULL) {
+        next = TAILQ_NEXT(cmd, hash_entry);
+        TAILQ_REMOVE(&w->hash_queue, cmd, hash_entry);
+        free_command(cmd);
+        cmd = next;
+    }
+}
+
 static void destroy_worker(struct worker *w)
 {
     blkhash_free(w->h);
     free(w->uri);
+    destroy_commands(w);
 
 #ifdef HAVE_NBD
     if (w->nbd_server) {
