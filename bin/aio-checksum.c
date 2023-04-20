@@ -135,11 +135,6 @@ static void optimize(const char *filename, struct options *opt,
     }
 }
 
-static inline const char *command_name(struct command *cmd)
-{
-    return cmd->zero ? "Zero" : "Read";
-}
-
 static struct command *create_command(int64_t offset, uint32_t length, bool zero)
 {
     struct command *c;
@@ -221,6 +216,38 @@ static void start_zero(struct worker *w, uint32_t length)
           cmd->offset, cmd->length);
 }
 
+static void run_update(struct worker *w, struct command *cmd)
+{
+    int err;
+
+    if (debug)
+        cmd->started = gettime();
+
+    err = blkhash_update(w->h, cmd->buf, cmd->length);
+    if (err)
+        FAIL("blkhash_update: %s", strerror(err));
+
+    DEBUG("Update offset=%" PRIu64 " length=%" PRIu32 " completed in %"
+          PRIu64 " usec ",
+          cmd->offset, cmd->length, gettime() - cmd->started);
+}
+
+static void run_zero(struct worker *w, struct command *cmd)
+{
+    int err;
+
+    if (debug)
+        cmd->started = gettime();
+
+    err = blkhash_zero(w->h, cmd->length);
+    if (err)
+        FAIL("blkhash_zero: %s", strerror(err));
+
+    DEBUG("Zero offset=%" PRIu64 " length=%" PRIu32 " completed in %"
+          PRIu64 " usec ",
+          cmd->offset, cmd->length, gettime() - cmd->started);
+}
+
 static void hash_more_data(struct worker *w)
 {
     struct command *cmd = pop_command(w);
@@ -228,26 +255,16 @@ static void hash_more_data(struct worker *w)
     assert(cmd->completed);
 
     if (!io_only) {
-        int err;
-        if (cmd->zero) {
-            err = blkhash_zero(w->h, cmd->length);
-            if (err)
-                FAIL("blkhash_zero: %s", strerror(err));
-        } else {
-            err = blkhash_update(w->h, cmd->buf, cmd->length);
-            if (err)
-                FAIL("blkhash_update: %s", strerror(err));
-        }
+        if (cmd->zero)
+            run_zero(w, cmd);
+        else
+            run_update(w, cmd);
     }
 
     w->bytes_hashed += cmd->length;
+
     if (w->opt->progress)
         progress_update(cmd->length);
-
-    DEBUG("%s offset=%" PRIu64 " length=%" PRIu32 " finished in %" PRIu64
-          " usec ",
-          command_name(cmd), cmd->offset, cmd->length,
-          gettime() - cmd->started);
 
     free_command(cmd);
 }
