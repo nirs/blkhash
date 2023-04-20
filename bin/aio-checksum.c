@@ -25,7 +25,7 @@ struct command {
     int64_t offset;
     uint64_t started;
     uint32_t length;
-    bool ready;
+    bool completed;
     bool zero;
 };
 
@@ -73,7 +73,7 @@ static inline struct command *pop_command(struct worker *w)
 static inline bool has_data(struct worker *w)
 {
     struct command *next = STAILQ_FIRST(&w->read_queue);
-    return next && next->ready;
+    return next && next->completed;
 }
 
 static void optimize(const char *filename, struct options *opt,
@@ -156,7 +156,7 @@ static struct command *create_command(int64_t offset, struct extent *extent)
 
     c->offset = offset;
     c->length = extent->length;
-    c->ready = extent->zero;
+    c->completed = extent->zero;
     c->zero = extent->zero;
 
     if (debug)
@@ -177,12 +177,12 @@ static int read_completed(void *user_data, int *error)
         FAIL("%s offset=%" PRIu64 " length=%" PRIu32 " failed: %s",
              command_name(cmd), cmd->offset, cmd->length, strerror(*error));
 
-    DEBUG("%s offset=%" PRIu64 " length=%" PRIu32 " ready in %" PRIu64
+    DEBUG("%s offset=%" PRIu64 " length=%" PRIu32 " completed in %" PRIu64
           " usec",
           command_name(cmd), cmd->offset, cmd->length,
           gettime() - cmd->started);
 
-    cmd->ready = true;
+    cmd->completed = true;
 
     /* Required for linbd to "retire" the command. */
     return 1;
@@ -217,7 +217,7 @@ static void hash_more_data(struct worker *w)
 {
     struct command *cmd = pop_command(w);
 
-    assert(cmd->ready);
+    assert(cmd->completed);
 
     if (!io_only) {
         int err;
