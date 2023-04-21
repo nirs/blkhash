@@ -34,18 +34,17 @@ bool running(void);
 #define FAIL_ERRNO(msg) FAIL("%s: %s", msg, strerror(errno))
 
 extern bool debug;
-extern bool io_only;
 extern uint64_t started;
 
 /* Options flags. */
-#define USER_QUEUE_SIZE  (1 << 0)
+#define USER_QUEUE_DEPTH (1 << 0)
 #define USER_READ_SIZE   (1 << 1)
 #define USER_CACHE       (1 << 2)
 
 struct options {
     const char *digest_name;
     size_t read_size;
-    size_t queue_size;
+    size_t queue_depth;
     size_t block_size;
     unsigned threads;
     unsigned streams;

@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: Red Hat Inc
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+#include <assert.h>
+#include <openssl/evp.h>
 #include <pthread.h>
 #include <stdlib.h>
-#include <openssl/evp.h>
-#include <assert.h>
 #include <sys/queue.h>
 #include <unistd.h>
 
@@ -13,9 +13,6 @@
 #include "blksum.h"
 #include "util.h"
 
-/* qemu-nbd process up to 16 in-flight commands per connection. */
-#define MAX_COMMANDS 16
-
 struct extent_array {
     struct extent *array;
     size_t count;
@@ -23,20 +20,15 @@ struct extent_array {
 };
 
 struct command {
-    STAILQ_ENTRY(command) entry;
+    STAILQ_ENTRY(command) read_entry;
+    TAILQ_ENTRY(command) hash_entry;
+    struct worker *w;
     void *buf;
     int64_t offset;
     uint64_t started;
     uint32_t length;
-    bool ready;
+    bool completed;
     bool zero;
-};
-
-struct command_queue {
-    STAILQ_HEAD(, command) head;
-    int len;       /* Number of items in queue. */
-    size_t bytes;  /* Total length of non-zero commands. */
-    size_t size;   /* Maximum length of non-zero commands. */
 };
 
 struct worker {
@@ -50,139 +42,19 @@ struct worker {
     struct options *opt;
     struct src *s;
     int64_t image_size;
+    int64_t read_offset;
+    int64_t bytes_hashed;
     struct blkhash *h;
     struct extent_array extents;
-    struct command_queue queue;
+    STAILQ_HEAD(, command) read_queue;
+    TAILQ_HEAD(, command) hash_queue;
+    unsigned commands_in_flight;
 
     /* The computed checksum. */
     unsigned char *out;
 };
 
-static inline uint32_t cost(bool zero, uint32_t len)
-{
-    return zero ? 0 : len;
-}
-
-static inline void queue_init(struct command_queue *q, int size)
-{
-    STAILQ_INIT(&q->head);
-    q->len = 0;
-    q->bytes = 0;
-    q->size = size;
-}
-
-static inline void queue_push(struct command_queue *q, struct command *cmd)
-{
-    assert(q->len < MAX_COMMANDS);
-    q->len++;
-
-    q->bytes += cost(cmd->zero, cmd->length);
-    assert(q->bytes <= q->size);
-
-    STAILQ_INSERT_TAIL(&q->head, cmd, entry);
-}
-
-static inline struct command *queue_pop(struct command_queue *q)
-{
-    struct command *cmd;
-    uint32_t cmd_cost;
-
-    cmd = STAILQ_FIRST(&q->head);
-    STAILQ_REMOVE_HEAD(&q->head, entry);
-
-    assert(q->len > 0);
-    q->len--;
-
-    cmd_cost = cost(cmd->zero, cmd->length);
-    assert(q->bytes >= cmd_cost);
-    q->bytes -= cmd_cost;
-
-    return cmd;
-}
-
-static inline bool has_commands(struct worker *w)
-{
-    return w->queue.len > 0;
-}
-
-static inline bool has_ready_command(struct worker *w)
-{
-    struct command_queue *q = &w->queue;
-
-    return q->len > 0 && STAILQ_FIRST(&q->head)->ready;
-}
-
-static inline int can_process(struct worker *w, struct extent *extent)
-{
-    struct command_queue *q = &w->queue;
-
-    return q->len < MAX_COMMANDS &&
-	   q->size - q->bytes >= cost(extent->zero, extent->length);
-}
-
-static void optimize(const char *filename, struct options *opt,
-                     struct file_info *fi)
-{
-    if (fi->fs_name && strcmp(fi->fs_name, "nfs") == 0) {
-        /*
-         * cache=false aio=native can be up to 1180% slower. cache=false
-         * aio=threads can be 36% slower, but may be wanted to avoid
-         * polluting the page cache with data that is not going to be
-         * used.
-         */
-        if (strcmp(opt->aio, "native") == 0) {
-            opt->aio = "threads";
-            DEBUG("Optimize for 'nfs': aio=threads");
-        }
-
-        /*
-         * For raw format large queue and read sizes can be 2.5x times
-         * faster. For qcow2, the default values give best performance.
-         */
-        if (strcmp(fi->format, "raw") == 0) {
-            if ((opt->flags & USER_READ_SIZE) == 0) {
-                opt->read_size = 2 * 1024 * 1024;
-                DEBUG("Optimize for 'raw' image on 'nfs': read_size=%ld",
-                      opt->read_size);
-            }
-
-            if ((opt->flags & USER_QUEUE_SIZE) == 0) {
-                opt->queue_size = 4 * 1024 * 1024;
-                if (opt->queue_size < opt->read_size)
-                    opt->queue_size = opt->read_size;
-                DEBUG("Optimize for 'raw' image on 'nfs': queue_size=%ld",
-                      opt->queue_size);
-            }
-        }
-    } else {
-        /*
-         * For other storage, direct I/O is required for correctness on
-         * some cases (e.g. LUN connected to multiple hosts), and typically
-         * faster and more consistent. However it is not supported on all
-         * file systems so we must check if file can be used with direct
-         * I/O.
-         */
-        if (!opt->cache && !supports_direct_io(filename)) {
-            opt->cache = true;
-            DEBUG("Optimize for '%s' image on '%s': cache=yes",
-                  fi->format, fi->fs_name);
-        }
-
-        /* Cache is not compatible with aio=native. */
-        if (opt->cache && strcmp(opt->aio, "native") == 0) {
-            opt->aio = "threads";
-            DEBUG("Optimize for '%s' image on '%s': aio=threads",
-                  fi->format, fi->fs_name);
-        }
-    }
-}
-
-static inline const char *command_name(struct command *cmd)
-{
-    return cmd->zero ? "Zero" : "Read";
-}
-
-static struct command *create_command(int64_t offset, struct extent *extent)
+static struct command *create_command(struct worker *w)
 {
     struct command *c;
 
@@ -190,44 +62,24 @@ static struct command *create_command(int64_t offset, struct extent *extent)
     if (c == NULL)
         FAIL_ERRNO("calloc");
 
-    if (!extent->zero) {
-        c->buf = malloc(extent->length);
-        if (c->buf == NULL)
-            FAIL_ERRNO("malloc");
-    }
+    c->buf = malloc(w->opt->read_size);
+    if (c->buf == NULL)
+        FAIL_ERRNO("malloc");
 
-    c->offset = offset;
-    c->length = extent->length;
-    c->ready = extent->zero;
-    c->zero = extent->zero;
-
-    if (debug)
-        c->started = gettime();
+    c->w = w;
 
     return c;
 }
 
-static int read_completed(void *user_data, int *error)
+static void init_command(struct command *c, int64_t offset, uint32_t length, bool zero)
 {
-    struct command *cmd = user_data;
+    c->offset = offset;
+    c->length = length;
+    c->zero = zero;
+    c->completed = zero;
 
-    /*
-     * This is not documented, but *error is errno value translated from
-     * the NBD server error.
-     */
-    if (*error)
-        FAIL("%s offset=%" PRIu64 " length=%" PRIu32 " failed: %s",
-             command_name(cmd), cmd->offset, cmd->length, strerror(*error));
-
-    DEBUG("%s offset=%" PRIu64 " length=%" PRIu32 " ready in %" PRIu64
-          " usec",
-          command_name(cmd), cmd->offset, cmd->length,
-          gettime() - cmd->started);
-
-    cmd->ready = true;
-
-    /* Required for linbd to "retire" the command. */
-    return 1;
+    if (debug)
+        c->started = gettime();
 }
 
 static void free_command(struct command *c)
@@ -238,48 +90,61 @@ static void free_command(struct command *c)
     }
 }
 
-static void start_command(struct worker *w, int64_t offset, struct extent *extent)
+static void run_update(struct worker *w, struct command *cmd)
 {
-    struct command *cmd;
+    int err;
 
-    cmd = create_command(offset, extent);
-    queue_push(&w->queue, cmd);
+    if (debug)
+        cmd->started = gettime();
 
-    if (!cmd->zero)
-        src_aio_pread(w->s, cmd->buf, cmd->length, cmd->offset, read_completed, cmd);
+    err = blkhash_update(w->h, cmd->buf, cmd->length);
+    if (err)
+        FAIL("blkhash_update: %s", strerror(err));
 
-    DEBUG("%s offset=%" PRIi64 " length=%" PRIu32 " started",
-          command_name(cmd), cmd->offset, cmd->length);
+    DEBUG("Update offset=%" PRIu64 " length=%" PRIu32 " completed in %"
+          PRIu64 " usec ",
+          cmd->offset, cmd->length, gettime() - cmd->started);
 }
 
-static void finish_command(struct worker *w)
+static void run_zero(struct worker *w, struct command *cmd)
 {
-    struct command *cmd = queue_pop(&w->queue);
+    int err;
 
-    assert(cmd->ready);
+    if (debug)
+        cmd->started = gettime();
 
-    if (!io_only) {
-        int err;
-        if (cmd->zero) {
-            err = blkhash_zero(w->h, cmd->length);
-            if (err)
-                FAIL("blkhash_zero: %s", strerror(err));
-        } else {
-            err = blkhash_update(w->h, cmd->buf, cmd->length);
-            if (err)
-                FAIL("blkhash_update: %s", strerror(err));
-        }
+    err = blkhash_zero(w->h, cmd->length);
+    if (err)
+        FAIL("blkhash_zero: %s", strerror(err));
+
+    DEBUG("Zero offset=%" PRIu64 " length=%" PRIu32 " completed in %"
+          PRIu64 " usec ",
+          cmd->offset, cmd->length, gettime() - cmd->started);
+}
+
+static void hash_more_data(struct worker *w)
+{
+    struct command *cmd, *next;
+
+    cmd = STAILQ_FIRST(&w->read_queue);
+
+    while (cmd != NULL && cmd->completed) {
+        next = STAILQ_NEXT(cmd, read_entry);
+
+        STAILQ_REMOVE_HEAD(&w->read_queue, read_entry);
+        TAILQ_INSERT_TAIL(&w->hash_queue, cmd, hash_entry);
+
+        if (cmd->zero)
+            run_zero(w, cmd);
+        else
+            run_update(w, cmd);
+
+        w->bytes_hashed += cmd->length;
+        if (w->opt->progress)
+            progress_update(cmd->length);
+
+        cmd = next;
     }
-
-    if (w->opt->progress)
-        progress_update(cmd->length);
-
-    DEBUG("%s offset=%" PRIu64 " length=%" PRIu32 " finished in %" PRIu64
-          " usec ",
-          command_name(cmd), cmd->offset, cmd->length,
-          gettime() - cmd->started);
-
-    free_command(cmd);
 }
 
 static void clear_extents(struct worker *w)
@@ -292,18 +157,19 @@ static void clear_extents(struct worker *w)
     }
 }
 
-static void fetch_extents(struct worker *w, int64_t offset, uint32_t length)
+static void fetch_extents(struct worker *w, uint32_t length)
 {
     uint64_t start = 0;
     clear_extents(w);
 
     DEBUG("Get extents offset=%" PRIi64 " length=%" PRIu32,
-          offset, length);
+          w->read_offset, length);
 
     if (debug)
         start = gettime();
 
-    src_extents(w->s, offset, length, &w->extents.array, &w->extents.count);
+    src_extents(w->s, w->read_offset, length, &w->extents.array,
+                &w->extents.count);
 
     DEBUG("Got %lu extents in %" PRIu64 " usec",
           w->extents.count, gettime() - start);
@@ -314,14 +180,14 @@ static inline bool need_extents(struct worker *w)
     return w->extents.index == w->extents.count;
 }
 
-static void next_extent(struct worker *w, int64_t offset,
-                        struct extent *extent)
+static void next_extent(struct worker *w, struct extent *extent)
 {
     struct extent *current;
 
     if (need_extents(w)) {
-        uint32_t length = MIN(w->opt->extents_size, w->image_size - offset);
-        fetch_extents(w, offset, length);
+        uint32_t length = MIN(w->opt->extents_size,
+                              w->image_size - w->read_offset);
+        fetch_extents(w, length);
     }
 
     assert(w->extents.index < w->extents.count);
@@ -346,6 +212,78 @@ static void next_extent(struct worker *w, int64_t offset,
 
     if (current->length == 0)
         w->extents.index++;
+}
+
+static int read_completed(void *user_data, int *error)
+{
+    struct command *cmd = user_data;
+
+    /*
+     * This is not documented, but *error is errno value translated from
+     * the NBD server error.
+     */
+    if (*error)
+        FAIL("Read offset=%" PRIu64 " length=%" PRIu32 " failed: %s",
+             cmd->offset, cmd->length, strerror(*error));
+
+    DEBUG("Read offset=%" PRIu64 " length=%" PRIu32 " completed in %" PRIu64
+          " usec",
+          cmd->offset, cmd->length, gettime() - cmd->started);
+
+    cmd->completed = true;
+
+    assert(cmd->w->commands_in_flight > 0);
+    cmd->w->commands_in_flight--;
+
+    /* Required for linbd to "retire" the command. */
+    return 1;
+}
+
+static void start_read(struct worker *w, struct command *cmd)
+{
+    src_aio_pread(w->s, cmd->buf, cmd->length, cmd->offset, read_completed, cmd);
+
+    assert(w->commands_in_flight < w->opt->queue_depth);
+    w->commands_in_flight++;
+
+    DEBUG("Read offset=%" PRIi64 " length=%" PRIu32 " started",
+          cmd->offset, cmd->length);
+}
+
+static void start_zero(struct worker *w __attribute__ ((unused)), struct command *cmd)
+{
+    DEBUG("Zero offset=%" PRIi64 " length=%" PRIu32 " started",
+          cmd->offset, cmd->length);
+}
+
+static void read_more_data(struct worker *w)
+{
+    struct command *cmd, *next;
+
+    cmd = TAILQ_FIRST(&w->hash_queue);
+
+    while (cmd != NULL && w->read_offset < w->image_size) {
+        next = TAILQ_NEXT(cmd, hash_entry);
+
+        if (cmd->completed) {
+            struct extent extent;
+
+            TAILQ_REMOVE(&w->hash_queue, cmd, hash_entry);
+            STAILQ_INSERT_TAIL(&w->read_queue, cmd, read_entry);
+
+            next_extent(w, &extent);
+            init_command(cmd, w->read_offset, extent.length, extent.zero);
+
+            if (cmd->zero)
+                start_zero(w, cmd);
+            else
+                start_read(w, cmd);
+
+            w->read_offset += cmd->length;
+        }
+
+        cmd = next;
+    }
 }
 
 static int wait_for_events(struct worker *w)
@@ -377,30 +315,14 @@ static int wait_for_events(struct worker *w)
 
 static void process_image(struct worker *w)
 {
-    int64_t offset = 0;
-    struct extent extent = {0};
-
-    while (has_commands(w) || offset < w->image_size) {
-
-        while (offset < w->image_size) {
-
-            if (extent.length == 0)
-                next_extent(w, offset, &extent);
-
-            if (!can_process(w, &extent))
-                break;
-
-            start_command(w, offset, &extent);
-            offset += extent.length;
-            assert(offset <= w->image_size);
-            extent.length = 0;
-        }
+    while (w->bytes_hashed < w->image_size) {
+        if (w->read_offset < w->image_size)
+            read_more_data(w);
 
         if (wait_for_events(w))
             FAIL("Worker failed");
 
-        while (has_ready_command(w))
-            finish_command(w);
+        hash_more_data(w);
 
         if (!running()) {
             DEBUG("Worker aborting");
@@ -464,6 +386,65 @@ static void create_hash(struct worker *w)
         FAIL_ERRNO("blkhash_new");
 }
 
+static void optimize(const char *filename, struct options *opt,
+                     struct file_info *fi)
+{
+    if (fi->fs_name && strcmp(fi->fs_name, "nfs") == 0) {
+        /*
+         * cache=false aio=native can be up to 1180% slower. cache=false
+         * aio=threads can be 36% slower, but may be wanted to avoid
+         * polluting the page cache with data that is not going to be
+         * used.
+         */
+        if (strcmp(opt->aio, "native") == 0) {
+            opt->aio = "threads";
+            DEBUG("Optimize for 'nfs': aio=threads");
+        }
+
+        /*
+         * For raw format large queue and read sizes can be 2.5x times
+         * faster. For qcow2, the default values give best performance.
+         */
+        if (strcmp(fi->format, "raw") == 0) {
+            /* If user did not specify read size, use larger value. */
+            if ((opt->flags & USER_READ_SIZE) == 0) {
+                opt->read_size = 2 * 1024 * 1024;
+                DEBUG("Optimize for 'raw' image on 'nfs': read_size=%ld",
+                      opt->read_size);
+
+                /* If user did not specify queue depth, adapt queue size to
+                 * read size. */
+                if ((opt->flags & USER_QUEUE_DEPTH) == 0) {
+                    opt->queue_depth = 4;
+                    DEBUG("Optimize for 'raw' image on 'nfs': queue_depth=%ld",
+                          opt->queue_depth);
+                }
+            }
+
+        }
+    } else {
+        /*
+         * For other storage, direct I/O is required for correctness on
+         * some cases (e.g. LUN connected to multiple hosts), and typically
+         * faster and more consistent. However it is not supported on all
+         * file systems so we must check if file can be used with direct
+         * I/O.
+         */
+        if (!opt->cache && !supports_direct_io(filename)) {
+            opt->cache = true;
+            DEBUG("Optimize for '%s' image on '%s': cache=yes",
+                  fi->format, fi->fs_name);
+        }
+
+        /* Cache is not compatible with aio=native. */
+        if (opt->cache && strcmp(opt->aio, "native") == 0) {
+            opt->aio = "threads";
+            DEBUG("Optimize for '%s' image on '%s': aio=threads",
+                  fi->format, fi->fs_name);
+        }
+    }
+}
+
 static void init_worker(struct worker *w, const char *filename,
                         struct options *opt, unsigned char *out)
 {
@@ -505,7 +486,19 @@ static void init_worker(struct worker *w, const char *filename,
 #endif
     }
 
-    queue_init(&w->queue, w->opt->queue_size);
+    STAILQ_INIT(&w->read_queue);
+    TAILQ_INIT(&w->hash_queue);
+
+    /* Fill the hash queue with "completed" commands. The process loop will
+     * move them to the read queue. */
+    for (size_t i = 0; i < w->opt->queue_depth; i++) {
+        struct command *cmd = create_command(w);
+        cmd->completed = true;
+        TAILQ_INSERT_TAIL(&w->hash_queue, cmd, hash_entry);
+    }
+
+    w->commands_in_flight = 0;
+
     create_hash(w);
 }
 
@@ -529,10 +522,32 @@ static void join_worker(struct worker *w)
         FAIL("pthread_join: %s", strerror(err));
 }
 
+static void destroy_commands(struct worker *w)
+{
+    struct command *cmd, *next;
+
+    cmd = STAILQ_FIRST(&w->read_queue);
+    while (cmd != NULL) {
+        next = STAILQ_NEXT(cmd, read_entry);
+        STAILQ_REMOVE_HEAD(&w->read_queue, read_entry);
+        free_command(cmd);
+        cmd = next;
+    }
+
+    cmd = TAILQ_FIRST(&w->hash_queue);
+    while (cmd != NULL) {
+        next = TAILQ_NEXT(cmd, hash_entry);
+        TAILQ_REMOVE(&w->hash_queue, cmd, hash_entry);
+        free_command(cmd);
+        cmd = next;
+    }
+}
+
 static void destroy_worker(struct worker *w)
 {
     blkhash_free(w->h);
     free(w->uri);
+    destroy_commands(w);
 
 #ifdef HAVE_NBD
     if (w->nbd_server) {

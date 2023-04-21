@@ -15,7 +15,7 @@ SYNOPSYS
 
 *blksum* [-d DIGEST|--digest=DIGEST] [-p|--progress]
          [-c|--cache] [-t N|--threads=N] [-S N|--streams=N]
-         [--queue-size=N] [--read-size=N]
+         [--queue-depth=N] [--read-size=N]
          [-l|--list-digests] [-h|--help]
          ['FILENAME']
 
@@ -66,10 +66,10 @@ OPTIONS
   the tool. The value must be equal or larger than the number of
   threads. For best performance, the value should be power of 2.
 
-*--queue-size*='N'::
-  Maximum number of bytes to queue for in-flight reads. The default
-  value (2 MiB) gives best performance in most cases. If not set, the
-  value will be optimized for the image format and file system type.
+*--queue-depth*='N'::
+  Maximum number of in-flight reads. The default value (16) gives best
+  performance in most cases. If not set, the value will be optimized for
+  the image format and file system type.
 
 *--read-size*='N'::
   Maximum read size in bytes. The default value (256 KiB) gives best
