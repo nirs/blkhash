@@ -4,6 +4,7 @@
 import json
 import os
 import subprocess
+import time
 
 # We pass the build directory from meson.build to support running the tests
 # during rpmbuild, when the build directory is not located in the same place.
@@ -24,7 +25,7 @@ EiB = 1 << 60
 
 DIGEST = "sha256"
 STREAMS = 64
-TIMEOUT = 0 if "QUICK" in os.environ else 10
+TIMEOUT = 0 if "QUICK" in os.environ else 2
 
 
 def threads(limit=STREAMS):
@@ -69,6 +70,7 @@ def blkhash(
     if input_size:
         cmd.append(f"--input-size={input_size}")
 
+    _cool_down()
     cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
     r = json.loads(cp.stdout)
     hsize = format_humansize(r["total-size"])
@@ -96,6 +98,7 @@ def openssl(
     if input_size:
         cmd.append(f"--input-size={input_size}")
 
+    _cool_down()
     cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
     r = json.loads(cp.stdout)
     hsize = format_humansize(r["total-size"])
@@ -104,6 +107,14 @@ def openssl(
         f"{r['threads']:>2} threads: {hsize} in {r['elapsed']:.3f} s ({hrate}/s)",
     )
     return r
+
+
+def _cool_down():
+    """
+    For more consitent results on machines with frequency scalling, give the
+    CPU time to cool down before runing the benchmark.
+    """
+    time.sleep(3 * TIMEOUT)
 
 
 def format_humansize(n):
