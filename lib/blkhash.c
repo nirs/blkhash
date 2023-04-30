@@ -509,9 +509,11 @@ static void update_completed(struct blkhash *h, void *user_data, int error)
 {
     struct blkhash_completion *c;
     int err;
+    bool was_empty;
 
     mutex_lock(&h->cq.mutex);
 
+    was_empty = h->cq.count == 0;
     assert(h->cq.count < h->config.queue_depth);
     c = &h->cq.array[h->cq.count++];
     c->user_data = user_data;
@@ -519,11 +521,13 @@ static void update_completed(struct blkhash *h, void *user_data, int error)
 
     mutex_unlock(&h->cq.mutex);
 
-    /* If we cannot noitify, the caller may get stuck waiting for completions.
-     * Setting the error will fail the next request. */
-    err = event_signal(h->cq.event);
-    if (err)
-        set_error(h, -err);
+    if (was_empty) {
+        /* If we cannot noitify, the caller may get stuck waiting for
+         * completions.  Setting the error will fail the next request. */
+        err = event_signal(h->cq.event);
+        if (err)
+            set_error(h, -err);
+    }
 }
 
 int blkhash_aio_update(struct blkhash *h, const void *buf, size_t len,
@@ -568,6 +572,8 @@ int blkhash_aio_completion_fd(struct blkhash *h)
 int blkhash_aio_completions(struct blkhash *h, struct blkhash_completion *out,
                             unsigned count)
 {
+    bool have_more = false;
+
     if (h->error)
         return -h->error;
 
@@ -584,6 +590,7 @@ int blkhash_aio_completions(struct blkhash *h, struct blkhash_completion *out,
              * should not happen. */
             size_t bytes = h->cq.count * sizeof(*h->cq.array);
             memmove(&h->cq.array[0], &h->cq.array[count], bytes);
+            have_more = true;
         }
     }
 
@@ -593,6 +600,16 @@ int blkhash_aio_completions(struct blkhash *h, struct blkhash_completion *out,
     if (count > 0) {
         assert(h->inflight >= count);
         h->inflight -= count;
+    }
+
+    if (have_more) {
+        /* If not all completions consumed (unlikely), singal the completion fd
+         * so the user will get a notification on the next poll. */
+        int err = event_signal(h->cq.event);
+        if (err) {
+            set_error(h, -err);
+            return err;
+        }
     }
 
     return count;
