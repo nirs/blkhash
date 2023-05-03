@@ -98,9 +98,6 @@ bool supports_direct_io(const char *filename)
 
 const EVP_MD *create_digest(const char *name)
 {
-    if (strcmp(name, "null") == 0)
-        return EVP_md_null();
-
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
     /*
      * Aovids implicit fetching on each call to EVP_DigestInit_ex()
@@ -108,6 +105,9 @@ const EVP_MD *create_digest(const char *name)
      */
     return EVP_MD_fetch(NULL, name, NULL);
 #else
+    if (strcmp(name, "null") == 0)
+        return EVP_md_null();
+
     return EVP_get_digestbyname(name);
 #endif
 }
