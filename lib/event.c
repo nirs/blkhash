@@ -25,7 +25,7 @@ static int init_event(struct event *e, int flags)
 
 #else
 
-static void set_flags(int fd, int flags)
+static int set_flags(int fd, int flags)
 {
     int cur = fcntl(fd, F_GETFL, 0);
     if (cur == -1)
