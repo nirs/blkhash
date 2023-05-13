@@ -11,6 +11,7 @@
     #define HAVE_EVENTFD 1
 #else
     #include <unistd.h>
+    #include <fcntl.h>
     #define EVENT_CLOEXEC O_CLOEXEC
     #define EVENT_NONBLOCK O_NONBLOCK
     #undef HAVE_EVENTFD
