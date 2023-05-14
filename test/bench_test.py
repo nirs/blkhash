@@ -6,8 +6,7 @@ import bench
 
 DIGEST = "sha256"
 INPUT_SIZE = "1m"
-STREAMS = 32
-threads_params = pytest.mark.parametrize("threads", [1, 2, 4, 8, 16, 32])
+threads_params = pytest.mark.parametrize("threads", [1, 2, 4, 8, 16, 32, 64])
 
 
 @threads_params
@@ -17,9 +16,8 @@ def test_blkhash_data_sha256(threads):
         input_size=INPUT_SIZE,
         digest_name=DIGEST,
         threads=threads,
-        streams=STREAMS,
     )["checksum"]
-    assert r == "f596205d1108c4752339b76f7a046fc9b40ed096c393cc1a9a32b052f679eef6"
+    assert r == "2a6d5ed17da97865da0fd3ca9a792f3bfaf325940c44fd6a2f0a224a051eb6f0"
 
 
 @threads_params
@@ -29,9 +27,8 @@ def test_blkhash_zero_sha256(threads):
         input_size=INPUT_SIZE,
         digest_name=DIGEST,
         threads=threads,
-        streams=STREAMS,
     )["checksum"]
-    assert r == "146db9301db0c190f877b31668c71f9eeedd23b76b0349e66e8d04ad023b2cd2"
+    assert r == "c55a2d6fcdfc2a95e50bd053c07f173e8573ffc34cdcdf3488ddce5e60e9222a"
 
 
 @threads_params
@@ -41,9 +38,8 @@ def test_blkhash_hole_sha256(threads):
         input_size=INPUT_SIZE,
         digest_name=DIGEST,
         threads=threads,
-        streams=STREAMS,
     )["checksum"]
-    assert r == "146db9301db0c190f877b31668c71f9eeedd23b76b0349e66e8d04ad023b2cd2"
+    assert r == "c55a2d6fcdfc2a95e50bd053c07f173e8573ffc34cdcdf3488ddce5e60e9222a"
 
 
 @threads_params
@@ -53,7 +49,6 @@ def test_blkhash_data_null(threads):
         input_size=INPUT_SIZE,
         digest_name="null",
         threads=threads,
-        streams=STREAMS,
     )["checksum"]
     assert r == ""
 
@@ -65,7 +60,6 @@ def test_blkhash_zero_null(threads):
         input_size=INPUT_SIZE,
         digest_name="null",
         threads=threads,
-        streams=STREAMS,
     )["checksum"]
     assert r == ""
 
@@ -77,7 +71,6 @@ def test_blkhash_hole_null(threads):
         input_size=INPUT_SIZE,
         digest_name="null",
         threads=threads,
-        streams=STREAMS,
     )["checksum"]
     assert r == ""
 

@@ -10,7 +10,7 @@
 #define BLKHASH_MAX_MD_SIZE EVP_MAX_MD_SIZE
 
 /* The default number of streams. */
-#define BLKHASH_STREAMS 32
+#define BLKHASH_STREAMS 64
 
 struct blkhash;
 struct blkhash_opts;
@@ -176,8 +176,8 @@ int blkhash_opts_set_queue_depth(struct blkhash_opts *o, unsigned queue_depth);
 
 /*
  * Set the number of hash streams, enabling parallel hashing. The number
- * of streams limits the number of threads. The defualt value (32)
- * allows up to 32 threads. If you want to use more threads you need to
+ * of streams limits the number of threads. The defualt value (64)
+ * allows up to 64 threads. If you want to use more threads you need to
  * increase this value.  Note that changing this value changes the hash
  * value and the computed hash will not be compatible with other users
  * of the library.

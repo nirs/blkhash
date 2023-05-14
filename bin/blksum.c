@@ -20,7 +20,7 @@
 /* 16 is typically best, allow larger number for testing. */
 #define MAX_QUEUE_DEPTH 128
 
-/* 32 is the default, allow larger number for testing on big machines. */
+/* Allow larger number for testing on big machines. */
 #define MAX_STREAMS 128
 
 bool debug = false;

@@ -60,7 +60,7 @@ OPTIONS
 
 *--streams*='N'::
   Number of hash streams, enabling parallel hashing. The deffault value
-  (32) allows up to 32 threads. If you want to use more threads you need
+  (64) allows up to 64 threads. If you want to use more threads you need
   to increase this value. Note that changing this value changes the hash
   value and the computed hash will not be compatible with other users of
   the tool. The value must be equal or larger than the number of

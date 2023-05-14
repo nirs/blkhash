@@ -26,7 +26,7 @@ from functools import partial
 # Values must match the compiled valeus in blksum.c.
 # Changing these will change the computed checksum.
 BLOCK_SIZE = 64 * 1024
-STREAMS = 32
+STREAMS = 64
 
 # Values that do not affect te hash value.
 THREADS = 4
