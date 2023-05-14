@@ -3,26 +3,90 @@
 
 #include <errno.h>
 #include <getopt.h>
+#include <poll.h>
 #include <string.h>
+#include <unistd.h>
 
+#include "benchmark.h"
+#include "blkhash-config.h"
 #include "blkhash.h"
 #include "util.h"
-#include "benchmark.h"
+
+struct request {
+    unsigned char *data;
+    size_t len;
+    bool ready;
+} __attribute__ ((aligned (CACHE_LINE_SIZE)));
 
 static enum input_type input_type = DATA;
 static const char *digest_name = "sha256";
 static int timeout_seconds = 1;
 static int64_t input_size = 0;
+static bool aio;
+static int queue_depth = 16;
 static int threads = 4;
 static int streams = BLKHASH_STREAMS;
 static int block_size = 64 * KiB;
-static int read_size = 1 * MiB;
+static int read_size = 256 * KiB;
 static int64_t hole_size = (int64_t)MIN(16 * GiB, SIZE_MAX);
 
-static unsigned char *buffer;
-static int64_t chunk_size;
+static struct request *requests;
+static unsigned current;
+static struct blkhash_completion *completions;
+static struct pollfd poll_fds[1];
+static int64_t total_size;
 
-static const char *short_options = ":hi:d:T:s:t:S:b:r:z:";
+static void setup_aio(struct blkhash *h)
+{
+    int fd = blkhash_aio_completion_fd(h);
+    if (fd < 0)
+        FAILF("blkhash_aio_completion_fd: %s", strerror(-fd));
+
+    poll_fds[0].fd = fd;
+    poll_fds[0].events = POLLIN;
+
+    completions = calloc(queue_depth, sizeof(*completions));
+    if (completions == NULL)
+        FAILF("calloc: %s", strerror(errno));
+}
+
+static void teardown_aio(void)
+{
+    free(completions);
+}
+
+static void setup_requests(void)
+{
+    long page_size;
+
+    requests = calloc(queue_depth, sizeof(*requests));
+    if (requests == NULL)
+        FAILF("calloc: %s", strerror(errno));
+
+    /* When using direct I/O, buffers are aligned to page size. */
+    page_size = sysconf(_SC_PAGESIZE);
+    if (page_size == -1)
+        FAILF("sysconf(_SC_PAGESIZE): %s", strerror(errno));
+
+    for (int i = 0; i < queue_depth; i++) {
+        struct request *req = &requests[i];
+        int err;
+
+        err = posix_memalign((void **)&req->data, page_size, read_size);
+        if (err)
+            FAILF("posix_memalign: %s", strerror(err));
+
+        memset(req->data, input_type == DATA ? 0x55 : 0x00, read_size);
+        req->ready = true;
+    }
+}
+
+static void teardown_requests(void)
+{
+    free(requests);
+}
+
+static const char *short_options = ":hi:d:T:s:aq:t:S:b:r:z:";
 
 static struct option long_options[] = {
     {"help",                no_argument,        0,  'h'},
@@ -30,6 +94,8 @@ static struct option long_options[] = {
     {"digest-name",         required_argument,  0,  'd'},
     {"timeout-seconds",     required_argument,  0,  'T'},
     {"input-size",          required_argument,  0,  's'},
+    {"aio",                 no_argument,        0,  'a'},
+    {"queue-depth",         required_argument,  0,  'q'},
     {"threads",             required_argument,  0,  't'},
     {"streams",             required_argument,  0,  'S'},
     {"block-size",          required_argument,  0,  'b'},
@@ -47,6 +113,7 @@ static void usage(int code)
 "    blkhash-bench [-i TYPE|--input-type TYPE]\n"
 "                  [-d DIGEST|--digest-name=DIGEST]\n"
 "                  [-T N|--timeout-seconds N] [-s N|--input-size N]\n"
+"                  [-a|--aio] [-q N|--queue-depth N]\n"
 "                  [-t N|--threads N] [-S N|--streams N]\n"
 "                  [-b N|--block-size N] [-r N|--read-size N]\n"
 "                  [-z N|--hole-size N] [-h|--help]\n"
@@ -92,6 +159,12 @@ static void parse_options(int argc, char *argv[])
         case 's':
             input_size = parse_size(optname, optarg);
             break;
+        case 'a':
+            aio = true;
+            break;
+        case 'q':
+            queue_depth = parse_count(optname, optarg);
+            break;
         case 't':
             threads = parse_threads(optname, optarg);
             break;
@@ -117,46 +190,149 @@ static void parse_options(int argc, char *argv[])
     }
 }
 
-static inline void update_hash(struct blkhash *h, unsigned char *buf, size_t len)
+static void read_request(struct request *req, size_t len)
 {
-    int err;
+    req->len = len;
+}
 
-    if (input_type == HOLE) {
-        err = blkhash_zero(h, len);
-        if (err)
-            FAILF("blkhash_zero: %s", strerror(err));
-    } else {
-        err = blkhash_update(h, buf, len);
-        if (err)
-            FAILF("blkhash_update: %s", strerror(err));
+typedef void (*update_fn)(struct blkhash *h, struct request *req);
+
+static void aio_update(struct blkhash *h, struct request *req)
+{
+    int err = blkhash_aio_update(h, req->data, req->len, req);
+    if (err)
+        FAILF("blkhash_aio_update: %s", strerror(err));
+
+    req->ready = false;
+    total_size += req->len;
+}
+
+static void update(struct blkhash *h, struct request *req)
+{
+    int err = blkhash_update(h, req->data, req->len);
+    if (err)
+        FAILF("blkhash_update: %s", strerror(err));
+
+    total_size += req->len;
+}
+
+static void zero(struct blkhash *h, size_t len)
+{
+    int err = blkhash_zero(h, len);
+    if (err)
+        FAILF("blkhash_zero: %s", strerror(err));
+
+    total_size += len;
+}
+
+static void complete_aio_updates(struct blkhash *h)
+{
+    int signaled = 0;
+    int count;
+
+    do {
+        if (poll(poll_fds, 1, -1) < 0) {
+            if (errno != EINTR)
+                FAILF("poll: %s", strerror(errno));
+
+            /* EINTR: Benchmark timeout */
+            return;
+        }
+
+        if (poll_fds[0].revents & (POLLERR | POLLHUP | POLLNVAL))
+            FAILF("Error on poll fd: %d", poll_fds[0].revents);
+
+        if (poll_fds[0].revents & POLLIN) {
+            /* We must read at least 8 bytes from the completion fd. */
+            char sink[queue_depth < 8 ? 8 : queue_depth];
+
+            signaled = read(poll_fds[0].fd, &sink, sizeof(sink));
+            if (signaled < 0) {
+                if (errno != EINTR)
+                    FAILF("read: %s", strerror(errno));
+
+                /* EINTR: Benchmark timeout */
+                return;
+            }
+        }
+    } while (signaled == 0);
+
+    count = blkhash_aio_completions(h, completions, queue_depth);
+    if (count < 0)
+        FAILF("blkhash_aio_completions: %s", strerror(-count));
+
+    for (int i = 0; i < count; i++) {
+        struct blkhash_completion *cmp = &completions[i];
+        struct request *req;
+
+        if (cmp->error)
+            FAILF("async update failed: %s", strerror(cmp->error));
+
+        req = cmp->user_data;
+        req->ready = true;
     }
 }
 
-static int64_t update_by_size(struct blkhash *h)
+static void update_size(struct blkhash *h, update_fn fn)
+{
+    struct request *req = &requests[0];
+    int64_t todo = input_size;
+
+    do {
+        while (req->ready && todo > read_size) {
+            read_request(req, read_size);
+            fn(h, req);
+            todo -= read_size;
+            current = (current + 1) % queue_depth;
+            req = &requests[current];
+        }
+        while (!req->ready)
+            complete_aio_updates(h);
+    } while (todo > read_size);
+
+    if (todo > 0) {
+        read_request(req, todo);
+        fn(h, req);
+    }
+}
+
+static void update_timeout(struct blkhash *h, update_fn fn)
+{
+    struct request *req = &requests[0];
+
+    do {
+        while (req->ready) {
+            read_request(req, read_size);
+            fn(h, req);
+            if (!timer_is_running)
+                return;
+
+            current = (current + 1) % queue_depth;
+            req = &requests[current];
+        }
+        if (!req->ready)
+            complete_aio_updates(h);
+    } while (timer_is_running);
+}
+
+static void zero_size(struct blkhash *h)
 {
     int64_t todo = input_size;
 
-    while (todo > chunk_size) {
-        update_hash(h, buffer, chunk_size);
-        todo -= chunk_size;
+    while (todo > hole_size) {
+        zero(h, hole_size);
+        todo -= hole_size;
     }
 
     if (todo > 0)
-        update_hash(h, buffer, todo);
-
-    return input_size;
+        zero(h, todo);
 }
 
-static int64_t update_until_timeout(struct blkhash *h)
+static void zero_timeout(struct blkhash *h)
 {
-    int64_t done = 0;
-
     do {
-        update_hash(h, buffer, chunk_size);
-        done += chunk_size;
+        zero(h, hole_size);
     } while (timer_is_running);
-
-    return done;
 }
 
 int main(int argc, char *argv[])
@@ -167,21 +343,11 @@ int main(int argc, char *argv[])
     unsigned char md[BLKHASH_MAX_MD_SIZE];
     char md_hex[BLKHASH_MAX_MD_SIZE * 2 + 1];
     unsigned int len;
-    int64_t total_size;
     double seconds;
     int err;
 
     parse_options(argc, argv);
-
-    if (input_type != HOLE) {
-        buffer = malloc(read_size);
-        if (buffer == NULL)
-            FAIL("malloc");
-
-        memset(buffer, input_type == DATA ? 0x55 : 0x00, read_size);
-    }
-
-    chunk_size = input_type == HOLE ? hole_size : read_size;
+    setup_requests();
 
     if (input_size == 0)
         start_timer(timeout_seconds);
@@ -191,6 +357,12 @@ int main(int argc, char *argv[])
     opts = blkhash_opts_new(digest_name);
     if (opts == NULL)
         FAIL("blkhash_opts_new");
+
+    if (aio) {
+        err = blkhash_opts_set_queue_depth(opts, queue_depth);
+        if (err)
+            FAILF("blkhash_opts_set_queue_depth: %s", strerror(err));
+    }
 
     err = blkhash_opts_set_block_size(opts, block_size);
     if (err)
@@ -208,10 +380,20 @@ int main(int argc, char *argv[])
     if (h == NULL)
         FAIL("blkhash_new_opts");
 
-    if (input_size)
-        total_size = update_by_size(h);
-    else
-        total_size = update_until_timeout(h);
+    if (aio)
+        setup_aio(h);
+
+    if (input_type == HOLE) {
+        if (input_size)
+            zero_size(h);
+        else
+            zero_timeout(h);
+    } else {
+        if (input_size)
+            update_size(h, aio ? aio_update : update);
+        else
+            update_timeout(h, aio ? aio_update : update);
+    }
 
     err = blkhash_final(h, md, &len);
     if (err)
@@ -228,6 +410,8 @@ int main(int argc, char *argv[])
     printf("  \"digest-name\": \"%s\",\n", digest_name);
     printf("  \"timeout-seconds\": %d,\n", timeout_seconds);
     printf("  \"input-size\": %" PRIi64 ",\n", input_size);
+    printf("  \"aio\": %s,\n", aio ? "true" : "false");
+    printf("  \"queue-depth\": %d,\n", queue_depth);
     printf("  \"block-size\": %d,\n", block_size);
     printf("  \"read-size\": %d,\n", read_size);
     printf("  \"hole-size\": %" PRIi64 ",\n", hole_size);
@@ -240,5 +424,7 @@ int main(int argc, char *argv[])
     printf("}\n");
 
     blkhash_opts_free(opts);
-    free(buffer);
+    if (aio)
+        teardown_aio();
+    teardown_requests();
 }

@@ -3,7 +3,8 @@
 
 #include "blkhash-internal.h"
 
-struct completion *completion_new(completion_callback cb, void *user_data)
+struct completion *completion_new(completion_callback cb, struct blkhash *hash,
+                                  void *user_data)
 {
     struct completion *c;
 
@@ -12,6 +13,7 @@ struct completion *completion_new(completion_callback cb, void *user_data)
         return NULL;
 
     c->callback = cb;
+    c->hash = hash;
     c->user_data = user_data;
     c->error = 0;
     c->refs = 1;
@@ -36,7 +38,7 @@ void completion_unref(struct completion *c)
 {
     if (__atomic_sub_fetch(&c->refs, 1, __ATOMIC_ACQ_REL) == 0) {
         int error = __atomic_load_n(&c->error, __ATOMIC_ACQUIRE);
-        c->callback(c->user_data, error);
+        c->callback(c->hash, c->user_data, error);
         free(c);
     }
 }

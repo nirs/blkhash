@@ -8,3 +8,8 @@ for input_type in "data", "zero", "hole":
     print(f"\nblkhash-bench --digest-name null --input-type {input_type}\n")
     for n in bench.threads():
         bench.blkhash(input_type, digest_name="null", threads=n)
+
+    if input_type != "hole":
+        print(f"\nblkhash-bench --digest-name null --input-type {input_type} --aio\n")
+        for n in bench.threads():
+            bench.blkhash(input_type, digest_name="null", threads=n, aio=True)

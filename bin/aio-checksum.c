@@ -8,10 +8,12 @@
 #include <sys/queue.h>
 #include <unistd.h>
 
-#include "blkhash.h"
 #include "blkhash-config.h"
+#include "blkhash.h"
 #include "blksum.h"
 #include "util.h"
+
+enum {HASH_FD=0, SRC_FD};
 
 struct extent_array {
     struct extent *array;
@@ -34,8 +36,8 @@ struct command {
 struct worker {
     pthread_t thread;
 
-    /* Watched fd for detecting source I/O events. */
-    struct pollfd poll_fds[1];
+    /* For polling source I/O events and hash completion events. */
+    struct pollfd poll_fds[2];
 
     char *uri;
     struct nbd_server *nbd_server;
@@ -90,20 +92,41 @@ static void free_command(struct command *c)
     }
 }
 
-static void run_update(struct worker *w, struct command *cmd)
+static void start_update(struct worker *w, struct command *cmd)
 {
     int err;
+
+    cmd->completed = false;
 
     if (debug)
         cmd->started = gettime();
 
-    err = blkhash_update(w->h, cmd->buf, cmd->length);
+    err = blkhash_aio_update(w->h, cmd->buf, cmd->length, cmd);
     if (err)
-        FAIL("blkhash_update: %s", strerror(err));
+        FAIL("blkhash_aio_update: %s", strerror(err));
 
-    DEBUG("Update offset=%" PRIu64 " length=%" PRIu32 " completed in %"
-          PRIu64 " usec ",
+    DEBUG("Update offset=%" PRIu64 " length=%" PRIu32 " started",
+          cmd->offset, cmd->length);
+
+    assert(w->commands_in_flight < w->opt->queue_depth);
+    w->commands_in_flight++;
+}
+
+static void update_completed(struct worker *w, struct command *cmd)
+{
+    DEBUG("Update offset=%" PRIi64 " length=%" PRIu32 " completed in %" PRIu64
+          " usec",
           cmd->offset, cmd->length, gettime() - cmd->started);
+
+    cmd->completed = true;
+
+    w->bytes_hashed += cmd->length;
+
+    assert(w->commands_in_flight > 0);
+    w->commands_in_flight--;
+
+    if (w->opt->progress)
+        progress_update(cmd->length);
 }
 
 static void run_zero(struct worker *w, struct command *cmd)
@@ -117,9 +140,16 @@ static void run_zero(struct worker *w, struct command *cmd)
     if (err)
         FAIL("blkhash_zero: %s", strerror(err));
 
-    DEBUG("Zero offset=%" PRIu64 " length=%" PRIu32 " completed in %"
-          PRIu64 " usec ",
+    DEBUG("Zero offset=%" PRIi64 " length=%" PRIu32 " completed in %" PRIu64
+          " usec",
           cmd->offset, cmd->length, gettime() - cmd->started);
+
+    cmd->completed = true;
+
+    w->bytes_hashed += cmd->length;
+
+    if (w->opt->progress)
+        progress_update(cmd->length);
 }
 
 static void hash_more_data(struct worker *w)
@@ -137,11 +167,7 @@ static void hash_more_data(struct worker *w)
         if (cmd->zero)
             run_zero(w, cmd);
         else
-            run_update(w, cmd);
-
-        w->bytes_hashed += cmd->length;
-        if (w->opt->progress)
-            progress_update(cmd->length);
+            start_update(w, cmd);
 
         cmd = next;
     }
@@ -241,13 +267,15 @@ static int read_completed(void *user_data, int *error)
 
 static void start_read(struct worker *w, struct command *cmd)
 {
-    src_aio_pread(w->s, cmd->buf, cmd->length, cmd->offset, read_completed, cmd);
-
+    /* Must increase the conter before calling, since sources faking aync
+     * support will call read_completed *before* the call returns. */
     assert(w->commands_in_flight < w->opt->queue_depth);
     w->commands_in_flight++;
 
     DEBUG("Read offset=%" PRIi64 " length=%" PRIu32 " started",
           cmd->offset, cmd->length);
+
+    src_aio_pread(w->s, cmd->buf, cmd->length, cmd->offset, read_completed, cmd);
 }
 
 static void start_zero(struct worker *w __attribute__ ((unused)), struct command *cmd)
@@ -286,20 +314,44 @@ static void read_more_data(struct worker *w)
     }
 }
 
+static int complete_updates(struct worker *w)
+{
+    struct blkhash_completion completions[w->opt->queue_depth];
+    int n;
+
+    n = blkhash_aio_completions(w->h, completions, w->opt->queue_depth);
+    if (n < 0) {
+        ERROR("Failed to get update completions: %s\n", strerror(-n));
+        return -1;
+    }
+
+    DEBUG("Got %d updates completions", n);
+
+    for (int i = 0; i < n; i++) {
+        struct blkhash_completion *c = &completions[i];
+        struct command *cmd = c->user_data;
+
+        if (c->error) {
+            ERROR("Update offset=%" PRIi64 " length=%" PRIu32 " failed: %s\n",
+                  cmd->offset, cmd->length, strerror(c->error));
+            return -1;
+        }
+
+        update_completed(w, cmd);
+    }
+
+    return 0;
+}
+
 static int wait_for_events(struct worker *w)
 {
     int n;
 
-    if (src_aio_prepare(w->s, &w->poll_fds[0]))
+    if (src_aio_prepare(w->s, &w->poll_fds[SRC_FD]))
         return -1;
 
-    /* If the fd is -1, the source does not need polling in this iteration.
-     * Polling on this fd blocks until the timeout expires. */
-    if (w->poll_fds[0].fd == -1)
-        return 0;
-
     do {
-        n = poll(w->poll_fds, 1, -1);
+        n = poll(w->poll_fds, 2, -1);
     } while (n == -1 && errno == EINTR);
 
     if (n == -1) {
@@ -307,8 +359,35 @@ static int wait_for_events(struct worker *w)
         return -1;
     }
 
-    if (w->poll_fds[0].revents)
-        return src_aio_notify(w->s, &w->poll_fds[0]);
+    if (w->poll_fds[SRC_FD].revents) {
+        if (src_aio_notify(w->s, &w->poll_fds[SRC_FD]))
+            return -1;
+    }
+
+    if (w->poll_fds[HASH_FD].revents & (POLLERR | POLLHUP | POLLNVAL)) {
+        ERROR("Error on completion fd %d revents=%d\n",
+              w->poll_fds[HASH_FD].fd, w->poll_fds[HASH_FD].revents);
+        return -1;
+    }
+
+    if (w->poll_fds[HASH_FD].revents & POLLIN) {
+        /* We must read at least 8 bytes from the completion fd. */
+        char sink[w->opt->queue_depth < 8 ? 8 : w->opt->queue_depth];
+
+        do {
+            n = read(w->poll_fds[HASH_FD].fd, &sink, sizeof(sink));
+        } while (n == -1 && errno == EINTR);
+
+        if (n < 0) {
+            ERROR("read: %s", strerror(errno));
+            return -1;
+        }
+
+        if (n > 0) {
+            if (complete_updates(w))
+                return -1;
+        }
+    }
 
     return 0;
 }
@@ -319,10 +398,12 @@ static void process_image(struct worker *w)
         if (w->read_offset < w->image_size)
             read_more_data(w);
 
-        if (wait_for_events(w))
-            FAIL("Worker failed");
-
         hash_more_data(w);
+
+        if (w->commands_in_flight) {
+            if (wait_for_events(w))
+                FAIL("Worker failed");
+        }
 
         if (!running()) {
             DEBUG("Worker aborting");
@@ -366,10 +447,14 @@ static void *worker_thread(void *arg)
 static void create_hash(struct worker *w)
 {
     struct blkhash_opts *ho;
+    int fd;
 
     ho = blkhash_opts_new(w->opt->digest_name);
     if (ho == NULL)
         FAIL_ERRNO("blkhash_opts_new");
+
+    if (blkhash_opts_set_queue_depth(ho, w->opt->queue_depth))
+        FAIL("Invalid queue depth value: %u", w->opt->queue_depth);
 
     if (blkhash_opts_set_block_size(ho, w->opt->block_size))
         FAIL("Invalid block size value: %zu", w->opt->block_size);
@@ -384,6 +469,13 @@ static void create_hash(struct worker *w)
     blkhash_opts_free(ho);
     if (w->h == NULL)
         FAIL_ERRNO("blkhash_new");
+
+    fd = blkhash_aio_completion_fd(w->h);
+    if (fd < 0)
+        FAIL("blkhash_aio_completion_fd: %s", strerror(-fd));
+
+    w->poll_fds[HASH_FD].fd = fd;
+    w->poll_fds[HASH_FD].events = POLLIN;
 }
 
 static void optimize(const char *filename, struct options *opt,

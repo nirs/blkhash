@@ -55,6 +55,8 @@ def blkhash(
     digest_name=DIGEST,
     timeout_seconds=TIMEOUT,
     input_size=None,
+    aio=None,
+    queue_depth=None,
     threads=4,
     streams=STREAMS,
 ):
@@ -69,6 +71,10 @@ def blkhash(
 
     if input_size:
         cmd.append(f"--input-size={input_size}")
+    if aio:
+        cmd.append("--aio")
+        if queue_depth:
+            cmd.append(f"--queue-depth={queue_depth}")
 
     _cool_down()
     cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
