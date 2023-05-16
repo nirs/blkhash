@@ -36,58 +36,69 @@ kind of input and configuration options.
 
 ### Example usage
 
-Measure hashing throughput for non-zero data using 16 threads:
+Measure hashing throughput for 100 GiB of non-zero data using 64
+threads, the async API, and queue depth 32:
 
-    $ build/test/blkhash-bench -i data -t 16
-    {
-      "input-type": "data",
-      "digest-name": "sha256",
-      "timeout-seconds": 1,
-      "input-size": 0,
-      "aio": false,
-      "queue-depth": 16,
-      "block-size": 65536,
-      "read-size": 262144,
-      "hole-size": 17179869184,
-      "threads": 16,
-      "streams": 32,
-      "total-size": 6123159552,
-      "elapsed": 1.003,
-      "throughput": 6102697208,
-      "checksum": "363f6eb4139b59a955b2cb15229c65c693db0185bff7fe1834f5fd57cd3fb753"
-    }
+```
+$ build/test/blkhash-bench --input-type data --input-size 100g \
+    --threads 64 --aio --queue-depth 32
+{
+  "input-type": "data",
+  "digest-name": "sha256",
+  "timeout-seconds": 1,
+  "input-size": 107374182400,
+  "aio": true,
+  "queue-depth": 32,
+  "block-size": 65536,
+  "read-size": 262144,
+  "hole-size": 17179869184,
+  "threads": 64,
+  "streams": 64,
+  "total-size": 107374182400,
+  "elapsed": 8.524,
+  "throughput": 12597223134,
+  "checksum": "691f0b9dfbcb944b91ad23bac4ea17db82f336b0aa47cec3b6890ee4a39375b6"
+}
+```
 
-Measure hashing throughput for unallocated data using 16 threads:
+Measure hashing throughput for 100 TiB of unallocated data using 64
+threads and queue depth 32:
 
-    $ build/test/blkhash-bench -i hole -t 16
-    {
-      "input-type": "hole",
-      "digest-name": "sha256",
-      "timeout-seconds": 1,
-      "input-size": 0,
-      "aio": false,
-      "queue-depth": 16,
-      "block-size": 65536,
-      "read-size": 262144,
-      "hole-size": 17179869184,
-      "threads": 16,
-      "streams": 32,
-      "total-size": 7627861917696,
-      "elapsed": 1.029,
-      "throughput": 7409583011752,
-      "checksum": "1bc6b0c013f50d34e0e1589137a55bfc8d06cc4bc710264a0e828a7f7425a4f9"
-    }
+```
+$ build/test/blkhash-bench --input-type hole --input-size 100t \
+    --threads 64 --queue-depth 32
+{
+  "input-type": "hole",
+  "digest-name": "sha256",
+  "timeout-seconds": 1,
+  "input-size": 109951162777600,
+  "aio": false,
+  "queue-depth": 32,
+  "block-size": 65536,
+  "read-size": 262144,
+  "hole-size": 17179869184,
+  "threads": 64,
+  "streams": 64,
+  "total-size": 109951162777600,
+  "elapsed": 9.698,
+  "throughput": 11337064827074,
+  "checksum": "659cfc90e33af01329e527444482f6b2afd01c827dc06724014b03a1e6583d39"
+}
+```
 
 Validate the checksum for 1 MiB of data with different number of
 threads:
 
-    $ for n in 1 2 4 8 16 32; do build/test/blkhash-bench -s 1m -t $n | jq .checksum; done
-    "f596205d1108c4752339b76f7a046fc9b40ed096c393cc1a9a32b052f679eef6"
-    "f596205d1108c4752339b76f7a046fc9b40ed096c393cc1a9a32b052f679eef6"
-    "f596205d1108c4752339b76f7a046fc9b40ed096c393cc1a9a32b052f679eef6"
-    "f596205d1108c4752339b76f7a046fc9b40ed096c393cc1a9a32b052f679eef6"
-    "f596205d1108c4752339b76f7a046fc9b40ed096c393cc1a9a32b052f679eef6"
-    "f596205d1108c4752339b76f7a046fc9b40ed096c393cc1a9a32b052f679eef6"
+```
+$ for n in 1 2 4 8 16 32 64; do build/test/blkhash-bench -s 1m -t $n | jq .checksum; done
+"2a6d5ed17da97865da0fd3ca9a792f3bfaf325940c44fd6a2f0a224a051eb6f0"
+"2a6d5ed17da97865da0fd3ca9a792f3bfaf325940c44fd6a2f0a224a051eb6f0"
+"2a6d5ed17da97865da0fd3ca9a792f3bfaf325940c44fd6a2f0a224a051eb6f0"
+"2a6d5ed17da97865da0fd3ca9a792f3bfaf325940c44fd6a2f0a224a051eb6f0"
+"2a6d5ed17da97865da0fd3ca9a792f3bfaf325940c44fd6a2f0a224a051eb6f0"
+"2a6d5ed17da97865da0fd3ca9a792f3bfaf325940c44fd6a2f0a224a051eb6f0"
+"2a6d5ed17da97865da0fd3ca9a792f3bfaf325940c44fd6a2f0a224a051eb6f0"
+```
 
 The JSON output can be used by another program to create graphs.
 

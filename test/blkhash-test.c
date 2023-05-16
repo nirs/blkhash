@@ -97,8 +97,8 @@ void test_block_data()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "3fe9a19c59cc0320c1bb605e3cbf3ecd35a295a1f7a2b4e5ebc1efdd1f5ebb8c",
-            hexdigest);
+            hexdigest,
+            "70eac04b8330211be9e1737b711e241fb3233a7d372ae9819f1aab6cf525a74b");
     }
 }
 
@@ -113,8 +113,8 @@ void test_block_data_zero()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "62e22dfa9a68d2747441335d07929c1577a0a836a90cb9bddc016f1728ae0ae6",
-            hexdigest);
+            hexdigest,
+            "63aa20dde75b6c4756c8e10760f60ce817247f6fa7d1077977e606cc47ae6e15");
     }
 }
 
@@ -129,8 +129,8 @@ void test_block_zero()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "62e22dfa9a68d2747441335d07929c1577a0a836a90cb9bddc016f1728ae0ae6",
-            hexdigest);
+            hexdigest,
+            "63aa20dde75b6c4756c8e10760f60ce817247f6fa7d1077977e606cc47ae6e15");
     }
 }
 
@@ -145,8 +145,8 @@ void test_partial_block_data()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "cd8d1ced5e8cb96831fc637e7c69a4ce940b04be401b30be7fabba4451c6e4c0",
-            hexdigest);
+            hexdigest,
+            "5f83249849f938a21ddb2a3c2edd090bb152e1b7a4d667032c5e9ca42ef55385");
     }
 }
 
@@ -161,8 +161,8 @@ void test_partial_block_data_zero()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "eb6df5009bff0bd2f11a42fdfee2f24ab88b8e2c4d8cd3fac686ecbb06a91c60",
-            hexdigest);
+            hexdigest,
+            "1a305cd50790418c9fc0904a5677bedc0aa7cdcbae43a080dd71388b6feca68d");
     }
 }
 
@@ -177,8 +177,8 @@ void test_partial_block_zero()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "eb6df5009bff0bd2f11a42fdfee2f24ab88b8e2c4d8cd3fac686ecbb06a91c60",
-            hexdigest);
+            hexdigest,
+            "1a305cd50790418c9fc0904a5677bedc0aa7cdcbae43a080dd71388b6feca68d");
     }
 }
 
@@ -193,8 +193,8 @@ void test_sparse()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "ac5b87337b903179e34e03ddddaa2132a5ff0733922a2c697b322416529ab50b",
-            hexdigest);
+            hexdigest,
+            "20d599e6ed9c6ff44a78fef9af8d3c696a556cf535fcb0bba3ef6d519d7238e7");
     }
 }
 
@@ -209,8 +209,8 @@ void test_sparse_large()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "cd8516de3da285cff382e4bd7528d148d8650691b5b78d77e0ebf8a6609c7aa0",
-            hexdigest);
+            hexdigest,
+            "114987e2287276ffdd3dab2426a630a84d060cf01cd7d8e9d1bfa7ddb78ba5ad");
     }
 }
 
@@ -226,8 +226,8 @@ void test_sparse_unaligned()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "904281f5a6b3a2cddde0ef22fcd904a7210354b637365f6f6b21bb0b2ae230cb",
-            hexdigest);
+            hexdigest,
+            "310bf52aebda5c7c6b4a7725ee4fe528c369273bab1ed1f6a76f53f187bc0aec");
     }
 }
 
@@ -242,8 +242,8 @@ void test_zero()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "ac5b87337b903179e34e03ddddaa2132a5ff0733922a2c697b322416529ab50b",
-            hexdigest);
+            hexdigest,
+            "20d599e6ed9c6ff44a78fef9af8d3c696a556cf535fcb0bba3ef6d519d7238e7");
     }
 }
 
@@ -259,8 +259,8 @@ void test_zero_unaligned()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "904281f5a6b3a2cddde0ef22fcd904a7210354b637365f6f6b21bb0b2ae230cb",
-            hexdigest);
+            hexdigest,
+            "310bf52aebda5c7c6b4a7725ee4fe528c369273bab1ed1f6a76f53f187bc0aec");
     }
 }
 
@@ -280,8 +280,8 @@ void test_full()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "51dce4f28453cb4087dd506441da279916b60f6875e51ca4df5d2184de69509b",
-            hexdigest);
+            hexdigest,
+            "cafbb8ce5060e31d858ed85b09fe38ae71d79ad5a210d56957a5a384c5a6f34d");
     }
 }
 
@@ -300,8 +300,8 @@ void test_full_unaligned()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "35b8503c0575e3b81a7d5f7f03bb9e10a2baa0b86d871e26ae9d458ff1b5e656",
-            hexdigest);
+            hexdigest,
+            "5f7db317939052a697b1f56e15557e60fdd1b31e8b1363bda1d6913e862759cc");
     }
 }
 
@@ -331,8 +331,8 @@ void test_mix()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "6a2f51e242d77a19e966b3ecad98c63dbe0bb2ff984c4ba70fb52c6ef9956897",
-            hexdigest);
+            hexdigest,
+            "a4b396c7f9ab5a902777418fb1ff3a485de459c6478a40a710ffa8eac3358517");
     }
 }
 
@@ -361,8 +361,8 @@ void test_mix_unaligned()
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
-            "3dc7e5448806207aa096baccdec8d2c0a27986ebf31a4a7e96e9ec9ca334eb84",
-            hexdigest);
+            hexdigest,
+            "1aaa8cefa00b5ba1f33a39e239e68d66b28eae90db66065a5137166ebaecdcca");
     }
 }
 
