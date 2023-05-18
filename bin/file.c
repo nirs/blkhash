@@ -10,7 +10,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "blksum.h"
+#include "src.h"
 
 struct file_src {
     struct src src;

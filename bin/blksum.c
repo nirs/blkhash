@@ -16,6 +16,7 @@
 
 #include "blkhash.h"
 #include "blksum.h"
+#include "src.h"
 
 /* 16 is typically best, allow larger number for testing. */
 #define MAX_QUEUE_DEPTH 128

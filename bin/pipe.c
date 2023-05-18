@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <stdio.h>
 
-#include "blksum.h"
+#include "src.h"
 
 struct pipe_src {
     struct src src;

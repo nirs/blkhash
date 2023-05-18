@@ -10,7 +10,7 @@
 
 #include <libnbd.h>
 
-#include "blksum.h"
+#include "src.h"
 
 #define FAIL_NBD() FAIL("%s", nbd_get_error())
 

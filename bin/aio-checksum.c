@@ -12,6 +12,7 @@
 #include "blkhash.h"
 #include "blksum.h"
 #include "util.h"
+#include "src.h"
 
 enum {HASH_FD=0, SRC_FD};
 
