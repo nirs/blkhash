@@ -24,7 +24,7 @@ struct worker {
 static const char *digest_name = "sha256";
 static int timeout_seconds = 1;
 static int64_t input_size = 0;
-static int read_size = 1 * MiB;
+static int read_size = 256 * KiB;
 
 /* Using multiple threads to test the maxmimum scalability of blkhash. */
 static int threads = 1;
