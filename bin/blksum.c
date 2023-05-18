@@ -41,7 +41,7 @@ static struct options opt = {
      * performance with i7-10850H when reading from fast NVMe. More
      * testing is needed with shared storage and different CPUs.
      */
-    .read_size = 256 * 1024,
+    .read_size = 256 * KiB,
 
     /*
      * Maximum number of of inflight async reads.
@@ -51,7 +51,7 @@ static struct options opt = {
     /*
      * Smaller size is optimal for hashing and detecting holes.
      */
-    .block_size = 64 * 1024,
+    .block_size = 64 * KiB,
 
     /*
      * Number of blkhash threads, does not change the hash value.
@@ -65,7 +65,7 @@ static struct options opt = {
     .streams = BLKHASH_STREAMS,
 
     /* Maximum size for extents call. */
-    .extents_size = 1024 * 1024 * 1024,
+    .extents_size = 1 * GiB,
 
     /*
      * Use host page cache. This is may be faster, but is not correct
