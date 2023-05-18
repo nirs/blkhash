@@ -20,9 +20,9 @@ struct nbd_src {
 };
 
 struct extent_request {
-    int64_t length;
     struct extent *extents;
     size_t count;
+    bool completed;
 };
 
 static ssize_t nbd_ops_pread(struct src *s, void *buf, size_t len, int64_t offset)
@@ -50,8 +50,11 @@ static int extent_callback (void *user_data, const char *metacontext,
                             uint32_t *entries, size_t nr_entries, int *error)
 {
     struct extent_request *r = user_data;
-    size_t count = nr_entries / 2;
     size_t i;
+
+    /* Limit result by size of extents array. If the server returned more
+     * extents, we drop them. We will get them in the next request. */
+    size_t count = MIN(nr_entries / 2, r->count);
 
     if (strcmp(metacontext, LIBNBD_CONTEXT_BASE_ALLOCATION) != 0) {
         DEBUG("unexpected meta context: %s", metacontext);
@@ -63,10 +66,6 @@ static int extent_callback (void *user_data, const char *metacontext,
         return 0;
     }
 
-    r->extents = malloc(count * sizeof(*r->extents));
-    if (r->extents == NULL)
-        FAIL_ERRNO("malloc");
-
     for (i = 0; i < count; i++) {
         uint32_t length = entries[i * 2];
         uint32_t flags = entries[i * 2 + 1];
@@ -76,15 +75,16 @@ static int extent_callback (void *user_data, const char *metacontext,
     }
 
     r->count = count;
+    r->completed = true;
 
     return 0;
 }
 
 static int nbd_ops_extents(struct src *s, int64_t offset, int64_t length,
-                           struct extent **extents, size_t *count)
+                           struct extent *extents, size_t *count)
 {
     struct nbd_src *ns = (struct nbd_src *)s;
-    struct extent_request r = { .length=length };
+    struct extent_request r = { .extents=extents, .count=*count, };
     nbd_extent_callback cb = { .callback=extent_callback, .user_data=&r, };
 
     if (!ns->src.can_extents)
@@ -96,14 +96,9 @@ static int nbd_ops_extents(struct src *s, int64_t offset, int64_t length,
          * checksum without extents, slower.
          */
         DEBUG("%s", nbd_get_error());
-        free(r.extents);
         ns->src.can_extents = false;
         return -1;
     }
-
-    /* Caller need to free extents. */
-    *extents = r.extents;
-    *count = r.count;
 
     /*
      * According to nbd_block_status(3), the extent callback may not be
@@ -112,7 +107,11 @@ static int nbd_ops_extents(struct src *s, int64_t offset, int64_t length,
      * as a temporary error so caller can use a fallback. Hopefully the
      * next call would succeed.
      */
-    return r.count > 0 ? 0 : -1;
+    if (!r.completed)
+        return -1;
+
+    *count = r.count;
+    return 0;
 }
 
 static int nbd_ops_aio_pread(struct src *s, void *buf, size_t len,

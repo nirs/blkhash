@@ -14,6 +14,9 @@
 #include "util.h"
 #include "src.h"
 
+/* Limit the number of extents processed in one call. */
+#define MAX_EXTENTS 4096
+
 enum {HASH_FD=0, SRC_FD};
 
 struct extent_array {
@@ -174,20 +177,12 @@ static void hash_more_data(struct worker *w)
     }
 }
 
-static void clear_extents(struct worker *w)
-{
-    if (w->extents.array) {
-        free(w->extents.array);
-        w->extents.array = NULL;
-        w->extents.count = 0;
-        w->extents.index = 0;
-    }
-}
-
 static void fetch_extents(struct worker *w, uint32_t length)
 {
     uint64_t start = 0;
-    clear_extents(w);
+
+    w->extents.index = 0;
+    w->extents.count = MAX_EXTENTS;
 
     DEBUG("Get extents offset=%" PRIi64 " length=%" PRIu32,
           w->read_offset, length);
@@ -195,7 +190,7 @@ static void fetch_extents(struct worker *w, uint32_t length)
     if (debug)
         start = gettime();
 
-    src_extents(w->s, w->read_offset, length, &w->extents.array,
+    src_extents(w->s, w->read_offset, length, w->extents.array,
                 &w->extents.count);
 
     DEBUG("Got %lu extents in %" PRIu64 " usec",
@@ -411,8 +406,6 @@ static void process_image(struct worker *w)
             break;
         }
     }
-
-    clear_extents(w);
 }
 
 static void *worker_thread(void *arg)
@@ -581,6 +574,10 @@ static void init_worker(struct worker *w, const char *filename,
 #endif
     }
 
+    w->extents.array = malloc(MAX_EXTENTS * sizeof(*w->extents.array));
+    if (w->extents.array == NULL)
+        FAIL_ERRNO("malloc");
+
     STAILQ_INIT(&w->read_queue);
     TAILQ_INIT(&w->hash_queue);
 
@@ -642,6 +639,7 @@ static void destroy_worker(struct worker *w)
 {
     blkhash_free(w->h);
     free(w->uri);
+    free(w->extents.array);
     destroy_commands(w);
 
 #ifdef HAVE_NBD

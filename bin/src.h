@@ -67,14 +67,18 @@ struct src_ops {
     int (*aio_notify)(struct src *s, struct pollfd *pfd);
 
     /*
-     * Get image extents for a byte range. Caller must free the returned
-     * extents list. The number and range of returned extents are:
+     * Get image extents for a byte range, up to count extents.
+     *
+     * Up to count extents will be copied into the extents array. count
+     * must not be 0.
+     *
+     * The number and range of returned extents are:
      * - At least one extent is retruned.
      * - The first extent starts at specified offset.
      * - The last extent may end before offset + length.
      */
     int (*extents)(struct src *s, int64_t offset, int64_t length,
-                   struct extent **extents, size_t *count);
+                   struct extent *extents, size_t *count);
 
     /*
      * Close the source.
@@ -99,7 +103,7 @@ static inline ssize_t src_read(struct src *s, void *buf, size_t len)
 }
 
 static inline void src_extents(struct src *s, int64_t offset, int64_t length,
-                               struct extent **extents, size_t *count)
+                               struct extent *extents, size_t *count)
 {
     if (s->can_extents) {
         if (s->ops->extents(s, offset, length, extents, count) == 0) {
@@ -107,19 +111,9 @@ static inline void src_extents(struct src *s, int64_t offset, int64_t length,
         }
     }
 
-    /*
-     * If getting extents failed or source does not support extents,
-     * fallback to single data extent.
-     */
-
-    struct extent *fallback = malloc(sizeof(*fallback));
-    if (fallback == NULL)
-        FAIL_ERRNO("malloc");
-
-    fallback->length = length;
-    fallback->zero = false;
-
-    *extents = fallback;
+    /* Safe fallback: single data extent. */
+    extents[0].length = length;
+    extents[0].zero = false;
     *count = 1;
 }
 
