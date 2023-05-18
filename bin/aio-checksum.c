@@ -478,6 +478,7 @@ static void create_hash(struct worker *w)
     w->poll_fds[HASH_FD].events = POLLIN;
 }
 
+#ifdef HAVE_NBD
 static void optimize(const char *filename, struct options *opt,
                      struct file_info *fi)
 {
@@ -536,6 +537,7 @@ static void optimize(const char *filename, struct options *opt,
         }
     }
 }
+#endif
 
 static void init_worker(struct worker *w, const char *filename,
                         struct options *opt, unsigned char *out)
