@@ -6,6 +6,8 @@ import os
 import subprocess
 import time
 
+from units import *
+
 # We pass the build directory from meson.build to support running the tests
 # during rpmbuild, when the build directory is not located in the same place.
 build_dir = os.environ.get("BUILD_DIR")
@@ -15,13 +17,6 @@ if build_dir is None:
 
 BLKHASH_BENCH = os.path.join(build_dir, "blkhash-bench")
 OPENSSL_BENCH = os.path.join(build_dir, "openssl-bench")
-
-KiB = 1 << 10
-MiB = 1 << 20
-GiB = 1 << 30
-TiB = 1 << 40
-PiB = 1 << 50
-EiB = 1 << 60
 
 DIGEST = "sha256"
 STREAMS = 64
