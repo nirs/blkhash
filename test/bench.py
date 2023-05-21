@@ -91,12 +91,7 @@ def blkhash(
     time.sleep(cool_down)
     cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
     r = json.loads(cp.stdout)
-    hsize = format_humansize(r["total-size"])
-    hrate = format_humansize(r["throughput"])
-    print(
-        f"{r['threads']:>2} threads, {r['streams']} streams: "
-        f"{hsize} in {r['elapsed']:.3f} s ({hrate}/s)"
-    )
+    print(description(r))
     return r
 
 
@@ -120,12 +115,14 @@ def openssl(
     time.sleep(cool_down)
     cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
     r = json.loads(cp.stdout)
+    print(description(r))
+    return r
+
+
+def description(r):
     hsize = format_humansize(r["total-size"])
     hrate = format_humansize(r["throughput"])
-    print(
-        f"{r['threads']:>2} threads: {hsize} in {r['elapsed']:.3f} s ({hrate}/s)",
-    )
-    return r
+    return f"{r['threads']:>4} threads: {hsize} in {r['elapsed']:.3f} s ({hrate}/s)"
 
 
 def format_humansize(n):
