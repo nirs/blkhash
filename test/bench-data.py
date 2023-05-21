@@ -5,22 +5,36 @@
 import bench
 
 args = bench.parse_args()
+results = bench.results("blkhash throughput - non zero")
 
 print(f"\nblkhash-bench --digest-name {bench.DIGEST} --input-type data\n")
+
+runs = []
+results["data"].append({"name": "blkhash", "runs": runs})
+
 for n in bench.threads():
-    bench.blkhash(
+    r = bench.blkhash(
         "data",
         threads=n,
         timeout_seconds=args.timeout,
         cool_down=args.cool_down,
     )
+    runs.append(r)
 
 print(f"\nblkhash-bench --digest-name {bench.DIGEST} --input-type data --aio\n")
+
+runs = []
+results["data"].append({"name": "blkhash-aio", "runs": runs})
+
 for n in bench.threads():
-    bench.blkhash(
+    r = bench.blkhash(
         "data",
         threads=n,
         aio=True,
         timeout_seconds=args.timeout,
         cool_down=args.cool_down,
     )
+    runs.append(r)
+
+if args.output:
+    bench.write(results, args.output)

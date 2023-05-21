@@ -7,6 +7,7 @@ import os
 import subprocess
 import time
 
+import host
 from units import *
 
 # We pass the build directory from meson.build to support running the tests
@@ -39,6 +40,11 @@ def parse_args():
         type=int,
         help=f"Number of seconds to wait between runs (default {COOL_DOWN})",
     )
+    p.add_argument(
+        "-o",
+        "--output",
+        help="Write results to specifed file (default no output)",
+    )
     return p.parse_args()
 
 
@@ -59,6 +65,24 @@ def threads(limit=STREAMS):
         if n >= online_cpus:
             break
         n = min(n * 2, online_cpus)
+
+
+def results(
+    name,
+    xlabel="Number of threads",
+    xscale="linear",
+    ylabel="Throughput GiB/s",
+    yscale="linear",
+):
+    return {
+        "name": name,
+        "xlabel": xlabel,
+        "xscale": xscale,
+        "ylabel": ylabel,
+        "yscale": yscale,
+        "host": host.info(),
+        "data": [],
+    }
 
 
 def blkhash(
@@ -131,3 +155,8 @@ def format_humansize(n):
             break
         n /= KiB
     return "{:.{precision}f} {}".format(n, unit, precision=0 if unit == "bytes" else 2)
+
+
+def write(results, filename):
+    with open(filename, "w") as f:
+        json.dump(results, f, indent=2)

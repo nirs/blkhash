@@ -5,12 +5,21 @@
 import bench
 
 args = bench.parse_args()
+results = bench.results("blkhash throughput - unallocated")
 
 print(f"\nblkhash-bench --digest-name {bench.DIGEST} --input-type hole\n")
+
+runs = []
+results["data"].append({"name": "blkhash", "runs": runs})
+
 for n in bench.threads():
-    bench.blkhash(
+    r = bench.blkhash(
         "hole",
         threads=n,
         timeout_seconds=args.timeout,
         cool_down=args.cool_down,
     )
+    runs.append(r)
+
+if args.output:
+    bench.write(results, args.output)
