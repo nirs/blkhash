@@ -25,16 +25,13 @@ TIMEOUT = 0 if "QUICK" in os.environ else 2
 
 def threads(limit=STREAMS):
     """
-    Geneate powers of 2 up to limit. The value is also also limited by the
-    number of online cpus to the first nuber equal or larger than the nuber of
-    oneline cpus.
+    Geneate powers of 2 up to limit. The value is also limited by the number of
+    online cpus.
 
     For example on laptop with 12 cores:
 
-        list(threads(limit=32)) -> [1, 2, 4, 8, 16]
+        list(threads(limit=32)) -> [1, 2, 4, 8, 12]
 
-    Typically using 16 threads is faster than 12 due to the way blkhash
-    distribute work to threads.
     """
     online_cpus = os.sysconf("SC_NPROCESSORS_ONLN")
     n = 1
@@ -42,7 +39,7 @@ def threads(limit=STREAMS):
         yield n
         if n >= online_cpus:
             break
-        n *= 2
+        n = min(n * 2, online_cpus)
 
 
 def blkhash(
