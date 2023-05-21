@@ -6,6 +6,7 @@ import bench
 
 args = bench.parse_args()
 results = bench.results("blkhash throughput - unallocated")
+results["grid"] = {"axis": "x"}
 
 print(f"\nblkhash-bench --digest-name {bench.DIGEST} --input-type hole\n")
 
