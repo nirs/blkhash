@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Red Hat Inc
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+import argparse
 import json
 import os
 import subprocess
@@ -20,7 +21,25 @@ OPENSSL_BENCH = os.path.join(build_dir, "openssl-bench")
 
 DIGEST = "sha256"
 STREAMS = 64
-TIMEOUT = 0 if "QUICK" in os.environ else 2
+TIMEOUT = 2
+COOL_DOWN = 6
+
+
+def parse_args():
+    p = argparse.ArgumentParser("bench")
+    p.add_argument(
+        "--timeout",
+        default=TIMEOUT,
+        type=int,
+        help=f"Number of seconds to run (default {TIMEOUT})",
+    )
+    p.add_argument(
+        "--cool-down",
+        default=COOL_DOWN,
+        type=int,
+        help=f"Number of seconds to wait between runs (default {COOL_DOWN})",
+    )
+    return p.parse_args()
 
 
 def threads(limit=STREAMS):
@@ -51,6 +70,7 @@ def blkhash(
     queue_depth=None,
     threads=4,
     streams=STREAMS,
+    cool_down=COOL_DOWN,
 ):
     cmd = [
         BLKHASH_BENCH,
@@ -68,7 +88,7 @@ def blkhash(
         if queue_depth:
             cmd.append(f"--queue-depth={queue_depth}")
 
-    _cool_down()
+    time.sleep(cool_down)
     cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
     r = json.loads(cp.stdout)
     hsize = format_humansize(r["total-size"])
@@ -85,6 +105,7 @@ def openssl(
     timeout_seconds=TIMEOUT,
     input_size=None,
     threads=1,
+    cool_down=COOL_DOWN,
 ):
     cmd = [
         OPENSSL_BENCH,
@@ -96,7 +117,7 @@ def openssl(
     if input_size:
         cmd.append(f"--input-size={input_size}")
 
-    _cool_down()
+    time.sleep(cool_down)
     cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
     r = json.loads(cp.stdout)
     hsize = format_humansize(r["total-size"])
@@ -105,14 +126,6 @@ def openssl(
         f"{r['threads']:>2} threads: {hsize} in {r['elapsed']:.3f} s ({hrate}/s)",
     )
     return r
-
-
-def _cool_down():
-    """
-    For more consitent results on machines with frequency scalling, give the
-    CPU time to cool down before runing the benchmark.
-    """
-    time.sleep(3 * TIMEOUT)
 
 
 def format_humansize(n):

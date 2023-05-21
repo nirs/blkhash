@@ -79,7 +79,6 @@ openssl_bench = executable(
 
 env = environment()
 env.set('BUILD_DIR', meson.current_build_dir())
-env.set('QUICK', '1')
 env.set('BLKSUM', blksum.full_path())
 env.set('HAVE_NBD', libnbd.found() ? '1' : '')
 
@@ -98,6 +97,7 @@ foreach b : benchmarks
   test(
     b,
     find_program(b + '.py'),
+    args: ['--timeout=0', '--cool-down=0'],
     depends: blkhash_bench,
     env: env,
     workdir: meson.current_source_dir(),

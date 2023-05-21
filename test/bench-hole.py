@@ -4,6 +4,13 @@
 
 import bench
 
+args = bench.parse_args()
+
 print(f"\nblkhash-bench --digest-name {bench.DIGEST} --input-type hole\n")
 for n in bench.threads():
-    bench.blkhash("hole", threads=n)
+    bench.blkhash(
+        "hole",
+        threads=n,
+        timeout_seconds=args.timeout,
+        cool_down=args.cool_down,
+    )

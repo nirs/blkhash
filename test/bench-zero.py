@@ -4,10 +4,23 @@
 
 import bench
 
+args = bench.parse_args()
+
 print(f"\nblkhash-bench --digest-name {bench.DIGEST} --input-type zero\n")
 for n in bench.threads():
-    bench.blkhash("zero", threads=n)
+    bench.blkhash(
+        "zero",
+        threads=n,
+        timeout_seconds=args.timeout,
+        cool_down=args.cool_down,
+    )
 
 print(f"\nblkhash-bench --digest-name {bench.DIGEST} --input-type zero --aio\n")
 for n in bench.threads():
-    bench.blkhash("zero", threads=n, aio=True)
+    bench.blkhash(
+        "zero",
+        threads=n,
+        aio=True,
+        timeout_seconds=args.timeout,
+        cool_down=args.cool_down,
+    )
