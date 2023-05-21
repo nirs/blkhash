@@ -40,7 +40,7 @@ for data in results["data"]:
 fig.suptitle(results["name"])
 ax.set_title(results["host"]["cpu"])
 ax.legend()
-ax.grid(visible=True, axis="x")
+ax.grid(**results.get("grid", {}))
 ax.set_xlabel(results["xlabel"])
 ax.set_xscale(results["xscale"])
 ax.set_xticks([r["threads"] for r in results["data"][0]["runs"]])
