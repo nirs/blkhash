@@ -27,7 +27,7 @@ print(f"\nblkhash-bench --digest-name {bench.DIGEST} --input-type data\n")
 runs = []
 results["data"].append({"name": "blkhash", "runs": runs})
 
-for n in bench.threads():
+for n in bench.threads(args.max_threads):
     r = bench.blkhash(
         "data",
         threads=n,
@@ -41,7 +41,7 @@ print(f"\nblkhash-bench --digest-name {bench.DIGEST} --input-type data --aio\n")
 runs = []
 results["data"].append({"name": "blkhash-aio", "runs": runs})
 
-for n in bench.threads():
+for n in bench.threads(args.max_threads):
     r = bench.blkhash(
         "data",
         threads=n,

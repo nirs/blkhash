@@ -25,7 +25,7 @@ for input_type in ["data", "zero", "hole"]:
     print(f"\nblkhash-bench --digest-name {bench.DIGEST} --input-type {input_type} --aio\n")
     runs = []
     results["data"].append({"name": f"blkhash-{input_type}", "runs": runs})
-    for n in bench.threads():
+    for n in bench.threads(args.max_threads):
         r = bench.blkhash(
             input_type,
             threads=n,

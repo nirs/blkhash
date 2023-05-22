@@ -41,6 +41,12 @@ def parse_args():
         help=f"Number of seconds to wait between runs (default {COOL_DOWN})",
     )
     p.add_argument(
+        "--max-threads",
+        type=int,
+        default=STREAMS,
+        help=f"Maximum number of cpus to test (default {STREAMS})",
+    )
+    p.add_argument(
         "--host-name",
         help="Host name for graphs",
     )
