@@ -37,8 +37,10 @@ for data in results["data"]:
         label=data["name"],
     )
 
-fig.suptitle(results["name"])
-ax.set_title(results["host"]["cpu"])
+title = results["test-name"]
+if results["host-name"]:
+    title += f" ({results['host-name']})"
+fig.suptitle(title)
 ax.legend()
 ax.grid(**results.get("grid", {}))
 ax.set_xlabel(results["xlabel"])

@@ -15,6 +15,7 @@ import bench
 args = bench.parse_args()
 results = bench.results(
     "blkhash throughput - zero optimization",
+    host_name=args.host_name,
     yscale="log",
 )
 

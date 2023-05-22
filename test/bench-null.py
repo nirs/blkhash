@@ -5,7 +5,11 @@
 import bench
 
 args = bench.parse_args()
-results = bench.results("blkhash throughput - null digest", yscale="log")
+results = bench.results(
+    "blkhash throughput - null digest",
+    host_name=args.host_name,
+    yscale="log",
+)
 
 for input_type in "data", "zero", "hole":
     print(f"\nblkhash-bench --digest-name null --input-type {input_type}\n")

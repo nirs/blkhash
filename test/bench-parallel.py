@@ -15,7 +15,10 @@ hashing requires the async API. Show also sha256 for reference.
 import bench
 
 args = bench.parse_args()
-results = bench.results("blkhash throughput - parallel hashing")
+results = bench.results(
+    "blkhash throughput - parallel hashing",
+    host_name=args.host_name,
+)
 
 results["grid"] = {"axis": "x"}
 
@@ -51,12 +54,14 @@ for n in bench.threads():
 print(f"\nopenssl-bench --digest-name {bench.DIGEST}\n")
 
 runs = []
-results["data"].append({
-    "name": "SHA256",
-    "marker": "D",
-    "linewidth": 0,
-    "runs": runs,
-})
+results["data"].append(
+    {
+        "name": "SHA256",
+        "marker": "D",
+        "linewidth": 0,
+        "runs": runs,
+    }
+)
 
 r = bench.openssl(
     threads=1,

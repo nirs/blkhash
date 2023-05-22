@@ -41,6 +41,10 @@ def parse_args():
         help=f"Number of seconds to wait between runs (default {COOL_DOWN})",
     )
     p.add_argument(
+        "--host-name",
+        help="Host name for graphs",
+    )
+    p.add_argument(
         "-o",
         "--output",
         help="Write results to specifed file (default no output)",
@@ -68,14 +72,16 @@ def threads(limit=STREAMS):
 
 
 def results(
-    name,
+    test_name,
+    host_name=None,
     xlabel="Number of threads",
     xscale="linear",
     ylabel="Throughput GiB/s",
     yscale="linear",
 ):
     return {
-        "name": name,
+        "test-name": test_name,
+        "host-name": host_name,
         "xlabel": xlabel,
         "xscale": xscale,
         "ylabel": ylabel,
