@@ -1,10 +1,14 @@
 # SPDX-FileCopyrightText: Red Hat Inc
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+import argparse
 import json
 import os
 import subprocess
 import time
+
+import host
+from units import *
 
 # We pass the build directory from meson.build to support running the tests
 # during rpmbuild, when the build directory is not located in the same place.
@@ -16,30 +20,53 @@ if build_dir is None:
 BLKHASH_BENCH = os.path.join(build_dir, "blkhash-bench")
 OPENSSL_BENCH = os.path.join(build_dir, "openssl-bench")
 
-KiB = 1 << 10
-MiB = 1 << 20
-GiB = 1 << 30
-TiB = 1 << 40
-PiB = 1 << 50
-EiB = 1 << 60
-
 DIGEST = "sha256"
 STREAMS = 64
-TIMEOUT = 0 if "QUICK" in os.environ else 2
+TIMEOUT = 2
+COOL_DOWN = 6
+
+
+def parse_args():
+    p = argparse.ArgumentParser("bench")
+    p.add_argument(
+        "--timeout",
+        default=TIMEOUT,
+        type=int,
+        help=f"Number of seconds to run (default {TIMEOUT})",
+    )
+    p.add_argument(
+        "--cool-down",
+        default=COOL_DOWN,
+        type=int,
+        help=f"Number of seconds to wait between runs (default {COOL_DOWN})",
+    )
+    p.add_argument(
+        "--max-threads",
+        type=int,
+        default=STREAMS,
+        help=f"Maximum number of cpus to test (default {STREAMS})",
+    )
+    p.add_argument(
+        "--host-name",
+        help="Host name for graphs",
+    )
+    p.add_argument(
+        "-o",
+        "--output",
+        help="Write results to specifed file (default no output)",
+    )
+    return p.parse_args()
 
 
 def threads(limit=STREAMS):
     """
-    Geneate powers of 2 up to limit. The value is also also limited by the
-    number of online cpus to the first nuber equal or larger than the nuber of
-    oneline cpus.
+    Geneate powers of 2 up to limit. The value is also limited by the number of
+    online cpus.
 
     For example on laptop with 12 cores:
 
-        list(threads(limit=32)) -> [1, 2, 4, 8, 16]
+        list(threads(limit=32)) -> [1, 2, 4, 8, 12]
 
-    Typically using 16 threads is faster than 12 due to the way blkhash
-    distribute work to threads.
     """
     online_cpus = os.sysconf("SC_NPROCESSORS_ONLN")
     n = 1
@@ -47,7 +74,27 @@ def threads(limit=STREAMS):
         yield n
         if n >= online_cpus:
             break
-        n *= 2
+        n = min(n * 2, online_cpus)
+
+
+def results(
+    test_name,
+    host_name=None,
+    xlabel="Number of threads",
+    xscale="linear",
+    ylabel="Throughput GiB/s",
+    yscale="linear",
+):
+    return {
+        "test-name": test_name,
+        "host-name": host_name,
+        "xlabel": xlabel,
+        "xscale": xscale,
+        "ylabel": ylabel,
+        "yscale": yscale,
+        "host": host.info(),
+        "data": [],
+    }
 
 
 def blkhash(
@@ -59,6 +106,7 @@ def blkhash(
     queue_depth=None,
     threads=4,
     streams=STREAMS,
+    cool_down=COOL_DOWN,
 ):
     cmd = [
         BLKHASH_BENCH,
@@ -76,15 +124,10 @@ def blkhash(
         if queue_depth:
             cmd.append(f"--queue-depth={queue_depth}")
 
-    _cool_down()
+    time.sleep(cool_down)
     cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
     r = json.loads(cp.stdout)
-    hsize = format_humansize(r["total-size"])
-    hrate = format_humansize(r["throughput"])
-    print(
-        f"{r['threads']:>2} threads, {r['streams']} streams: "
-        f"{hsize} in {r['elapsed']:.3f} s ({hrate}/s)"
-    )
+    print(description(r))
     return r
 
 
@@ -93,6 +136,7 @@ def openssl(
     timeout_seconds=TIMEOUT,
     input_size=None,
     threads=1,
+    cool_down=COOL_DOWN,
 ):
     cmd = [
         OPENSSL_BENCH,
@@ -104,23 +148,17 @@ def openssl(
     if input_size:
         cmd.append(f"--input-size={input_size}")
 
-    _cool_down()
+    time.sleep(cool_down)
     cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
     r = json.loads(cp.stdout)
-    hsize = format_humansize(r["total-size"])
-    hrate = format_humansize(r["throughput"])
-    print(
-        f"{r['threads']:>2} threads: {hsize} in {r['elapsed']:.3f} s ({hrate}/s)",
-    )
+    print(description(r))
     return r
 
 
-def _cool_down():
-    """
-    For more consitent results on machines with frequency scalling, give the
-    CPU time to cool down before runing the benchmark.
-    """
-    time.sleep(3 * TIMEOUT)
+def description(r):
+    hsize = format_humansize(r["total-size"])
+    hrate = format_humansize(r["throughput"])
+    return f"{r['threads']:>4} threads: {hsize} in {r['elapsed']:.3f} s ({hrate}/s)"
 
 
 def format_humansize(n):
@@ -129,3 +167,8 @@ def format_humansize(n):
             break
         n /= KiB
     return "{:.{precision}f} {}".format(n, unit, precision=0 if unit == "bytes" else 2)
+
+
+def write(results, filename):
+    with open(filename, "w") as f:
+        json.dump(results, f, indent=2)

@@ -1,0 +1,93 @@
+{
+  "test-name": "blkhash throughput - unallocated",
+  "host-name": "laptop",
+  "xlabel": "Number of threads",
+  "xscale": "linear",
+  "ylabel": "Throughput GiB/s",
+  "yscale": "linear",
+  "host": {
+    "platform": "Linux-6.2.15-200.fc37.x86_64-x86_64-with-glibc2.36",
+    "online-cpus": 6,
+    "smt": "off",
+    "cpu": "Intel(R) Core(TM) i7-10850H CPU @ 2.70GHz",
+    "tuned-profile": "latency-performance"
+  },
+  "data": [
+    {
+      "name": "blkhash",
+      "runs": [
+        {
+          "input-type": "hole",
+          "digest-name": "sha256",
+          "timeout-seconds": 2,
+          "input-size": 0,
+          "aio": false,
+          "queue-depth": 16,
+          "block-size": 65536,
+          "read-size": 262144,
+          "hole-size": 17179869184,
+          "threads": 1,
+          "streams": 64,
+          "total-size": 1924145348608,
+          "elapsed": 2.071,
+          "throughput": 929008787067,
+          "checksum": "3af05b34a1911403fa9fc9dab1fb40382ada3f5c16f9f2a4e2a6ea63f700b627"
+        },
+        {
+          "input-type": "hole",
+          "digest-name": "sha256",
+          "timeout-seconds": 2,
+          "input-size": 0,
+          "aio": false,
+          "queue-depth": 16,
+          "block-size": 65536,
+          "read-size": 262144,
+          "hole-size": 17179869184,
+          "threads": 2,
+          "streams": 64,
+          "total-size": 3642132267008,
+          "elapsed": 2.057,
+          "throughput": 1770910408903,
+          "checksum": "a4a99980befba4b42aea96952f586c3190438909020dd838a70cbdbaee7488d4"
+        },
+        {
+          "input-type": "hole",
+          "digest-name": "sha256",
+          "timeout-seconds": 2,
+          "input-size": 0,
+          "aio": false,
+          "queue-depth": 16,
+          "block-size": 65536,
+          "read-size": 262144,
+          "hole-size": 17179869184,
+          "threads": 4,
+          "streams": 64,
+          "total-size": 7421703487488,
+          "elapsed": 2.034,
+          "throughput": 3649392327555,
+          "checksum": "2103fbdc929debfd58ca93087835fda42083a78642e20462525159b99eb728a7"
+        },
+        {
+          "input-type": "hole",
+          "digest-name": "sha256",
+          "timeout-seconds": 2,
+          "input-size": 0,
+          "aio": false,
+          "queue-depth": 16,
+          "block-size": 65536,
+          "read-size": 262144,
+          "hole-size": 17179869184,
+          "threads": 6,
+          "streams": 64,
+          "total-size": 8864812498944,
+          "elapsed": 2.035,
+          "throughput": 4355137401691,
+          "checksum": "56197be6351dcd4720f3f13780d5c789d215b38e37ac571249df5d65c0ed12bf"
+        }
+      ]
+    }
+  ],
+  "grid": {
+    "axis": "x"
+  }
+}
