@@ -25,26 +25,37 @@ args = p.parse_args()
 plt.style.use(["test/web.mplstyle"])
 fig, ax = plt.subplots(layout="constrained")
 
+results = []
+
 for filename in args.filenames:
     with open(filename) as f:
-        results = json.load(f)
+        data = json.load(f)
 
     # openssl results are from single thread and there is no "t" parameter.
-    x = [r.get("parameters", {"t": "1"})["t"] for r in results["results"]]
+    x = [int(r.get("parameters", {"t": "1"})["t"]) for r in data["results"]]
+
     # Convert mean time to througput
-    y = [results["size"] / r["mean"] / GiB for r in results["results"]]
-    label = os.path.splitext(os.path.basename(filename))[0]
-    extra = {}
+    y = [data["size"] / r["mean"] / GiB for r in data["results"]]
+
+    kwargs = {
+        "label": os.path.splitext(os.path.basename(filename))[0],
+    }
+
     if len(x) == 1:
-        extra["linewidth"] = 0
-        extra["marker"] = "D"
-    ax.plot(x, y, label=label, **extra)
+        kwargs["linewidth"] = 0
+        kwargs["marker"] = "D"
+
+    results.append((x, y, kwargs))
+
+for x, y, kwargs in results:
+    ax.plot(x, y, **kwargs)
 
 fig.suptitle(args.title)
 ax.legend()
 ax.grid(which="both", axis="both")
 ax.set_xlabel("Number of threads")
 ax.set_ylabel("Throughput GiB/s")
+ax.set_xticks(results[0][0])
 
 if args.log_scale:
     ax.set_yscale("log")
