@@ -7,6 +7,7 @@
 #include "blkhash.h"
 #include "blksum.h"
 #include "util.h"
+#include "src.h"
 
 void checksum(struct src *s, struct options *opt, unsigned char *out)
 {

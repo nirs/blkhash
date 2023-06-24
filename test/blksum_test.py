@@ -22,6 +22,8 @@ Image = namedtuple("Image", "filename,md,checksum")
 Child = namedtuple("Child", "pid,name")
 NBDServer = namedtuple("NBDServer", "pid,url")
 
+QCOW2_CLUSTER_SIZE = 64 * 1024
+
 requires_nbd = pytest.mark.skipif(not HAVE_NBD, reason="NBD required")
 
 
@@ -107,6 +109,30 @@ def qcow2(raw):
 
 
 @pytest.fixture(scope="session")
+def extents_raw(tmpdir_factory):
+    filename = str(tmpdir_factory.mktemp("extents").join("raw"))
+    print(f"Creating image {filename}")
+    # Create image with 8192 extents for testing extents handling.  We write
+    # one byte in every 2 qcow2 clusters, creating image with one data cluster
+    # and one unallocated cluster pattern.
+    with open(filename, "wb") as f:
+        f.truncate(4096 * QCOW2_CLUSTER_SIZE * 2)
+        for i in range(4096):
+            f.seek(i * QCOW2_CLUSTER_SIZE * 2, os.SEEK_SET)
+            f.write(b"U")
+    checksum = blkhash.checksum(filename, "sha256")
+    return Image(filename, "sha256", checksum)
+
+
+@pytest.fixture(scope="session")
+def extents_qcow2(extents_raw):
+    filename = extents_raw.filename.replace("raw", "qcow2")
+    print(f"Creating qcow2 image {filename}")
+    convert_image(extents_raw.filename, filename, "qcow2")
+    return Image(filename, extents_raw.md, extents_raw.checksum)
+
+
+@pytest.fixture(scope="session")
 def term(tmpdir_factory):
     filename = str(tmpdir_factory.mktemp("image").join("term"))
     print(f"Creating image {filename}")
@@ -150,6 +176,18 @@ def test_qcow2_nbd(tmpdir, qcow2, cache):
     with open_nbd(tmpdir, qcow2.filename, "qcow2") as nbd:
         res = blksum_nbd(nbd.url, md=qcow2.md)
     assert res == [qcow2.checksum, nbd.url]
+
+
+@requires_nbd
+def test_extents_raw(tmpdir, extents_raw):
+    res = blksum_file(extents_raw.filename, md=extents_raw.md)
+    assert res == [extents_raw.checksum, extents_raw.filename]
+
+
+@requires_nbd
+def test_extents_qcow2(tmpdir, extents_qcow2):
+    res = blksum_file(extents_qcow2.filename, md=extents_qcow2.md)
+    assert res == [extents_qcow2.checksum, extents_qcow2.filename]
 
 
 def test_list_digests():
