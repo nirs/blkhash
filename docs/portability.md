@@ -26,10 +26,6 @@ build system or have no automated testing.
 | Fedora 38         | x86_64        | gitlab, circleci  | yes    |
 | CentOS Stream 8   | x86_64        | gitlab, circleci  | yes    |
 | CentOS Stream 9   | x86_64        | gitlab, circleci  | yes    |
-| Fedora 36         | aarch64       | copr              | yes    |
-| Fedora 36         | ppc64le       | copr              | yes    |
-| Fedora 36         | s390x         | copr              | yes    |
-| Fedora 36         | x86_64        | copr              | yes    |
 | Fedora 37         | aarch64       | copr              | yes    |
 | Fedora 37         | ppc64le       | copr              | yes    |
 | Fedora 37         | s390x         | copr              | yes    |
@@ -38,6 +34,10 @@ build system or have no automated testing.
 | Fedora 38         | ppc64le       | copr              | yes    |
 | Fedora 38         | s390x         | copr              | yes    |
 | Fedora 38         | x86_64        | copr              | yes    |
+| Fedora 39         | aarch64       | copr              | yes    |
+| Fedora 39         | ppc64le       | copr              | yes    |
+| Fedora 39         | s390x         | copr              | yes    |
+| Fedora 39         | x86_64        | copr              | yes    |
 | CentOS Stream 8   | aarch64       | copr              | yes    |
 | CentOS Stream 8   | ppc64le       | copr              | yes    |
 | CentOS Stream 8   | x86_64        | copr              | yes    |
@@ -53,6 +53,6 @@ build system or have no automated testing.
 | EPEL 9            | ppc64le       | copr              | yes    |
 | EPEL 9            | s390x         | copr              | yes    |
 | EPEL 9            | x86_64        | copr              | yes    |
-| RHEL 8.6          | x86_64        | no                | yes    |
+| RHEL 8.7          | x86_64        | no                | yes    |
 | FreeBSD 13        | x86_64        | no                | no     |
 | macOS 13 Ventura  | Apple Silicon | no                | no     |
