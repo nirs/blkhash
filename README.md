@@ -610,7 +610,7 @@ Create a build directory with default options:
 When building on *macOS* via *MacPorts*, you need to skip building the
 manual pages:
 
-    meson setup build -Ddoc=disabled
+    meson setup build -Dman=disabled
 
 The default options:
 

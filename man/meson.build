@@ -2,13 +2,13 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 # TODO: use allowed() when dropping Centos 8 (requires meson 0.59.0).
-if not get_option('doc').disabled()
+if not get_option('man').disabled()
 
   a2x = find_program('a2x')
 
   blksum_1 = custom_target(
     'blksum.1',
-    command: [a2x, '--format=manpage', '--destination-dir=@BUILD_ROOT@/doc', '@INPUT@'],
+    command: [a2x, '--format=manpage', '--destination-dir=@BUILD_ROOT@/man', '@INPUT@'],
     input: 'blksum.1.adoc',
     output: 'blksum.1',
     install: true,
@@ -17,7 +17,7 @@ if not get_option('doc').disabled()
 
   blkhash_3 = custom_target(
     'blkhash.3',
-    command: [a2x, '--format=manpage', '--destination-dir=@BUILD_ROOT@/doc', '@INPUT@'],
+    command: [a2x, '--format=manpage', '--destination-dir=@BUILD_ROOT@/man', '@INPUT@'],
     input: 'blkhash.3.adoc',
     output: [
       'blkhash_new.3',
