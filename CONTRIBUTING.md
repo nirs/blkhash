@@ -9,10 +9,6 @@ for issues that can be easier to start with.
 Please [create a new issue](https://gitlab.com/nirs/blkhash/-/issues/new)
 for new features you want to work on.
 
-For discussing development, please use the
-[oVirt devel mailing list](https://lists.ovirt.org/archives/list/devel%40ovirt.org/)
-or the `#ovirt` room in `irc.oftc.net`.
-
 See the next sections on how to set up a development environment, run
 the tests and debug.
 
