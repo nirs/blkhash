@@ -218,6 +218,7 @@ int main(int argc, char *argv[])
     printf("  \"elapsed\": %.3f,\n", seconds);
     printf("  \"throughput\": %" PRIi64 ",\n", (int64_t)(total_size / seconds));
     printf("  \"kiops\": %.3f,\n", calls / seconds / 1000);
+    printf("  \"gips\": %.3f,\n", total_size / seconds / GiB);
     printf("  \"checksum\": \"%s\"\n", res_hex);
     printf("}\n");
 }
