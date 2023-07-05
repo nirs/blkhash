@@ -18,6 +18,7 @@ struct worker {
     const EVP_MD *md;
     EVP_MD_CTX *ctx;
     int64_t total_size;
+    int64_t calls;
     unsigned int len;
 } __attribute__ ((aligned (CACHE_LINE_SIZE)));
 
@@ -103,7 +104,7 @@ static void parse_options(int argc, char *argv[])
     }
 }
 
-static int64_t update_by_size(struct worker *w)
+static void update_by_size(struct worker *w)
 {
     int64_t todo = input_size;
 
@@ -111,27 +112,26 @@ static int64_t update_by_size(struct worker *w)
         if (!EVP_DigestUpdate(w->ctx, w->buffer, read_size))
             FAIL("EVP_DigestUpdate");
         todo -= read_size;
+        w->total_size += read_size;
+        w->calls++;
     }
 
     if (todo > 0) {
         if (!EVP_DigestUpdate(w->ctx, w->buffer, todo))
             FAIL("EVP_DigestUpdate");
+        w->total_size += read_size;
+        w->calls++;
     }
-
-    return input_size;
 }
 
-static int64_t update_until_timeout(struct worker *w)
+static void update_until_timeout(struct worker *w)
 {
-    int64_t done = 0;
-
     do {
         if (!EVP_DigestUpdate(w->ctx, w->buffer, read_size))
             FAIL("EVP_DigestUpdate");
-        done += read_size;
+        w->total_size += read_size;
+        w->calls++;
     } while (timer_is_running);
-
-    return done;
 }
 
 static void *worker_thread(void *arg)
@@ -156,9 +156,9 @@ static void *worker_thread(void *arg)
         FAIL("EVP_DigestInit_ex");
 
     if (input_size)
-        w->total_size = update_by_size(w);
+        update_by_size(w);
     else
-        w->total_size = update_until_timeout(w);
+        update_until_timeout(w);
 
     if (!EVP_DigestFinal_ex(w->ctx, w->res, &w->len))
         FAIL("EVP_DigestFinal_ex");
@@ -175,6 +175,7 @@ int main(int argc, char *argv[])
     char res_hex[EVP_MAX_MD_SIZE * 2 + 1];
     int64_t start, elapsed;
     int64_t total_size = 0;
+    int64_t calls = 0;
     double seconds;
     int err;
 
@@ -199,6 +200,7 @@ int main(int argc, char *argv[])
             FAILF("pthread_join: %s", strerror(err));
 
         total_size += w->total_size;
+        calls += w->calls;
     }
 
     elapsed = gettime() - start;
@@ -215,6 +217,8 @@ int main(int argc, char *argv[])
     printf("  \"total-size\": %" PRIi64 ",\n", total_size);
     printf("  \"elapsed\": %.3f,\n", seconds);
     printf("  \"throughput\": %" PRIi64 ",\n", (int64_t)(total_size / seconds));
+    printf("  \"kiops\": %.3f,\n", calls / seconds / 1000);
+    printf("  \"gips\": %.3f,\n", total_size / seconds / GiB);
     printf("  \"checksum\": \"%s\"\n", res_hex);
     printf("}\n");
 }

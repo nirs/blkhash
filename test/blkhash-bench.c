@@ -35,6 +35,7 @@ static unsigned current;
 static struct blkhash_completion *completions;
 static struct pollfd poll_fds[1];
 static int64_t total_size;
+static int64_t calls;
 
 static void setup_aio(struct blkhash *h)
 {
@@ -214,6 +215,7 @@ static void update(struct blkhash *h, struct request *req)
         FAILF("blkhash_update: %s", strerror(err));
 
     total_size += req->len;
+    calls++;
 }
 
 static void zero(struct blkhash *h, size_t len)
@@ -223,6 +225,7 @@ static void zero(struct blkhash *h, size_t len)
         FAILF("blkhash_zero: %s", strerror(err));
 
     total_size += len;
+    calls++;
 }
 
 static void complete_aio_updates(struct blkhash *h)
@@ -270,6 +273,7 @@ static void complete_aio_updates(struct blkhash *h)
 
         req = cmp->user_data;
         req->ready = true;
+        calls++;
     }
 }
 
@@ -420,6 +424,8 @@ int main(int argc, char *argv[])
     printf("  \"total-size\": %" PRIi64 ",\n", total_size);
     printf("  \"elapsed\": %.3f,\n", seconds);
     printf("  \"throughput\": %" PRIi64 ",\n", (int64_t)(total_size / seconds));
+    printf("  \"kiops\": %.3f,\n", calls / seconds / 1000);
+    printf("  \"gips\": %.3f,\n", total_size / seconds / GiB);
     printf("  \"checksum\": \"%s\"\n", md_hex);
     printf("}\n");
 
