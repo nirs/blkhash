@@ -9,13 +9,13 @@ The `blksum` command computes message digest for disk images, similar to
 standard tools like `sha256sum`. For example to compute a sha256 block based
 checksum of a raw image:
 
-    $ blksum fedora-35.raw
-    6e5c00c995056319d52395f8d91c7f84725ae3da69ffcba4de4c7d22cff713a5  fedora-35.raw
+    $ blksum disk.raw
+    6e5c00c995056319d52395f8d91c7f84725ae3da69ffcba4de4c7d22cff713a5  disk.raw
 
 We could compute a checksum for this image using `sha256sum`:
 
-    $ sha256sum fedora-35.raw
-    88da042d3c4ad61091c25414513e74d2eaa7183f6c555476a9be55372ab284c6  fedora-35.raw
+    $ sha256sum disk.raw
+    88da042d3c4ad61091c25414513e74d2eaa7183f6c555476a9be55372ab284c6  disk.raw
 
 Note that the checksums are different! `blksum` computes a block based
 sha256 checksum, not a sha256 checksum of the entire image.
@@ -28,29 +28,29 @@ The advantage of the block based checksum is clear when you want to
 compute the checksum of the same image in different image format. Let's
 convert this image to qcow2 format:
 
-    $ qemu-img convert -f raw -O qcow2 fedora-35.raw fedora-35.qcow2
+    $ qemu-img convert -f raw -O qcow2 disk.raw disk.qcow2
 
 This creates and identical image:
 
-    $ qemu-img compare fedora-35.raw fedora-35.qcow2
+    $ qemu-img compare disk.raw disk.qcow2
     Images are identical.
 
 But the file contents are different:
 
-    $ ls -lhs fedora-35.*
-    1.2G -rw-r--r--. 1 nsoffer nsoffer 1.2G Feb 27 12:48 fedora-35.qcow2
-    1.2G -rw-r--r--. 1 nsoffer nsoffer 6.0G Jan 21 00:28 fedora-35.raw
+    $ ls -lhs disk.*
+    1.2G -rw-r--r--. 1 nsoffer nsoffer 1.2G Feb 27 12:48 disk.qcow2
+    1.2G -rw-r--r--. 1 nsoffer nsoffer 6.0G Jan 21 00:28 disk.raw
 
 Standard tools like `sha256sum` do not understand image formats, so they
 compute a different checksum for the qcow2 image:
 
-    $ sha256sum fedora-35.qcow2
-    ae33f66851f5306bad5667ba7aabfea2d65cc2a13989e4fb0f73f4627861dbf2  fedora-35.qcow2
+    $ sha256sum disk.qcow2
+    ae33f66851f5306bad5667ba7aabfea2d65cc2a13989e4fb0f73f4627861dbf2  disk.qcow2
 
 Because `blksum` understands image formats, it compute the same checksum:
 
-    $ blksum fedora-35.qcow2
-    6e5c00c995056319d52395f8d91c7f84725ae3da69ffcba4de4c7d22cff713a5  fedora-35.qcow2
+    $ blksum disk.qcow2
+    6e5c00c995056319d52395f8d91c7f84725ae3da69ffcba4de4c7d22cff713a5  disk.qcow2
 
 Currently only `raw` and `qcow2` formats are supported. Any other format
 is considered a raw image.
@@ -60,8 +60,8 @@ is considered a raw image.
 The `blksum` command supports any message digest algorithm provided by
 `openssl`. For example we can use `blake2b512`:
 
-    $ blksum --digest blake2b512 fedora-35.qcow2
-    fd2b46c3d5684fff9e1347299ef48d1a5c48cf3ec8ccf409112d6cd20e53874b7b2ab0c3a85d22e1cb63682796ecfa7687224131cf5d64c3e1e715c8e2848c34  fedora-35.qcow2
+    $ blksum --digest blake2b512 disk.qcow2
+    fd2b46c3d5684fff9e1347299ef48d1a5c48cf3ec8ccf409112d6cd20e53874b7b2ab0c3a85d22e1cb63682796ecfa7687224131cf5d64c3e1e715c8e2848c34  disk.qcow2
 
 To find the available digest names run:
 
@@ -97,7 +97,7 @@ image:
       VG   LV   LSize Attr
       data test 6.00g -wi-a-----
 
-    $ sudo qemu-img convert -f qcow2 -O qcow2 fedora-35.qcow2 /dev/data/test
+    $ sudo qemu-img convert -f qcow2 -O qcow2 disk.qcow2 /dev/data/test
 
 The `blksum` command will compute the same checksum for the logical volume:
 
@@ -110,14 +110,14 @@ by `NBD` server such as `qemu-nbd`.
 For example we can export an image using *qemu-nbd* using a unix socket:
 
     $ qemu-nbd --read-only --persistent --shared 8 --socket /tmp/nbd.sock \
-        --format qcow2 fedora-35.qcow2 &
+        --format qcow2 disk.qcow2 &
 
     $ blksum nbd+unix:///?socket=/tmp/nbd.sock
     6e5c00c995056319d52395f8d91c7f84725ae3da69ffcba4de4c7d22cff713a5  nbd+unix:///?socket=/tmp/nbd.sock
 
 We can also access an image on a remote host using `NBD` TCP URI:
 
-    $ qemu-nbd --read-only --persistent --shared 8 --format qcow2 fedora-35.qcow2 &
+    $ qemu-nbd --read-only --persistent --shared 8 --format qcow2 disk.qcow2 &
 
     $ blksum nbd://localhost
     6e5c00c995056319d52395f8d91c7f84725ae3da69ffcba4de4c7d22cff713a5  nbd://localhost
@@ -127,7 +127,7 @@ use for accessing images on remote hosts is limited.
 
 Finally, we can also compute a checksum for data written to a pipe:
 
-    $ cat fedora-35.raw | blksum
+    $ cat disk.raw | blksum
     6e5c00c995056319d52395f8d91c7f84725ae3da69ffcba4de4c7d22cff713a5  -
 
 Using a pipe we can only use `raw` format, and computing the checksum is
