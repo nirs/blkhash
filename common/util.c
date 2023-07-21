@@ -12,10 +12,6 @@
 #include <time.h>
 #include <unistd.h>
 
-#if __APPLE__
-#include <mach/mach_time.h> /* mach_absolute_time */
-#endif
-
 #include "util.h"
 
 #define MICROSECONDS 1000000
@@ -77,35 +73,37 @@ int64_t parse_humansize(const char *s)
 
 uint64_t gettime(void)
 {
-#if __APPLE__
-    static int have_abstime = -1;
-    static double usec_per_abstime;
-
-    switch (have_abstime) {
-    case -1: {
-        mach_timebase_info_data_t info;
-        if (mach_timebase_info(&info) != KERN_SUCCESS) {
-            have_abstime = 0;
-            break;
-        }
-
-        have_abstime = 1;
-        usec_per_abstime = (double)info.numer / info.denom / 1000;
-    }
-    case 1:
-        return mach_absolute_time() * usec_per_abstime;
-    }
-
-#elif defined(CLOCK_MONOTONIC)
     struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (uint64_t)ts.tv_sec * MICROSECONDS + ts.tv_nsec / 1000;
+
+#if __APPLE__
+    /*
+     * clock that increments monotonically, in the same manner as
+     * CLOCK_MONOTONIC_RAW, but that does not increment while the system is
+     * asleep.  The returned value is identical to the result of
+     * mach_absolute_time() after the appropriate mach_timebase conversion is
+     * applied.
+     */
+    clockid_t clock_id = CLOCK_UPTIME_RAW;
+#elif defined (__linux__)
+    /*
+     * Similar to CLOCK_MONOTONIC, but provides access to a raw hardware-based
+     * time that is not subject to NTP adjustments or the incremental
+     * adjustments performed by adjtime(3).
+     */
+    clockid_t clock_id = CLOCK_MONOTONIC_RAW;
+#elif defined (__FreeBSD__)
+    /*
+     * Starts at zero when the kernel boots and increments monotonically in	SI
+     * seconds while the machine is	running.
+     */
+    clockid_t clock_id = CLOCK_UPTIME;
+#else
+    /* Safe default. */
+    clockid_t clock_id = CLOCK_MONOTONIC;
 #endif
 
-    /* Safe fallback. */
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (uint64_t)tv.tv_sec * MICROSECONDS + tv.tv_usec;
+    clock_gettime(clock_id, &ts);
+    return (uint64_t)ts.tv_sec * MICROSECONDS + ts.tv_nsec / 1000;
 }
 
 bool supports_direct_io(const char *filename)
