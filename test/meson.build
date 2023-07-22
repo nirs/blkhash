@@ -22,6 +22,21 @@ blkhash_test = executable(
   ],
 )
 
+util_test = executable(
+  'util-test',
+  'util-test.c',
+  include_directories : [
+    common_inc,
+  ],
+  link_with: [
+    common_lib,
+  ],
+  dependencies: [
+    openssl,
+    unity_dep,
+  ],
+)
+
 zero_bench = executable(
   'zero-bench',
   'zero-bench.c',
@@ -83,6 +98,7 @@ env.set('BLKSUM', blksum.full_path())
 env.set('HAVE_NBD', libnbd.found() ? '1' : '')
 
 test('blkhash-test', blkhash_test)
+test('util-test', util_test)
 test('zero-bench', zero_bench, args: ['quick'])
 
 benchmarks = [
