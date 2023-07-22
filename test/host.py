@@ -41,6 +41,10 @@ def cpu():
         cmd = ["sysctl", "-n", "machdep.cpu.brand_string"]
         cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
         return cp.stdout.decode().strip()
+    elif platform.system() == "FreeBSD":
+        cmd = ["sysctl", "-n", "hw.model"]
+        cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
+        return cp.stdout.decode().strip()
     else:
         with open("/proc/cpuinfo") as f:
             for line in f:
