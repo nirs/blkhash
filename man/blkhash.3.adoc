@@ -133,3 +133,8 @@ LICENSE
 -------
 
 LGPL-2.1-or-later.
+
+SEE ALSO
+--------
+
+blkhash-aio(3), blkhash-opts(3)
