@@ -81,7 +81,7 @@ subdir('common')
 subdir('lib')
 subdir('bin')
 subdir('test')
-subdir('doc')
+subdir('man')
 
 pkg_config = import('pkgconfig')
 pkg_config.generate(blkhash_lib)
