@@ -30,6 +30,22 @@ if not get_option('man').disabled()
     install_dir: join_paths(get_option('prefix'), get_option('mandir'), 'man3')
   )
 
+  blkhash_opt_3 = custom_target(
+    'blkhash-opts.3',
+    command: [a2x, '--format=manpage', '--destination-dir=@BUILD_ROOT@/man', '@INPUT@'],
+    input: 'blkhash-opts.3.adoc',
+    output: [
+      'blkhash_opts_new.3',
+      'blkhash_opts_free.3',
+      'blkhash_opts_set_block_size.3',
+      'blkhash_opts_set_threads.3',
+      'blkhash_opts_set_queue_depth.3',
+      'blkhash_opts_set_streams.3',
+    ],
+    install: true,
+    install_dir: join_paths(get_option('prefix'), get_option('mandir'), 'man3')
+  )
+
   # Make sure the examples compile and run.
 
   example = executable(
