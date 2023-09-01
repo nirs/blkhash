@@ -30,6 +30,19 @@ if not get_option('man').disabled()
     install_dir: join_paths(get_option('prefix'), get_option('mandir'), 'man3')
   )
 
+  blkhash_aio_3 = custom_target(
+    'blkhash-aio.3',
+    command: [a2x, '--format=manpage', '--destination-dir=@BUILD_ROOT@/man', '@INPUT@'],
+    input: 'blkhash-aio.3.adoc',
+    output: [
+      'blkhash_aio_update.3',
+      'blkhash_aio_completion_fd.3',
+      'blkhash_aio_completions.3',
+    ],
+    install: true,
+    install_dir: join_paths(get_option('prefix'), get_option('mandir'), 'man3')
+  )
+
   blkhash_opt_3 = custom_target(
     'blkhash-opts.3',
     command: [a2x, '--format=manpage', '--destination-dir=@BUILD_ROOT@/man', '@INPUT@'],

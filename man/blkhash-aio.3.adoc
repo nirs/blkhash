@@ -1,0 +1,97 @@
+// SPDX-FileCopyrightText: Red Hat Inc
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
+blkhash-aio(3)
+==============
+:doctype: manpage
+
+NAME
+----
+
+blkhash_aio_update,
+blkhash_aio_completion_fd,
+blkhash_aio_completions
+- blkhash async API.
+
+SYNOPSIS
+--------
+
+------------------------------------------------------------------------
+#include <blkhash.h>
+
+int blkhash_aio_update(struct blkhash *h, const void *buf, size_t len, void *user_data);
+
+int blkhash_aio_completion_fd(struct blkhash *h);
+
+int blkhash_aio_completions(struct blkhash *h, struct blkhash_completion *out, unsigned count);
+
+------------------------------------------------------------------------
+
+DESCRIPTION
+-----------
+
+*blkhash_aio* functions provide aysnchronous hashing for improved performance
+with very fast storage and large number of threads.
+
+blkhash_aio_update()
+~~~~~~~~~~~~~~~~~~~~
+
+Starts asynchronous update returning before the hash is updated.  When
+the update completes blkhash will write a 8 bytes value to the event fd.
+The buffer must not be modified by the caller before the update
+complets.
+
+To wait for completion poll the event fd, and use
+`blkhash_completions()` to get the completed completions.
+
+Fail if the event fd option was not set.
+
+Return 0 if the update was started and errno value otherwise.
+
+blkhash_aio_completion_fd()
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Return file descriptor for polling completions availability. The
+returned file descriptor becomes readable when async updates are
+complected.
+
+The application must read all pending data from the completion file
+descriptor before calling `blkhash_aio_completions()`. The contents of
+the bytes are undefined. The amount of pending data depends on the
+implementation, always 8 bytes when using `eventfd()` and up to one byte
+per inflight request when using a `pipe()`.
+
+The returned file descriptor has O_NONBLOCK set. The application may
+switch the file descriptor to blocking mode.
+
+Returns -1 if the hash was not configured to use completion fd.
+
+blkhash_aio_completions()
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Return up to count completions. Call this after the completion fd became
+readable, and you read all pending data. The call fills in up to count
+completions in the out array.
+
+Return the number of completions in the completions array on success,
+and negative errno value on errors.
+
+AUTHORS
+-------
+
+Nir Soffer <nirsof@gmail.com>
+
+COPYRIGHT
+---------
+
+Copyright Red Hat Inc.
+
+LICENSE
+-------
+
+LGPL-2.1-or-later.
+
+SEE ALSO
+--------
+
+blkhash(3), blkhash-opts(3), eventfd(2), pipe(8)
