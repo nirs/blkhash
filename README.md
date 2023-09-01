@@ -64,7 +64,10 @@ Here is a graph comparing `blkhash` and `sha256` throughput in GiB/s:
 
 ![blkhash performance](media/zero-optimization.png)
 
-See [blkhash](docs/blkhash.md) for more info.
+- See [blkhash](docs/blkhash.md) to learn more about the `blkhash`
+  library and how to use it.
+- See [blkhash performance](docs/blkhash-performance.md) to learn more
+  about `blkhash` performance.
 
 ## Portability
 
