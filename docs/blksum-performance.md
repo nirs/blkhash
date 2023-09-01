@@ -5,147 +5,121 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 # blksum performance
 
-blksum is 3-360 times faster than sha256sum, depending on the contents
-of the image.
+`blksum` can be up to 4 orders of magnitude faster than sha256sum,
+depending on the contents of the image, image format, and the way we
+read the image.
 
-## 25% full sparse image
+## Real images
 
-For typical 25% full sparse image, `blksum` is 15 times faster compared
-with standard tools, using 3.7 times less cpu time:
+The most important factor is how much non-zero data is in the image. For
+images full of data, we are limited by storage throughput. For very
+sparse images we get dramatic improvement.
 
-```
-$ hyperfine -w1 -p "sleep 2" "blksum 25p.raw" "sha256sum 25p.raw"
-Benchmark 1: blksum 25p.raw
-  Time (mean ± σ):     877.0 ms ±  33.3 ms    [User: 3380.8 ms, System: 606.0 ms]
-  Range (min … max):   803.5 ms … 914.8 ms    10 runs
+The following graphs compare the throughput using 4 images:
 
-Benchmark 2: sha256sum 25p.raw
-  Time (mean ± σ):     13.275 s ±  0.438 s    [User: 12.570 s, System: 0.672 s]
-  Range (min … max):   12.828 s … 14.027 s    10 runs
+- 10p - 10% full image
+- 20p - 20% full image
+- 40p - 40% full image
+- 80p - 80% full image
 
-Summary
-  'blksum 25p.raw' ran
-   15.14 ± 0.76 times faster than 'sha256sum 25p.raw'
-```
+![qcow2 format](../media/blksum-qcow2.png)
+![raw format](../media/blksum-raw.png)
 
-## 50% full image
+## Image full of data
 
-For images with more data the speedup is smaller, and more cpu time is
-used:
+The worst case for `blksum` is an image full of non-zero data. In this
+case, `blksum` must read the entire image from storage which limit the
+throughput.
 
-```
-$ hyperfine -w1 -p "sleep 2" "blksum 50p.raw" "sha256sum 50p.raw"
-Benchmark 1: blksum 50p.raw
-  Time (mean ± σ):      1.951 s ±  0.151 s    [User: 7.522 s, System: 1.263 s]
-  Range (min … max):    1.733 s …  2.200 s    10 runs
+Reading from storage is faster when we access the image directly, but
+this works only for raw images, and image allocation is not supported in
+this case.
 
-Benchmark 2: sha256sum 50p.raw
-  Time (mean ± σ):     13.716 s ±  0.428 s    [User: 13.026 s, System: 0.660 s]
-  Range (min … max):   12.903 s … 14.200 s    10 runs
+The following graph compares hashing of 100% full qcow2 and raw images,
+read via NBD, file, and pipe:
 
-Summary
-  'blksum 50p.raw' ran
-    7.03 ± 0.59 times faster than 'sha256sum 50p.raw'
-```
+- qcow2-nbd: qcow2 image read via NBD
+- raw-nbd: raw image read via NBD
+- raw-file: raw image read directly from file
+- raw-pipe: raw image read from pipe
 
-## 75% full image
+![blksum data](../media/blksum-data.png)
 
-When the image is 75% full `blkusum` is 4.5 time faster:
+## Image full of zeros
 
-```
-$ hyperfine -w1 -p "sleep 2" "blksum 75p.raw" "sha256sum 75p.raw"
-Benchmark 1: blksum 75p.raw
-  Time (mean ± σ):      3.019 s ±  0.233 s    [User: 12.063 s, System: 1.915 s]
-  Range (min … max):    2.725 s …  3.518 s    10 runs
+In this case `blksum` must read the entire image from storage, but hashing
+the image is practically free. The number of threads do not matter since
+we are waiting for storage.
 
-Benchmark 2: sha256sum 75p.raw
-  Time (mean ± σ):     13.622 s ±  0.541 s    [User: 12.850 s, System: 0.737 s]
-  Range (min … max):   13.028 s … 14.579 s    10 runs
+Reading from storage is faster when reading the image directly from file
+or from pipe, compared with reading the image via NBD.
 
-Summary
-  'blksum 75p.raw' ran
-    4.51 ± 0.39 times faster than 'sha256sum 75p.raw'
-```
+The following graph compares hashing of qcow2 and raw images full with
+zeros, read via NBD, file, and pipe:
 
-## Reading image from a pipe
+- qcow2-nbd: qcow2 image read via NBD
+- raw-nbd: raw image read via NBD
+- raw-file: raw image read directly from file
+- raw-pipe: raw image read from pipe
 
-When reading from a pipe we can use only raw image data and cannot
-detect image sparseness, but zero detection and multiple threads are
-effective:
-
-```
-$ hyperfine -w1 -p "sleep 2" "blksum <50p.raw" "sha256sum <50p.raw"
-Benchmark 1: blksum <50p.raw
-  Time (mean ± σ):      1.895 s ±  0.048 s    [User: 6.426 s, System: 0.622 s]
-  Range (min … max):    1.825 s …  1.986 s    10 runs
-
-Benchmark 2: sha256sum <50p.raw
-  Time (mean ± σ):     13.039 s ±  0.536 s    [User: 12.369 s, System: 0.642 s]
-  Range (min … max):   12.317 s … 14.103 s    10 runs
-
-Summary
-  'blksum <50p.raw' ran
-    6.88 ± 0.33 times faster than 'sha256sum <50p.raw'
-```
+![blksum zero](../media/blksum-zero.png)
 
 ## Empty image
 
-The best case is a completely empty image. `blksum` detects that the
-entire image is unallocated without reading any data from storage and
-optimize zero hashing:
+When reading empty image via NBD, `blksum` does not read anything from
+storage, and can hash the data up to 4 orders of magnitude faster than
+sha256sum.
+
+When reading the image directly from file or via a pipe, blksum must
+read the entire image. The results are similar to hashing an image full
+of zeros.
+
+The following graph compares hashing of qcow2 and raw empty images read
+via NBD, file, and pipe:
+
+- qcow2-nbd: qcow2 image read via NBD
+- raw-nbd: raw image read via NBD
+- raw-file: raw image read directly from file
+- raw-pipe: raw image read from pipe
+
+![blksum hole](../media/blksum-hole.png)
+
+## Tested hardware
+
+The benchmarks shown here ran on *Dell PowerEdge R640* with this
+configuration:
+
+- kernel: Linux-4.18.0-425.13.1.el8_7.x86_64-x86_64-with-glibc2.28
+- online cpus:  40
+- smt: off
+- cpu: Intel(R) Xeon(R) Gold 5218R CPU @ 2.10GHz
+- tuned-profile: latency-performance
+
+## How we test
+
+`blksum` performances is tested by running the `blksum` with real images
+on local storage with various number of threads. This measures real
+world performance of the command, which is typically limited by storage
+throughput.
+
+The real images for the benchmark are created using the
+[make-images.py](../test/make-images.py) tool. This tool requires the
+`virt-builder` command and works only on Linux.
+
+The results were collected by multiple runs of `hyperfine` tool for
+every image:
 
 ```
-$ hyperfine -w1 -p "sleep 2" "blksum empty-6g.raw" "sha256sum empty-6g.raw"
-Benchmark 1: blksum empty-6g.raw
-  Time (mean ± σ):      37.1 ms ±   6.8 ms    [User: 11.3 ms, System: 5.1 ms]
-  Range (min … max):    27.1 ms …  44.1 ms    10 runs
-
-Benchmark 2: sha256sum empty-6g.raw
-  Time (mean ± σ):     13.522 s ±  0.557 s    [User: 12.795 s, System: 0.692 s]
-  Range (min … max):   12.545 s … 14.190 s    10 runs
-
-Summary
-  'blksum empty-6g.raw' ran
-  364.58 ± 68.72 times faster than 'sha256sum empty-6g.raw'
+hyperfine -L t 1,2,4,8,16,32 \
+  "build/bin/blksum -t {t} -c ../blksum/{10,20,40,80}p.{raw,qcow2}" \
+  --export-json test/results/2023-06/server/blksum-{10,20,40,80}p-{raw,qcow2}-nbd.json
 ```
 
-## Image full of zeroes
+The graphs were created from the test results json files using the
+[plot-blksum.py](../test/plot-blksum.py) tool.
 
-A less optimal case is a fully allocated image full of zeros. `blksum`
-must read the entire image, but it detects that all blocks are zeros
-and optimize zero hashing:
+See [blkhash performance](blkhash-performance.md) to learn about the
+maximum throughput possible using the `blkhash` library.
 
-```
-$ hyperfine -w1 -p "sleep 2" "blksum zero-6g.raw" "sha256sum zero-6g.raw"
-Benchmark 1: blksum zero-6g.raw
-  Time (mean ± σ):      2.041 s ±  0.011 s    [User: 0.446 s, System: 1.786 s]
-  Range (min … max):    2.026 s …  2.065 s    10 runs
-
-Benchmark 2: sha256sum zero-6g.raw
-  Time (mean ± σ):     13.683 s ±  0.537 s    [User: 12.854 s, System: 0.790 s]
-  Range (min … max):   13.024 s … 14.661 s    10 runs
-
-Summary
-  'blksum zero-6g.raw' ran
-    6.70 ± 0.27 times faster than 'sha256sum zero-6g.raw'
-```
-
-## 100% full image
-
-The worst case is a completely full image, when nothing can be
-optimized, but using multi-threading helps:
-
-```
-$ hyperfine -w1 -p "sleep 2" "blksum full-6g.raw" "sha256sum full-6g.raw"
-Benchmark 1: blksum full-6g.raw
-  Time (mean ± σ):      4.227 s ±  0.252 s    [User: 17.021 s, System: 2.683 s]
-  Range (min … max):    3.777 s …  4.493 s    10 runs
-
-Benchmark 2: sha256sum full-6g.raw
-  Time (mean ± σ):     13.386 s ±  0.453 s    [User: 12.689 s, System: 0.655 s]
-  Range (min … max):   13.006 s … 14.104 s    10 runs
-
-Summary
-  'blksum full-6g.raw' ran
-    3.17 ± 0.22 times faster than 'sha256sum full-6g.raw'
-```
+See the [test/results](../test/results) directory for test results and
+images.

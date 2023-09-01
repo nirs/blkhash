@@ -46,7 +46,10 @@ Here is a graph comparing `blksum` and `sha256sum` throughput in GiB/s:
 
 ![blksum performance](media/blksum-qcow2.png)
 
-See [blksum](docs/blksum.md) for more info.
+- See [blksum](docs/blksum.md) to learn more about the `blksum`
+  command and how to use it.
+- See [blksum performance](docs/blksum-performance.md) to learn more
+  about `blksum` performance.
 
 ## The blkhash library
 
