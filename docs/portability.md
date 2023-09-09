@@ -40,12 +40,12 @@ build system or have no automated testing.
 | CentOS Stream 9   | aarch64       | copr              | yes    |
 | CentOS Stream 9   | s390x         | copr              | yes    |
 | CentOS Stream 9   | x86_64        | copr              | yes    |
-| EPEL 8            | aarch64       | copr              | yes    |
-| EPEL 8            | s390x         | copr              | yes    |
-| EPEL 8            | x86_64        | copr              | yes    |
-| EPEL 9            | aarch64       | copr              | yes    |
-| EPEL 9            | s390x         | copr              | yes    |
-| EPEL 9            | x86_64        | copr              | yes    |
+| RHEL 8            | aarch64       | copr              | yes    |
+| RHEL 8            | s390x         | copr              | yes    |
+| RHEL 8            | x86_64        | copr              | yes    |
+| RHEL 9            | aarch64       | copr              | yes    |
+| RHEL 9            | s390x         | copr              | yes    |
+| RHEL 9            | x86_64        | copr              | yes    |
 | RHEL 8.7          | x86_64        | no                | yes    |
 | FreeBSD 13        | x86_64        | no                | no     |
 | macOS 13 Ventura  | Apple Silicon | no                | no     |
