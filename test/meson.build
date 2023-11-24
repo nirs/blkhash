@@ -22,6 +22,23 @@ blkhash_test = executable(
   ],
 )
 
+digest_test = executable(
+  'digest-test',
+  'digest-test.c',
+  include_directories : [
+    blkhash_inc,
+    common_inc,
+  ],
+  link_with: [
+    blkhash_lib,
+    common_lib,
+  ],
+  dependencies: [
+    openssl,
+    unity_dep,
+  ],
+)
+
 util_test = executable(
   'util-test',
   'util-test.c',
@@ -98,6 +115,7 @@ env.set('BLKSUM', blksum.full_path())
 env.set('HAVE_NBD', libnbd.found() ? '1' : '')
 
 test('blkhash-test', blkhash_test)
+test('digest-test', digest_test)
 test('util-test', util_test)
 test('zero-bench', zero_bench, args: ['quick'])
 
