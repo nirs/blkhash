@@ -147,18 +147,6 @@ error:
     return err;
 }
 
-int digest_list(const char **names, size_t *len)
-{
-    *names = calloc(1, sizeof(**names));
-    if (*names == NULL)
-        return -errno;
-
-    names[0] = "null";
-    *len = 1;
-
-    return 0;
-}
-
 int digest_create(const char *name, struct digest **out)
 {
     if (strcmp(name, "null") == 0)

@@ -20,8 +20,9 @@ struct digest_ops {
     void (*destroy)(struct digest *d);
 };
 
-/* Return list of digests. Caller must free the return list. */
-int digest_list(const char **names, size_t *len);
+/* Fill up to len digest names into the provided array, and return the number
+ * of names filled. To get the number of digests, call with NULL names. */
+size_t digest_list(const char **names, size_t len);
 
 /* Lookup name and create a new digest. */
 int digest_create(const char *name, struct digest **out);

@@ -10,6 +10,7 @@ blkhash_lib = library(
     'completion.c',
     'config.c',
     'digest.c',
+    'digest-list.c',
     'event.c',
     'stream.c',
     'submission.c',
