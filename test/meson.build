@@ -28,6 +28,7 @@ digest_test = executable(
   include_directories : [
     blkhash_inc,
     common_inc,
+    include_inc,
   ],
   link_with: [
     blkhash_lib,
@@ -91,16 +92,18 @@ blkhash_bench = executable(
   ],
 )
 
-openssl_bench = executable(
-  'openssl-bench',
-  'openssl-bench.c',
+digest_bench = executable(
+  'digest-bench',
+  'digest-bench.c',
   'benchmark.c',
   include_directories: [
+    blkhash_inc,
     common_inc,
     config_inc,
     include_inc,
   ],
   link_with: [
+    blkhash_lib,
     common_lib,
   ],
   dependencies: [
@@ -124,7 +127,7 @@ benchmarks = [
   'bench-zero',
   'bench-hole',
   'bench-null',
-  'bench-openssl',
+  'bench-digest',
 ]
 
 foreach b : benchmarks
@@ -148,7 +151,7 @@ if pytest.found()
     args: ['bench_test.py'],
     depends: [
       blkhash_bench,
-      openssl_bench,
+      digest_bench,
     ],
     env: env,
     workdir: meson.current_source_dir(),

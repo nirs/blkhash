@@ -6,9 +6,9 @@ import bench
 
 args = bench.parse_args()
 
-print(f"\nopenssl-bench --digest-name {bench.DIGEST}\n")
+print(f"\ndigest-bench --digest-name {bench.DIGEST}\n")
 for n in bench.threads(args.max_threads):
-    bench.openssl(
+    bench.digest(
         threads=n,
         timeout_seconds=args.timeout,
         cool_down=args.cool_down,

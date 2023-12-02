@@ -51,7 +51,7 @@ for n in bench.threads(args.max_threads):
     )
     runs.append(r)
 
-print(f"\nopenssl-bench --digest-name {bench.DIGEST}\n")
+print(f"\ndigest-bench --digest-name {bench.DIGEST}\n")
 
 runs = []
 results["data"].append(
@@ -63,7 +63,7 @@ results["data"].append(
     }
 )
 
-r = bench.openssl(
+r = bench.digest(
     threads=1,
     timeout_seconds=args.timeout,
     cool_down=args.cool_down,
