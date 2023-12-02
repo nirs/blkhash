@@ -135,6 +135,13 @@ int blkhash_final(struct blkhash *h, unsigned char *md_value,
 void blkhash_free(struct blkhash *h);
 
 /*
+ * Return up to count digest names using the array of size count provided by
+ * the caller. To get the required size of the array call with NULL out and
+ * zero count.
+ */
+size_t blkhash_digests(const char **names, size_t count);
+
+/*
  * Allocate blkhash_opts for digest name and initialize with the
  * default options. See blkhash_opts_set_*() and blkhash_opts_get_*()
  * for acessing the options.  When done free the resources using

@@ -86,6 +86,51 @@ out:
         TEST_FAIL_MESSAGE(strerror(err));
 }
 
+static const char *lookup(const char **array, size_t len, const char *item)
+{
+    for (unsigned i = 0; i < len; i++) {
+        if (strcmp(array[i], item) == 0)
+            return array[i];
+    }
+
+    return NULL;
+}
+
+void test_digests()
+{
+    const char *expected[] = {
+        "null",
+        "blake2b512",
+        "blake2s256",
+        "sha224",
+        "sha256",
+        "sha384",
+        "sha512",
+        "sha512-224",
+        "sha512-256",
+        "sha3-224",
+        "sha3-256",
+        "sha3-384",
+        "sha3-512",
+    };
+    const char **names;
+    size_t len;
+
+    len = blkhash_digests(NULL, 0);
+
+    names = calloc(len, sizeof(*names));
+    TEST_ASSERT_NOT_NULL(names);
+
+    blkhash_digests(names, len);
+
+    for (unsigned i = 0; i < ARRAY_SIZE(expected); i++) {
+        const char *found = lookup(names, len, expected[i]);
+        TEST_ASSERT_EQUAL_STRING_MESSAGE(expected[i], found, "digest not found");
+    }
+
+    free(names);
+}
+
 void test_block_data()
 {
     struct extent extents[] = {
@@ -408,6 +453,8 @@ void test_false_sharing()
 int main(void)
 {
     UNITY_BEGIN();
+
+    RUN_TEST(test_digests);
 
     RUN_TEST(test_block_data);
     RUN_TEST(test_block_data_zero);
