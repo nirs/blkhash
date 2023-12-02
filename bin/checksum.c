@@ -9,7 +9,8 @@
 #include "util.h"
 #include "src.h"
 
-void checksum(struct src *s, struct options *opt, unsigned char *out)
+void checksum(struct src *s, struct options *opt, unsigned char *out,
+              unsigned int *len)
 {
     void *buf;
     struct blkhash *h;
@@ -51,7 +52,7 @@ void checksum(struct src *s, struct options *opt, unsigned char *out)
     }
 
     if (running()) {
-        err = blkhash_final(h, out, NULL);
+        err = blkhash_final(h, out, len);
         if (err)
             ERROR("blkhash_final: %s", strerror(err));
     }

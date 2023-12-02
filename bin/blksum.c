@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <getopt.h>
+#include <limits.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -11,8 +12,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-#include <openssl/evp.h>
 
 #include "blkhash.h"
 #include "blksum.h"
@@ -317,8 +316,8 @@ void list_digests(void)
 
 int main(int argc, char *argv[])
 {
-    const EVP_MD *md;
     unsigned char md_value[BLKHASH_MAX_MD_SIZE];
+    unsigned int md_len;
     char md_hex[BLKHASH_MAX_MD_SIZE * 2 + 1];
 
     main_thread = pthread_self();
@@ -330,23 +329,17 @@ int main(int argc, char *argv[])
 
     parse_options(argc, argv);
 
-    md = create_digest(opt.digest_name);
-    if (md == NULL)
-        FAIL("Unknown digest '%s'", opt.digest_name);
-
     setup_signals();
 
     if (opt.filename) {
         /* TODO: remove filename parameter */
-        aio_checksum(opt.filename, &opt, md_value);
+        aio_checksum(opt.filename, &opt, md_value, &md_len);
     } else {
         struct src *s;
         s = open_pipe(STDIN_FILENO);
-        checksum(s, &opt, md_value);
+        checksum(s, &opt, md_value, &md_len);
         src_close(s);
     }
-
-    free_digest(md);
 
     pthread_mutex_lock(&lock);
 
@@ -371,7 +364,7 @@ int main(int argc, char *argv[])
 
     pthread_mutex_unlock(&lock);
 
-    format_hex(md_value, EVP_MD_size(md), md_hex);
+    format_hex(md_value, md_len, md_hex);
     printf("%s  %s\n", md_hex, opt.filename ? opt.filename : "-");
 
     return 0;
