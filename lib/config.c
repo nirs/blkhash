@@ -6,30 +6,35 @@
 #include <stdlib.h>
 
 #include "blkhash-internal.h"
+#include "digest.h"
 #include "util.h"
 
 static int compute_zero_md(struct config *c)
 {
-    const EVP_MD *md;
     unsigned char *buf;
-    int err = 0;
-
-    md = create_digest(c->digest_name);
-    if (md == NULL)
-        return EINVAL;
+    struct digest *digest = NULL;
+    int err;
 
     buf = calloc(1, c->block_size);
-    if (buf == NULL) {
-        err = errno;
-        goto out;
-    }
+    if (buf == NULL)
+        return errno;
 
-    /* Returns 1 on success. */
-    if (!EVP_Digest(buf, c->block_size, c->zero_md, &c->md_len, md, NULL))
-        err = ENOMEM;
+    err = -digest_create(c->digest_name, &digest);
+    if (err)
+        goto out;
+
+    err = -digest_init(digest);
+    if (err)
+        goto out;
+
+    err = -digest_update(digest, buf, c->block_size);
+    if (err)
+        goto out;
+
+    err = -digest_final(digest, c->zero_md, &c->md_len);
 
 out:
-    free_digest(md);
+    digest_destroy(digest);
     free(buf);
 
     return err;

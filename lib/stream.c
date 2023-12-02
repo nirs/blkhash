@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 #include "blkhash-internal.h"
+#include "digest.h"
 #include "util.h"
 
 static inline void set_error(struct stream *s, int error)
@@ -17,6 +18,7 @@ static inline void set_error(struct stream *s, int error)
 static int add_zero_blocks_before(struct stream *s, const struct submission *sub)
 {
     int64_t index;
+    int err;
 
     /* Don't modify the hash after errors. */
     if (s->error)
@@ -25,8 +27,9 @@ static int add_zero_blocks_before(struct stream *s, const struct submission *sub
     index = s->last_index + s->config->streams;
 
     while (index < sub->index) {
-        if (!EVP_DigestUpdate(s->root_ctx, s->config->zero_md, s->config->md_len)) {
-            set_error(s, ENOMEM);
+        err = -digest_update(s->root_digest, s->config->zero_md, s->config->md_len);
+        if (err) {
+            set_error(s, err);
             return -1;
         }
         s->last_index = index;
@@ -43,9 +46,25 @@ static inline bool is_zero_block(struct stream *s, const struct submission *sub)
         is_zero(sub->data, sub->len);
 }
 
+static int compute_block_digest(struct stream *s, const struct submission *sub,
+                                unsigned char *md, unsigned int *len)
+{
+    int err;
+
+    err = -digest_init(s->block_digest);
+    if (err)
+        return err;
+
+    err = -digest_update(s->block_digest, sub->data, sub->len);
+    if (err)
+        return err;
+
+    return -digest_final(s->block_digest, md, len);
+}
+
 static int add_data_block(struct stream *s, const struct submission *sub)
 {
-    unsigned char block_md[EVP_MAX_MD_SIZE];
+    int err;
 
     /* Don't modify the hash after errors. */
     if (s->error)
@@ -53,20 +72,20 @@ static int add_data_block(struct stream *s, const struct submission *sub)
 
     if (is_zero_block(s, sub)) {
         /* Fast path */
-        if (!EVP_DigestUpdate(s->root_ctx, s->config->zero_md, s->config->md_len))
+        err = -digest_update(s->root_digest, s->config->zero_md, s->config->md_len);
+        if (err)
             goto error;
     } else {
         /* Slow path */
-        if (!EVP_DigestInit_ex(s->block_ctx, s->md, NULL))
+        unsigned char block_md[BLKHASH_MAX_MD_SIZE];
+        unsigned int len;
+
+        err = compute_block_digest(s, sub, block_md, &len);
+        if (err)
             goto error;
 
-        if (!EVP_DigestUpdate(s->block_ctx, sub->data, sub->len))
-            goto error;
-
-        if (!EVP_DigestFinal_ex(s->block_ctx, block_md, NULL))
-            goto error;
-
-        if (!EVP_DigestUpdate(s->root_ctx, block_md, s->config->md_len))
+        err = -digest_update(s->root_digest, block_md, len);
+        if (err)
             goto error;
     }
 
@@ -74,41 +93,32 @@ static int add_data_block(struct stream *s, const struct submission *sub)
     return 0;
 
 error:
-    set_error(s, ENOMEM);
+    set_error(s, err);
     return -1;
 }
 
 int stream_init(struct stream *s, int id, const struct config *config)
 {
-    const EVP_MD *md;
     int err;
 
-    md = create_digest(config->digest_name);
-    if (md == NULL)
-        return EINVAL;
-
     s->config = config;
-    s->md = md;
-    s->root_ctx = NULL;
-    s->block_ctx = NULL;
+    s->root_digest = NULL;
+    s->block_digest = NULL;
     s->last_index = id - (int)config->streams;
     s->id = id;
     s->error = 0;
 
-    s->root_ctx = EVP_MD_CTX_new();
-    if (s->root_ctx == NULL)
-        return ENOMEM;
+    err = -digest_create(config->digest_name, &s->root_digest);
+    if (err)
+        return err;
 
-    if (!EVP_DigestInit_ex(s->root_ctx, md, NULL)) {
-        err = ENOMEM;
+    err = -digest_init(s->root_digest);
+    if (err)
         goto error;
-    }
 
-    s->block_ctx = EVP_MD_CTX_new();
-    if (s->block_ctx == NULL) {
-        err = ENOMEM;
-        goto  error;
-    }
+    err = -digest_create(config->digest_name, &s->block_digest);
+    if (err)
+        goto error;
 
     return 0;
 
@@ -137,22 +147,25 @@ int stream_update(struct stream *s, struct submission *sub)
 
 int stream_final(struct stream *s, unsigned char *md, unsigned int *len)
 {
+    int err;
+
     if (s->error)
         return s->error;
 
-    if (!EVP_DigestFinal_ex(s->root_ctx, md, len))
-        return ENOMEM;
+    err = -digest_final(s->root_digest, md, len);
+    if (err) {
+        set_error(s, err);
+        return err;
+    }
 
     return 0;
 }
 
 void stream_destroy(struct stream *s)
 {
-    EVP_MD_CTX_free(s->block_ctx);
-    s->block_ctx = NULL;
+    digest_destroy(s->block_digest);
+    s->block_digest = NULL;
 
-    EVP_MD_CTX_free(s->root_ctx);
-    s->root_ctx = NULL;
-
-    free_digest(s->md);
+    digest_destroy(s->root_digest);
+    s->root_digest = NULL;
 }
