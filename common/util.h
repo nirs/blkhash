@@ -7,8 +7,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include <openssl/evp.h>
-
 #define KiB (1LL<<10)
 #define MiB (1LL<<20)
 #define GiB (1LL<<30)
@@ -24,7 +22,5 @@ char *humansize(int64_t bytes);
 int64_t parse_humansize(const char *s);
 uint64_t gettime(void);
 bool supports_direct_io(const char *filename);
-const EVP_MD *create_digest(const char *name);
-void free_digest(const EVP_MD *md);
 
 #endif /* UTIL_H */
