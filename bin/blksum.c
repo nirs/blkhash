@@ -294,6 +294,27 @@ void fail(const char *fmt, ...)
         pthread_exit(NULL);
 }
 
+static int compare(const void *p1, const void *p2)
+{
+   return strcmp(*(const char **)p1, *(const char **)p2);
+}
+
+void list_digests(void)
+{
+    // 20 digests expected.
+    const char *names[40];
+    size_t count;
+
+    count = blkhash_digests(names, ARRAY_SIZE(names));
+
+    qsort(names, count, sizeof(*names), compare);
+
+    for (size_t i = 0; i < count; i++)
+        puts(names[i]);
+
+    exit(0);
+}
+
 int main(int argc, char *argv[])
 {
     const EVP_MD *md;
