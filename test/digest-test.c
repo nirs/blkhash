@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <string.h>
 
+#include "blkhash.h"
 #include "digest.h"
 #include "unity.h"
 #include "util.h"
@@ -22,8 +23,8 @@ static void check(const char *algorithm, struct test_vector *tv)
 {
     struct digest *d = NULL;
     unsigned int message_len = strlen(tv->message);
-    unsigned char md[DIGEST_MAX_MD_SIZE];
-    char output[DIGEST_MAX_MD_SIZE * 2 + 1];
+    unsigned char md[BLKHASH_MAX_MD_SIZE];
+    char output[BLKHASH_MAX_MD_SIZE * 2 + 1];
     unsigned int md_len = 0;
     int err;
 

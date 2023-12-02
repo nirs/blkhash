@@ -4,10 +4,10 @@
 #ifndef BLKHASH_H
 #define BLKHASH_H
 
-#include <openssl/evp.h> /* For EVP_* */
+#include <stdint.h>
 
 /* Maxmum length of md_value buffer for any digest name. */
-#define BLKHASH_MAX_MD_SIZE EVP_MAX_MD_SIZE
+#define BLKHASH_MAX_MD_SIZE 64
 
 /* The default number of streams. */
 #define BLKHASH_STREAMS 64

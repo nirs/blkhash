@@ -4,10 +4,12 @@
 /* blkhash example using the async interface. */
 
 #include <errno.h>
+#include <inttypes.h>
 #include <poll.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
 #include <unistd.h>

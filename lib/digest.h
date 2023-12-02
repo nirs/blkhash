@@ -7,8 +7,6 @@
 #include <stdint.h>
 #include <unistd.h>
 
-#define DIGEST_MAX_MD_SIZE 64
-
 struct digest {
     struct digest_ops *ops;
 };
