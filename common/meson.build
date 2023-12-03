@@ -9,7 +9,4 @@ common_lib = static_library(
   include_directories: [
     include_inc,
   ],
-  dependencies: [
-    openssl,
-  ],
 )

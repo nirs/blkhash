@@ -26,7 +26,6 @@ blksum = executable(
   ],
   dependencies: [
     libnbd,
-    openssl,
     dependency('threads'),
   ],
   install: true,

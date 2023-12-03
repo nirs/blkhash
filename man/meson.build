@@ -68,9 +68,6 @@ if not get_option('man').disabled()
       include_inc,
     ],
     link_with: blkhash_lib,
-    dependencies: [
-      openssl,
-    ],
   )
 
   example_aio = executable(
@@ -80,9 +77,6 @@ if not get_option('man').disabled()
       include_inc,
     ],
     link_with: blkhash_lib,
-    dependencies: [
-      openssl,
-    ],
   )
 
   test('example', example)

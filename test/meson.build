@@ -17,7 +17,6 @@ blkhash_test = executable(
     common_lib,
   ],
   dependencies: [
-    openssl,
     unity_dep,
   ],
 )
@@ -35,7 +34,6 @@ digest_test = executable(
     common_lib,
   ],
   dependencies: [
-    openssl,
     unity_dep,
   ],
 )
@@ -50,7 +48,6 @@ util_test = executable(
     common_lib,
   ],
   dependencies: [
-    openssl,
     unity_dep,
   ],
 )
@@ -69,7 +66,6 @@ zero_bench = executable(
     common_lib,
   ],
   dependencies: [
-    openssl,
     unity_dep,
   ],
 )
@@ -86,9 +82,6 @@ blkhash_bench = executable(
   link_with: [
     blkhash_lib,
     common_lib,
-  ],
-  dependencies: [
-    openssl,
   ],
 )
 
@@ -107,7 +100,6 @@ digest_bench = executable(
     common_lib,
   ],
   dependencies: [
-    openssl,
     dependency('threads'),
   ],
 )
