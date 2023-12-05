@@ -11,8 +11,6 @@
 #include <stdlib.h>
 #include <sys/queue.h>
 
-#include <openssl/evp.h>
-
 #include "blkhash-config.h"
 #include "blkhash.h"
 
@@ -30,7 +28,7 @@ struct blkhash_opts {
 };
 
 struct config {
-    unsigned char zero_md[EVP_MAX_MD_SIZE];
+    unsigned char zero_md[BLKHASH_MAX_MD_SIZE];
     const char *digest_name;
     size_t block_size;
     unsigned int md_len;
@@ -44,14 +42,11 @@ struct config {
 struct stream {
     const struct config *config;
 
-    /* Used to intialize root_ctx and block_ctx. */
-    const EVP_MD *md;
-
     /* The stream hash context consuming block digests. */
-    EVP_MD_CTX *root_ctx;
+    struct digest *root_digest;
 
     /* For computing block digest. */
-    EVP_MD_CTX *block_ctx;
+    struct digest *block_digest;
 
     /* Last consumed block index. */
     int64_t last_index;

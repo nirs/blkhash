@@ -200,7 +200,11 @@ def test_list_digests():
 
     # And that every digest name can be used in python to create a new hash.
     # This is important for compatibility with python hashlib module.
+    # The "null" digest is not available in Centos 8 using openssl 1.1, so we
+    # skip it.
     for name in blksum_digests:
+        if name == "null":
+            continue
         hashlib.new(name)
 
 

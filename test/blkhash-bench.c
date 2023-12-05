@@ -3,6 +3,7 @@
 
 #include <errno.h>
 #include <getopt.h>
+#include <inttypes.h>
 #include <poll.h>
 #include <string.h>
 #include <unistd.h>

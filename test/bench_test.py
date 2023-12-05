@@ -81,8 +81,8 @@ def test_blkhash_hole_null(threads):
     assert r == ""
 
 
-def test_openssl_sha256():
-    r = bench.openssl(
+def test_digest_sha256():
+    r = bench.digest(
         digest_name=DIGEST,
         input_size=INPUT_SIZE,
         cool_down=0,
@@ -90,8 +90,8 @@ def test_openssl_sha256():
     assert r == "dab852c11ae8f79aa478e168d108ee88a49c1c1bc7fd2154833a9fbfeb46de28"
 
 
-def test_openssl_null():
-    r = bench.openssl(
+def test_digest_null():
+    r = bench.digest(
         digest_name="null",
         input_size=INPUT_SIZE,
         cool_down=0,

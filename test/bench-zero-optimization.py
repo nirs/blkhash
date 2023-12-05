@@ -35,7 +35,7 @@ for input_type in ["data", "zero", "hole"]:
         )
         runs.append(r)
 
-print(f"\nopenssl-bench --digest-name {bench.DIGEST}\n")
+print(f"\ndigest-bench --digest-name {bench.DIGEST}\n")
 
 runs = []
 results["data"].append({
@@ -45,7 +45,7 @@ results["data"].append({
     "runs": runs,
 })
 
-r = bench.openssl(
+r = bench.digest(
     threads=1,
     timeout_seconds=args.timeout,
     cool_down=args.cool_down,

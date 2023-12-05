@@ -1,22 +1,23 @@
 // SPDX-FileCopyrightText: Red Hat Inc
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+#include <errno.h>
 #include <getopt.h>
+#include <inttypes.h>
 #include <pthread.h>
 #include <string.h>
 
-#include <openssl/evp.h>
-
 #include "benchmark.h"
-#include "util.h"
 #include "blkhash-config.h"
+#include "blkhash.h"
+#include "digest.h"
+#include "util.h"
 
 struct worker {
-    unsigned char res[EVP_MAX_MD_SIZE];
+    unsigned char res[BLKHASH_MAX_MD_SIZE];
     pthread_t thread;
     unsigned char *buffer;
-    const EVP_MD *md;
-    EVP_MD_CTX *ctx;
+    struct digest *digest;
     int64_t total_size;
     int64_t calls;
     unsigned int len;
@@ -48,12 +49,12 @@ static void usage(int code)
 {
     fputs(
         "\n"
-        "Benchmark openssl\n"
+        "Benchmark digest\n"
         "\n"
-        "    openssl-bench [-d DIGEST|--digest-name=DIGEST]\n"
-        "                  [-T N|--timeout-seconds=N]\n"
-        "                  [-s N|--input-size N] [-r N|--read-size N]\n"
-        "                  [-t N|--threads N] [-h|--help]\n"
+        "    digest-bench [-d DIGEST|--digest-name=DIGEST]\n"
+        "                 [-T N|--timeout-seconds=N]\n"
+        "                 [-s N|--input-size N] [-r N|--read-size N]\n"
+        "                 [-t N|--threads N] [-h|--help]\n"
         "\n",
         stderr);
 
@@ -107,18 +108,23 @@ static void parse_options(int argc, char *argv[])
 static void update_by_size(struct worker *w)
 {
     int64_t todo = input_size;
+    int err;
 
     while (todo > read_size) {
-        if (!EVP_DigestUpdate(w->ctx, w->buffer, read_size))
-            FAIL("EVP_DigestUpdate");
+        err = digest_update(w->digest, w->buffer, read_size);
+        if (err)
+            FAILF("digest_update: %s", strerror(-err));
+
         todo -= read_size;
         w->total_size += read_size;
         w->calls++;
     }
 
     if (todo > 0) {
-        if (!EVP_DigestUpdate(w->ctx, w->buffer, todo))
-            FAIL("EVP_DigestUpdate");
+        err = digest_update(w->digest, w->buffer, todo);
+        if (err)
+            FAILF("digest_update: %s", strerror(-err));
+
         w->total_size += read_size;
         w->calls++;
     }
@@ -126,9 +132,13 @@ static void update_by_size(struct worker *w)
 
 static void update_until_timeout(struct worker *w)
 {
+    int err;
+
     do {
-        if (!EVP_DigestUpdate(w->ctx, w->buffer, read_size))
-            FAIL("EVP_DigestUpdate");
+        err = digest_update(w->digest, w->buffer, read_size);
+        if (err)
+            FAILF("digest_update: %s", strerror(-err));
+
         w->total_size += read_size;
         w->calls++;
     } while (timer_is_running);
@@ -137,34 +147,32 @@ static void update_until_timeout(struct worker *w)
 static void *worker_thread(void *arg)
 {
     struct worker *w = arg;
+    int err;
 
     w->buffer = malloc(read_size);
     if (w->buffer == NULL)
-        FAIL("malloc");
+        FAILF("malloc: %s", strerror(errno));
 
     memset(w->buffer, 0x55, read_size);
 
-    w->md = create_digest(digest_name);
-    if (w->md == NULL)
-        FAIL("create_digest");
+    err = digest_create(digest_name, &w->digest);
+    if (err)
+        FAILF("create_digest: %s", strerror(-err));
 
-    w->ctx = EVP_MD_CTX_new();
-    if (w->ctx == NULL)
-        FAIL("EVP_MD_CTX_new");
-
-    if (!EVP_DigestInit_ex(w->ctx, w->md, NULL))
-        FAIL("EVP_DigestInit_ex");
+    err = digest_init(w->digest);
+    if (err)
+        FAILF("digest_init: %s", strerror(-err));
 
     if (input_size)
         update_by_size(w);
     else
         update_until_timeout(w);
 
-    if (!EVP_DigestFinal_ex(w->ctx, w->res, &w->len))
-        FAIL("EVP_DigestFinal_ex");
+    err = digest_final(w->digest, w->res, &w->len);
+    if (err)
+        FAILF("digest_final: %s", strerror(-err));
 
-    EVP_MD_CTX_free(w->ctx);
-    free_digest(w->md);
+    digest_destroy(w->digest);
     free(w->buffer);
 
     return NULL;
@@ -172,7 +180,7 @@ static void *worker_thread(void *arg)
 
 int main(int argc, char *argv[])
 {
-    char res_hex[EVP_MAX_MD_SIZE * 2 + 1];
+    char res_hex[BLKHASH_MAX_MD_SIZE * 2 + 1];
     int64_t start, elapsed;
     int64_t total_size = 0;
     int64_t calls = 0;

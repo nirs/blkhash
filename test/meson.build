@@ -17,7 +17,23 @@ blkhash_test = executable(
     common_lib,
   ],
   dependencies: [
-    openssl,
+    unity_dep,
+  ],
+)
+
+digest_test = executable(
+  'digest-test',
+  'digest-test.c',
+  include_directories : [
+    blkhash_inc,
+    common_inc,
+    include_inc,
+  ],
+  link_with: [
+    blkhash_lib,
+    common_lib,
+  ],
+  dependencies: [
     unity_dep,
   ],
 )
@@ -32,7 +48,6 @@ util_test = executable(
     common_lib,
   ],
   dependencies: [
-    openssl,
     unity_dep,
   ],
 )
@@ -51,7 +66,6 @@ zero_bench = executable(
     common_lib,
   ],
   dependencies: [
-    openssl,
     unity_dep,
   ],
 )
@@ -69,25 +83,23 @@ blkhash_bench = executable(
     blkhash_lib,
     common_lib,
   ],
-  dependencies: [
-    openssl,
-  ],
 )
 
-openssl_bench = executable(
-  'openssl-bench',
-  'openssl-bench.c',
+digest_bench = executable(
+  'digest-bench',
+  'digest-bench.c',
   'benchmark.c',
   include_directories: [
+    blkhash_inc,
     common_inc,
     config_inc,
     include_inc,
   ],
   link_with: [
+    blkhash_lib,
     common_lib,
   ],
   dependencies: [
-    openssl,
     dependency('threads'),
   ],
 )
@@ -98,6 +110,7 @@ env.set('BLKSUM', blksum.full_path())
 env.set('HAVE_NBD', libnbd.found() ? '1' : '')
 
 test('blkhash-test', blkhash_test)
+test('digest-test', digest_test)
 test('util-test', util_test)
 test('zero-bench', zero_bench, args: ['quick'])
 
@@ -106,7 +119,7 @@ benchmarks = [
   'bench-zero',
   'bench-hole',
   'bench-null',
-  'bench-openssl',
+  'bench-digest',
 ]
 
 foreach b : benchmarks
@@ -130,7 +143,7 @@ if pytest.found()
     args: ['bench_test.py'],
     depends: [
       blkhash_bench,
-      openssl_bench,
+      digest_bench,
     ],
     env: env,
     workdir: meson.current_source_dir(),

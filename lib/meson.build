@@ -9,6 +9,7 @@ blkhash_lib = library(
     'blkhash.c',
     'completion.c',
     'config.c',
+    'digest.c',
     'event.c',
     'stream.c',
     'submission.c',
@@ -23,9 +24,6 @@ blkhash_lib = library(
   ],
   version: meson.project_version(),
   soversion: '0',
-  link_with: [
-    common_lib,
-  ],
   dependencies: [
     openssl,
     dependency('threads'),

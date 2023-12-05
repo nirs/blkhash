@@ -18,7 +18,7 @@ if build_dir is None:
     build_dir = os.path.join(root_dir, "build", "test")
 
 BLKHASH_BENCH = os.path.join(build_dir, "blkhash-bench")
-OPENSSL_BENCH = os.path.join(build_dir, "openssl-bench")
+DIGEST_BENCH = os.path.join(build_dir, "digest-bench")
 
 DIGEST = "sha256"
 STREAMS = 64
@@ -131,7 +131,7 @@ def blkhash(
     return r
 
 
-def openssl(
+def digest(
     digest_name=DIGEST,
     timeout_seconds=TIMEOUT,
     input_size=None,
@@ -139,7 +139,7 @@ def openssl(
     cool_down=COOL_DOWN,
 ):
     cmd = [
-        OPENSSL_BENCH,
+        DIGEST_BENCH,
         f"--digest-name={digest_name}",
         f"--timeout-seconds={timeout_seconds}",
         f"--threads={threads}",

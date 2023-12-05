@@ -89,9 +89,10 @@ struct nbd_server *start_nbd_server(struct server_options *opt);
 char *nbd_server_uri(struct nbd_server *s);
 void stop_nbd_server(struct nbd_server *s);
 
-void checksum(struct src *s, struct options *opt, unsigned char *out);
+void checksum(struct src *s, struct options *opt, unsigned char *out,
+              unsigned int *len);
 void aio_checksum(const char *filename, struct options *opt,
-                  unsigned char *out);
+                  unsigned char *out, unsigned int *len);
 
 void progress_init(int64_t size);
 void progress_update(int64_t len);

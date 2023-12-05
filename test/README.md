@@ -136,23 +136,23 @@ profile `blkhash` with `sha256` digest, hashing 4 TiB hole.
                                               --16.52%--stream_update@plt
     ...
 
-## The openssl-bench program
+## The digest-bench program
 
 Similar to `blkhash-bench` with the relevant options. It is used to
-compare `blkhash` to digest functions provided by openssl.
+compare `blkhash` to digest functions supported by blkhash:
 
-    $ build/test/openssl-bench -h
+    $ build/test/digest-bench -h
 
-    Benchmark openssl
+    Benchmark digest
 
-        openssl-bench [-d DIGEST|--digest-name=DIGEST]
-                      [-T N|--timeout-seconds=N]
-                      [-s N|--input-size N] [-r N|--read-size N]
-                      [-t N|--threads N] [-h|--help]
+        digest-bench [-d DIGEST|--digest-name=DIGEST]
+                     [-T N|--timeout-seconds=N]
+                     [-s N|--input-size N] [-r N|--read-size N]
+                     [-t N|--threads N] [-h|--help]
 
 Running single threaded benchmark:
 
-    $ build/test/openssl-bench
+    $ build/test/digest-bench
     {
       "input-type": "data",
       "digest-name": "sha256",
@@ -169,7 +169,7 @@ Running single threaded benchmark:
 Using multiple threads we can evaluate the maximum scalability of
 `blkhash` on a machine:
 
-    $ build/test/openssl-bench -t 12
+    $ build/test/digest-bench -t 12
     {
       "input-type": "data",
       "digest-name": "sha256",
@@ -262,7 +262,7 @@ Example run of the benchmark script:
     32 threads, 64 streams: 82.12 TiB in 10.032 s (8.19 TiB/s)
     64 threads, 64 streams: 110.75 TiB in 10.048 s (11.02 TiB/s)
 
-## The bench-openssl.py script
+## The bench-digest.py script
 
 This script compare the throughput of `sha256` for hashing data with
 different number of threads. This shows the highest possible throughput
@@ -270,9 +270,9 @@ on the machine, for evaluating `blkhash` efficiency.
 
 Example run of the benchmark script:
 
-$ test/bench-openssl.py
+$ test/bench-digest.py
 
-    openssl-bench --digest-name sha256
+    digest-bench --digest-name sha256
 
      1 threads: 4.83 GiB in 10.002 s (494.71 MiB/s)
      2 threads: 9.66 GiB in 10.001 s (988.57 MiB/s)

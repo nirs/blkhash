@@ -4,10 +4,10 @@
 #ifndef BLKHASH_H
 #define BLKHASH_H
 
-#include <openssl/evp.h> /* For EVP_* */
+#include <stdint.h>
 
 /* Maxmum length of md_value buffer for any digest name. */
-#define BLKHASH_MAX_MD_SIZE EVP_MAX_MD_SIZE
+#define BLKHASH_MAX_MD_SIZE 64
 
 /* The default number of streams. */
 #define BLKHASH_STREAMS 64
@@ -133,6 +133,13 @@ int blkhash_final(struct blkhash *h, unsigned char *md_value,
  * Free resources allocated in blkhash_new().
  */
 void blkhash_free(struct blkhash *h);
+
+/*
+ * Return up to count digest names using the array of size count provided by
+ * the caller. To get the required size of the array call with NULL out and
+ * zero count.
+ */
+size_t blkhash_digests(const char **names, size_t count);
 
 /*
  * Allocate blkhash_opts for digest name and initialize with the

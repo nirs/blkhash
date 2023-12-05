@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: Red Hat Inc
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+#include <inttypes.h>
 #include <stdio.h>
-#include <unistd.h>
+#include <stdlib.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "unity.h"
 #include "util.h"

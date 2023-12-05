@@ -9,10 +9,9 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <openssl/evp.h>
-
 #include "blkhash-internal.h"
 #include "blkhash.h"
+#include "digest.h"
 #include "event.h"
 #include "threads.h"
 #include "util.h"
@@ -57,8 +56,7 @@ struct blkhash {
     struct worker *workers;
 
     /* For computing root digest from the streams hashes. */
-    const EVP_MD *md;
-    EVP_MD_CTX *root_ctx;
+    struct digest *root_digest;
 
     /* Count initialized streams and workers to allow cleanups on errors. */
     unsigned streams_count;
@@ -241,22 +239,13 @@ struct blkhash *blkhash_new_opts(const struct blkhash_opts *opts)
         h->workers_count++;
     }
 
-    h->md = create_digest(h->config.digest_name);
-    if (h->md == NULL) {
-        err = EINVAL;
-        goto  error;
-    }
-
-    h->root_ctx = EVP_MD_CTX_new();
-    if (h->root_ctx == NULL) {
-        err = ENOMEM;
+    err = -digest_create(h->config.digest_name, &h->root_digest);
+    if (err)
         goto error;
-    }
 
-    if (!EVP_DigestInit_ex(h->root_ctx, h->md, NULL)) {
-        err = ENOMEM;
+    err = -digest_init(h->root_digest);
+    if (err)
         goto error;
-    }
 
     h->pending.data = calloc(1, h->config.block_size);
     if (h->pending.data == NULL) {
@@ -668,7 +657,7 @@ static void stop_workers(struct blkhash *h)
 static int compute_root_hash(struct blkhash *h, unsigned char *md,
                              unsigned int *len)
 {
-    unsigned char stream_md[EVP_MAX_MD_SIZE];
+    unsigned char stream_md[BLKHASH_MAX_MD_SIZE];
     unsigned int stream_len;
     int err;
 
@@ -677,12 +666,14 @@ static int compute_root_hash(struct blkhash *h, unsigned char *md,
         if (err)
             return set_error(h, err);
 
-        if (!EVP_DigestUpdate(h->root_ctx, stream_md, stream_len))
-            return set_error(h, ENOMEM);
+        err = -digest_update(h->root_digest, stream_md, stream_len);
+        if (err)
+            return set_error(h, err);
     }
 
-    if (!EVP_DigestFinal_ex(h->root_ctx, md, len))
-        return set_error(h, ENOMEM);
+    err = -digest_final(h->root_digest, md, len);
+    if (err)
+        return set_error(h, err);
 
     return 0;
 }
@@ -726,8 +717,7 @@ void blkhash_free(struct blkhash *h)
         stream_destroy(&h->streams[i]);
 
     free(h->pending.data);
-    EVP_MD_CTX_free(h->root_ctx);
-    free_digest(h->md);
+    digest_destroy(h->root_digest);
     free(h->workers);
     free(h->streams);
 

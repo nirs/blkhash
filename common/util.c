@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
 #include <time.h>
@@ -115,30 +116,5 @@ bool supports_direct_io(const char *filename)
     return fd != -1;
 #else
     return false;
-#endif
-}
-
-const EVP_MD *create_digest(const char *name)
-{
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    /*
-     * Aovids implicit fetching on each call to EVP_DigestInit_ex()
-     * https://www.openssl.org/docs/man3.1/man7/crypto.html#Explicit-fetching.
-     */
-    return EVP_MD_fetch(NULL, name, NULL);
-#else
-    if (strcmp(name, "null") == 0)
-        return EVP_md_null();
-
-    return EVP_get_digestbyname(name);
-#endif
-}
-
-void free_digest(const EVP_MD *md)
-{
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    EVP_MD_free((EVP_MD *)md);
-#else
-    (void)md;
 #endif
 }

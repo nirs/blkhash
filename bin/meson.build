@@ -8,7 +8,6 @@ blksum = executable(
     'blksum.c',
     'checksum.c',
     'file.c',
-    'list-digests.c',
     'nbd.c',
     'nbdserver.c',
     'pipe.c',
@@ -27,7 +26,6 @@ blksum = executable(
   ],
   dependencies: [
     libnbd,
-    openssl,
     dependency('threads'),
   ],
   install: true,

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include <assert.h>
-#include <openssl/evp.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <sys/queue.h>
@@ -58,6 +57,7 @@ struct worker {
 
     /* The computed checksum. */
     unsigned char *out;
+    unsigned int *len;
 };
 
 static struct command *create_command(struct worker *w)
@@ -424,7 +424,7 @@ static void *worker_thread(void *arg)
     process_image(w);
 
     if (running())
-        err = blkhash_final(w->h, w->out, NULL);
+        err = blkhash_final(w->h, w->out, w->len);
 
     src_close(w->s);
 
@@ -533,11 +533,12 @@ static void optimize(const char *filename, struct options *opt,
 }
 #endif
 
-static void init_worker(struct worker *w, const char *filename,
-                        struct options *opt, unsigned char *out)
+static void init_worker(struct worker *w, const char *filename, struct options
+                        *opt, unsigned char *out, unsigned int *len)
 {
     w->opt = opt;
     w->out = out;
+    w->len = len;
 
     if (is_nbd_uri(filename)) {
         /* Use user provided nbd server. */
@@ -651,11 +652,11 @@ static void destroy_worker(struct worker *w)
 }
 
 void aio_checksum(const char *filename, struct options *opt,
-                  unsigned char *out)
+                  unsigned char *out, unsigned int *len)
 {
     struct worker w = {0};
 
-    init_worker(&w, filename, opt, out);
+    init_worker(&w, filename, opt, out, len);
     start_worker(&w);
     join_worker(&w);
     destroy_worker(&w);
