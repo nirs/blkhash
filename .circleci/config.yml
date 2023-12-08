@@ -6,7 +6,7 @@ jobs:
       distro:
         type: string
     docker:
-      - image: quay.io/nirsof/blkhash-<< parameters.distro >>
+      - image: quay.io/nirsof/blkhash-test:<< parameters.distro >>
     steps:
       - checkout
       - run: meson setup build -Dwerror=true
@@ -23,4 +23,9 @@ workflows:
       - test:
           matrix:
             parameters:
-              distro: [fedora-37, fedora-38, centos-8, centos-9]
+              distro:
+                - centos-8
+                - centos-9
+                - fedora-38
+                - fedora-39
+                - fedora-40
