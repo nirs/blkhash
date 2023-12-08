@@ -16,10 +16,14 @@ the tests and debug.
 
 ### Fedora
 
+Fedora 38 or later is required for development.
+
 Install required packages:
 
     dnf install \
         asciidoc \
+        blake3 \
+        blake3-devel \
         gcc \
         git \
         libnbd-devel \
@@ -33,6 +37,8 @@ Install required packages:
         rpmlint
 
 ### FreeBSD
+
+FreeBSD 13 or later is required.
 
 Install required packages:
 
@@ -63,6 +69,7 @@ Install required packages:
 
     brew install \
         asciidoc \
+        blake3 \
         docbook-xsl \
         meson \
         openssl \
@@ -71,8 +78,8 @@ Install required packages:
 
 Add these vars to `~/.zprofile`:
 
-    # Allow pkg-config to find homebew openssl config
-    export PKG_CONFIG_PATH="/opt/homebrew/opt/openssl@3/lib/pkgconfig"
+    # Allow pkg-config to find homebew configs
+    export PKG_CONFIG_PATH="/opt/homebrew/opt/openssl@3/lib/pkgconfig:/opt/homebrew/opt/blake3/lib/pkgconfig"
 
     # Allow xmllint to find homebrew catalogs
     export XML_CATALOG_FILES=/opt/homebrew/etc/xml/catalog
