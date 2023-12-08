@@ -32,16 +32,16 @@ workflow:
 
 fedora-37:
   extends: .test
-  image: quay.io/nirsof/blkhash-fedora-37
+  image: quay.io/nirsof/blkhash-test:fedora-37
 
 fedora-38:
   extends: .test
-  image: quay.io/nirsof/blkhash-fedora-38
+  image: quay.io/nirsof/blkhash-test:fedora-38
 
 centos-8:
   extends: .test
-  image: quay.io/nirsof/blkhash-centos-8
+  image: quay.io/nirsof/blkhash-test:centos-8
 
 centos-9:
   extends: .test
-  image: quay.io/nirsof/blkhash-centos-9
+  image: quay.io/nirsof/blkhash-test:centos-9
