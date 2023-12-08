@@ -22,7 +22,6 @@ build system or have no automated testing.
 
 | OS                | Arch          | CI                | libnbd |
 |-------------------|---------------|-------------------|--------|
-| Fedora 37         | x86_64        | gitlab, circleci  | yes    |
 | Fedora 38         | x86_64        | gitlab, circleci  | yes    |
 | Fedora 39         | x86_64        | gitlab, circleci  | yes    |
 | Fedora 40         | x86_64        | gitlab, circleci  | yes    |
