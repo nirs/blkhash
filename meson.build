@@ -25,6 +25,12 @@ conf_data.set('HAVE_NBD', libnbd.found())
 
 openssl = dependency('openssl')
 
+blake3 = dependency(
+  'libblake3',
+  required: get_option('blake3'),
+)
+conf_data.set('HAVE_BLAKE3', blake3.found())
+
 compiler = meson.get_compiler('c')
 
 detect_cache_line_size = '''
@@ -66,6 +72,7 @@ endif
 
 summary_info = {}
 summary_info += {'nbd': conf_data.get('HAVE_NBD')}
+summary_info += {'blake3': conf_data.get('HAVE_BLAKE3')}
 summary_info += {'cache line size': conf_data.get('CACHE_LINE_SIZE')}
 summary(summary_info, bool_yn: true, section: 'config')
 
