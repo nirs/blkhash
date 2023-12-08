@@ -203,7 +203,7 @@ def test_list_digests():
     # The "null" digest is not available in Centos 8 using openssl 1.1, so we
     # skip it.
     for name in blksum_digests:
-        if name == "null":
+        if name in ("null", "blake3"):
             continue
         hashlib.new(name)
 

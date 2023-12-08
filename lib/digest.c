@@ -7,7 +7,67 @@
 
 #include <openssl/evp.h>
 
+#include "blkhash-config.h"
 #include "digest.h"
+
+#ifdef HAVE_BLAKE3
+
+#include <blake3.h>
+
+struct blake3_digest {
+    struct digest digest;
+    blake3_hasher hasher;
+};
+
+static int blake3_ops_init(struct digest *d)
+{
+    struct blake3_digest *b = (struct blake3_digest *)d;
+    blake3_hasher_init(&b->hasher);
+    return 0;
+}
+
+static int blake3_ops_update(struct digest *d, const void *data, size_t len)
+{
+    struct blake3_digest *b = (struct blake3_digest *)d;
+    blake3_hasher_update(&b->hasher, data, len);
+    return 0;
+}
+
+static int blake3_ops_final(struct digest *d, unsigned char *out, unsigned int *len)
+{
+    struct blake3_digest *b = (struct blake3_digest *)d;
+    blake3_hasher_finalize(&b->hasher, out, BLAKE3_OUT_LEN);
+    if (len)
+        *len = BLAKE3_OUT_LEN;
+    return 0;
+}
+
+static void blake3_ops_destroy(struct digest *d)
+{
+    free(d);
+}
+
+static struct digest_ops blake3_ops = {
+    .init = blake3_ops_init,
+    .update = blake3_ops_update,
+    .finalize = blake3_ops_final,
+    .destroy = blake3_ops_destroy,
+};
+
+static int create_blake3(struct digest **out)
+{
+    struct blake3_digest *b;
+
+    b = calloc(1, sizeof(*b));
+    if (b == NULL)
+        return -errno;
+
+    b->digest.ops = &blake3_ops;
+    *out = &b->digest;
+    return 0;
+}
+
+#endif
 
 static int null_init(struct digest *d)
 {
@@ -152,6 +212,11 @@ int digest_create(const char *name, struct digest **out)
     if (strcmp(name, "null") == 0)
         return create_null(out);
 
+#ifdef HAVE_BLAKE3
+    if (strcmp(name, "blake3") == 0)
+        return create_blake3(out);
+#endif
+
     return create_evp(name, out);
 }
 
@@ -213,6 +278,9 @@ static void add_evp(struct digest_list *d)
 static void add_builtin(struct digest_list *d)
 {
     append(d, "null");
+#ifdef HAVE_BLAKE3
+    append(d, "blake3");
+#endif
 }
 
 size_t blkhash_digests(const char **names, size_t len)

@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "blkhash.h"
+#include "blkhash-config.h"
 #include "digest.h"
 #include "unity.h"
 #include "util.h"
@@ -222,6 +223,52 @@ void test_blake2b512()
     }
 }
 
+void test_blake3()
+{
+    struct test_vector tests[] = {
+        {
+            .name="empty string",
+            .message="",
+            .count=1,
+            .output="af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+        },
+        {
+            .name="abc",
+            .message="abc",
+            .count=1,
+            .output="6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d85",
+        },
+        {
+            .name="abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
+            .message="abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
+            .count=1,
+            .output="c19012cc2aaf0dc3d8e5c45a1b79114d2df42abb2a410bf54be09e891af06ff8",
+        },
+        {
+            .name="abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu",
+            .message="abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu",
+            .count=1,
+            .output="553e1aa2a477cb3166e6ab38c12d59f6c5017f0885aaf079f217da00cfca363f",
+        },
+        {
+            .name="'a' repeated 1,000,000 times",
+            .message="a",
+            .count=1000000,
+            .output="616f575a1b58d4c9797d4217b9730ae5e6eb319d76edef6549b46f4efe31ff8b",
+        },
+        {
+            .name="'abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmno' repeated 16,777,216 times",
+            .message="a",
+            .count=16777216,
+            .output="38ed7ad5a524e76d65dc389f1262b999fdc796c7e5d70132c4f9a049dcf3f127",
+        },
+    };
+
+    for (unsigned i = 0; i < ARRAY_SIZE(tests); i++) {
+        check("blake3", &tests[i]);
+    }
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -231,6 +278,10 @@ int main(void)
     RUN_TEST(test_null_no_size);
     RUN_TEST(test_sha256);
     RUN_TEST(test_blake2b512);
+
+#ifdef HAVE_BLAKE3
+    RUN_TEST(test_blake3);
+#endif
 
     return UNITY_END();
 }

@@ -27,6 +27,7 @@ digest_test = executable(
   include_directories : [
     blkhash_inc,
     common_inc,
+    config_inc,
     include_inc,
   ],
   link_with: [

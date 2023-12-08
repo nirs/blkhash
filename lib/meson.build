@@ -25,6 +25,7 @@ blkhash_lib = library(
   version: meson.project_version(),
   soversion: '0',
   dependencies: [
+    blake3,
     openssl,
     dependency('threads'),
   ],
