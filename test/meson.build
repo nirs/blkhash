@@ -123,6 +123,10 @@ benchmarks = [
   'bench-digest',
 ]
 
+if blake3.found()
+  benchmarks += ['bench-blkhash-digest']
+endif
+
 foreach b : benchmarks
   test(
     b,
