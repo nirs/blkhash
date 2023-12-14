@@ -86,6 +86,21 @@ blkhash_bench = executable(
   ],
 )
 
+mmap_bench = executable(
+  'mmap-bench',
+  'mmap-bench.c',
+  'benchmark.c',
+  include_directories: [
+    common_inc,
+    config_inc,
+    include_inc,
+  ],
+  link_with: [
+    blkhash_lib,
+    common_lib,
+  ],
+)
+
 digest_bench = executable(
   'digest-bench',
   'digest-bench.c',
