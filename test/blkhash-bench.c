@@ -32,10 +32,9 @@ static int read_size = 256 * KiB;
 static int64_t hole_size = (int64_t)MIN(16 * GiB, SIZE_MAX);
 
 static struct request *requests;
-static unsigned current;
 static struct blkhash_completion *completions;
 static struct pollfd poll_fds[1];
-static int64_t total_size;
+static int64_t bytes_hashed;
 static int64_t calls;
 
 static void setup_aio(struct blkhash *h)
@@ -192,11 +191,6 @@ static void parse_options(int argc, char *argv[])
     }
 }
 
-static void read_request(struct request *req, size_t len)
-{
-    req->len = len;
-}
-
 typedef void (*update_fn)(struct blkhash *h, struct request *req);
 
 static void aio_update(struct blkhash *h, struct request *req)
@@ -206,7 +200,6 @@ static void aio_update(struct blkhash *h, struct request *req)
         FAILF("blkhash_aio_update: %s", strerror(err));
 
     req->ready = false;
-    total_size += req->len;
 }
 
 static void update(struct blkhash *h, struct request *req)
@@ -215,7 +208,7 @@ static void update(struct blkhash *h, struct request *req)
     if (err)
         FAILF("blkhash_update: %s", strerror(err));
 
-    total_size += req->len;
+    bytes_hashed += req->len;
     calls++;
 }
 
@@ -225,7 +218,7 @@ static void zero(struct blkhash *h, size_t len)
     if (err)
         FAILF("blkhash_zero: %s", strerror(err));
 
-    total_size += len;
+    bytes_hashed += len;
     calls++;
 }
 
@@ -274,48 +267,49 @@ static void complete_aio_updates(struct blkhash *h)
 
         req = cmp->user_data;
         req->ready = true;
+        bytes_hashed += req->len;
         calls++;
     }
 }
 
 static void update_size(struct blkhash *h, update_fn fn)
 {
-    struct request *req = &requests[0];
     int64_t todo = input_size;
 
-    do {
-        while (req->ready && todo > read_size) {
-            read_request(req, read_size);
-            fn(h, req);
-            todo -= read_size;
-            current = (current + 1) % queue_depth;
-            req = &requests[current];
-        }
-        while (!req->ready)
-            complete_aio_updates(h);
-    } while (todo > read_size);
+    while (bytes_hashed < input_size) {
 
-    if (todo > 0) {
-        read_request(req, todo);
-        fn(h, req);
+        /* Hash more data */
+        for (int i = 0; i < queue_depth && todo > 0; i++) {
+            struct request *req = &requests[i];
+
+            if (req->ready) {
+                req->len = MIN(todo, read_size);
+                todo -= req->len;
+                fn(h, req);
+            }
+        }
+
+        /* Wait for complections. */
+        if (aio)
+            complete_aio_updates(h);
     }
 }
 
 static void update_timeout(struct blkhash *h, update_fn fn)
 {
-    struct request *req = &requests[0];
-
     do {
-        while (req->ready) {
-            read_request(req, read_size);
-            fn(h, req);
-            if (!timer_is_running)
-                return;
+        /* Hash more data */
+        for (int i = 0; i < queue_depth; i++) {
+            struct request *req = &requests[i];
 
-            current = (current + 1) % queue_depth;
-            req = &requests[current];
+            if (req->ready) {
+                req->len = read_size;
+                fn(h, req);
+            }
         }
-        if (!req->ready)
+
+        /* Wait for complections. */
+        if (aio)
             complete_aio_updates(h);
     } while (timer_is_running);
 }
@@ -422,11 +416,11 @@ int main(int argc, char *argv[])
     printf("  \"hole-size\": %" PRIi64 ",\n", hole_size);
     printf("  \"threads\": %d,\n", threads);
     printf("  \"streams\": %d,\n", streams);
-    printf("  \"total-size\": %" PRIi64 ",\n", total_size);
+    printf("  \"total-size\": %" PRIi64 ",\n", bytes_hashed);
     printf("  \"elapsed\": %.3f,\n", seconds);
-    printf("  \"throughput\": %" PRIi64 ",\n", (int64_t)(total_size / seconds));
+    printf("  \"throughput\": %" PRIi64 ",\n", (int64_t)(bytes_hashed / seconds));
     printf("  \"kiops\": %.3f,\n", calls / seconds / 1000);
-    printf("  \"gips\": %.3f,\n", total_size / seconds / GiB);
+    printf("  \"gips\": %.3f,\n", bytes_hashed / seconds / GiB);
     printf("  \"checksum\": \"%s\"\n", md_hex);
     printf("}\n");
 
