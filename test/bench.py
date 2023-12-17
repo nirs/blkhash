@@ -21,6 +21,7 @@ BLKHASH_BENCH = os.path.join(build_dir, "blkhash-bench")
 DIGEST_BENCH = os.path.join(build_dir, "digest-bench")
 
 DIGEST = "sha256"
+RUNS = 10
 STREAMS = 64
 TIMEOUT = 2
 COOL_DOWN = 6
@@ -32,6 +33,12 @@ def parse_args():
         "--digest-name",
         default=DIGEST,
         help=f"Digest name (default {DIGEST})",
+    )
+    p.add_argument(
+        "--runs",
+        default=RUNS,
+        type=int,
+        help=f"Number of runs for blksum and b3sum (default {RUNS})",
     )
     p.add_argument(
         "--timeout",
@@ -86,6 +93,18 @@ def results(
         "host": host.info(),
         "data": [],
     }
+
+
+def build(nbd=None, blake3=None):
+    cmd = ["meson", "configure", "build"]
+    if nbd:
+        cmd.append(f"-Dnbd={nbd}")
+    if blake3:
+        cmd.append(f"-Dblake3={blake3}")
+    subprocess.run(cmd, check=True)
+
+    cmd = ["meson", "compile", "-C", "build"]
+    subprocess.run(cmd, check=True)
 
 
 def blkhash(
@@ -144,6 +163,48 @@ def digest(
     r = json.loads(cp.stdout)
     print(description(r))
     return r
+
+
+def cache_image(filename):
+    """
+    Ensure image is cached. Thorectically reading the image once is enough, but
+    in practice the we need to read it twice, and in some cases reading 3 times
+    gives more consitent results.
+    """
+    cmd = ["dd", f"if={filename}", "bs=1M", "of=/dev/null"]
+    for i in range(3):
+        cp = subprocess.run(cmd, check=True, stderr=subprocess.PIPE)
+        stats = cp.stderr.decode().splitlines()[-1]
+
+    print("image:")
+    print(f"  filename: {filename}")
+    print(f"  stats: {stats}")
+    print()
+
+
+def add_image_info(filename, output):
+    info = image_info(filename)
+    with open(output) as f:
+        results = json.load(f)
+    results["size"] = info["virtual-size"]
+    with open(output, "w") as f:
+        json.dump(results, f)
+
+
+def plot_blksum(*files, title=None, output=None):
+    cmd = ["test/plot-blksum.py"]
+    if title:
+        cmd.append(f"--title={title}")
+    if output:
+        cmd.append(f"--output={output}")
+    cmd.extend(files)
+    subprocess.run(cmd, check=True)
+
+
+def image_info(filename):
+    cmd = ["qemu-img", "info", "--output=json", filename]
+    cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
+    return json.loads(cp.stdout)
 
 
 def description(r):
