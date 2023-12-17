@@ -210,6 +210,34 @@ def blksum(
     add_image_info(filename, output)
 
 
+def b3sum(
+    filename,
+    output=None,
+    max_threads=None,
+    runs=RUNS,
+    cool_down=None,
+):
+    command = ["b3sum", "--num-threads={t}", filename]
+    threads_params = ",".join(str(n) for n in threads(max_threads))
+    cmd = [
+        "hyperfine",
+        f"--runs={runs}",
+        "--time-unit=second",
+        "--parameter-list",
+        "t",
+        threads_params,
+    ]
+    if cool_down:
+        cmd.append(f"--prepare=sleep {cool_down}")
+    if output:
+        cmd.append(f"--export-json={output}")
+    cmd.append(" ".join(command))
+
+    cache_image(filename)
+    subprocess.run(cmd, check=True)
+    add_image_info(filename, output)
+
+
 def cache_image(filename):
     """
     Ensure image is cached. Thorectically reading the image once is enough, but
