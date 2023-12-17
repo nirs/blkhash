@@ -165,6 +165,51 @@ def digest(
     return r
 
 
+def blksum(
+    filename,
+    output=None,
+    digest_name=DIGEST,
+    max_threads=None,
+    streams=STREAMS,
+    queue_depth=None,
+    cache=False,
+    runs=RUNS,
+    cool_down=None,
+):
+    command = [
+        "build/bin/blksum",
+        f"--digest={digest_name}",
+        "--threads={t}",
+        f"--streams={streams}",
+    ]
+    if queue_depth:
+        command.append(f"--queue-depth={queue_depth}")
+    if cache:
+        command.append("--cache")
+    command.append(filename)
+
+    threads_params = ",".join(str(n) for n in threads(max_threads))
+    cmd = [
+        "hyperfine",
+        f"--runs={runs}",
+        "--time-unit=second",
+        "--parameter-list",
+        "t",
+        threads_params,
+    ]
+    if cool_down:
+        cmd.append(f"--prepare=sleep {cool_down}")
+    if output:
+        cmd.append(f"--export-json={output}")
+    cmd.append(" ".join(command))
+
+    if cache:
+        cache_image(filename)
+
+    subprocess.run(cmd, check=True)
+    add_image_info(filename, output)
+
+
 def cache_image(filename):
     """
     Ensure image is cached. Thorectically reading the image once is enough, but
