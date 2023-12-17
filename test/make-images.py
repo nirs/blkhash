@@ -73,11 +73,6 @@ def create_base_image(distro, size, path):
         f"--output={path}",
         "--format=raw",
         f"--size={size}",
-        f"--hostname={distro}",
-        "--ssh-inject=root",
-        "--root-password=password:root",
-        "--selinux-relabel",
-        "--install=qemu-guest-agent",
     ]
     subprocess.run(cmd, check=True)
 
