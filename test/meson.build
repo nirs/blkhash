@@ -116,10 +116,10 @@ test('util-test', util_test)
 test('zero-bench', zero_bench, args: ['quick'])
 
 benchmarks = [
-  'bench-data',
-  'bench-zero',
-  'bench-hole',
-  'bench-null',
+  'bench-blkhash-data',
+  'bench-blkhash-zero',
+  'bench-blkhash-hole',
+  'bench-blkhash-null',
   'bench-digest',
 ]
 
