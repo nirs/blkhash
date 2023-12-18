@@ -5,8 +5,9 @@
 import bench
 
 args = bench.parse_args()
+
 results = bench.results(
-    "blkhash throughput - null digest",
+    "blkhash null",
     host_name=args.host_name,
     yscale="log",
 )
@@ -14,7 +15,7 @@ results = bench.results(
 for input_type in "data", "zero", "hole":
     print(f"\nblkhash-bench --digest-name null --input-type {input_type}\n")
     runs = []
-    results["data"].append({"name": f"blkhash-{input_type}", "runs": runs})
+    results["data"].append({"name": input_type, "runs": runs})
     for n in bench.threads(args.max_threads):
         r = bench.blkhash(
             input_type,
@@ -28,7 +29,7 @@ for input_type in "data", "zero", "hole":
     if input_type != "hole":
         print(f"\nblkhash-bench --digest-name null --input-type {input_type} --aio\n")
         runs = []
-        results["data"].append({"name": f"blkhash-aio-{input_type}", "runs": runs})
+        results["data"].append({"name": f"{input_type} aio", "runs": runs})
         for n in bench.threads(args.max_threads):
             r = bench.blkhash(
                 input_type,

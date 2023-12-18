@@ -29,6 +29,11 @@ COOL_DOWN = 6
 def parse_args():
     p = argparse.ArgumentParser("bench")
     p.add_argument(
+        "--digest-name",
+        default=DIGEST,
+        help=f"Digest name (default {DIGEST})",
+    )
+    p.add_argument(
         "--timeout",
         default=TIMEOUT,
         type=int,

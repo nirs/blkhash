@@ -5,20 +5,22 @@
 import bench
 
 args = bench.parse_args()
+
 results = bench.results(
-    "blkhash throughput - unallocated",
+    f"blkhash {args.digest_name} - unallocated",
     host_name=args.host_name,
 )
 results["grid"] = {"axis": "x"}
 
-print(f"\nblkhash-bench --digest-name {bench.DIGEST} --input-type hole\n")
+print(f"\nblkhash-bench --digest-name {args.digest_name} --input-type hole\n")
 
 runs = []
-results["data"].append({"name": "blkhash", "runs": runs})
+results["data"].append({"name": f"blk-{args.digest_name}", "runs": runs})
 
 for n in bench.threads(args.max_threads):
     r = bench.blkhash(
         "hole",
+        digest_name=args.digest_name,
         threads=n,
         timeout_seconds=args.timeout,
         cool_down=args.cool_down,
