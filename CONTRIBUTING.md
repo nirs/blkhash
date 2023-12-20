@@ -20,7 +20,7 @@ Fedora 38 or later is required for development.
 
 Install required packages:
 
-    dnf install \
+    sudo dnf install \
         asciidoc \
         blake3 \
         blake3-devel \
@@ -36,6 +36,25 @@ Install required packages:
         reuse \
         rpm-build \
         rpmlint
+
+### Ubuntu
+
+Tested with Ubuntu 22.04.
+
+    sudo apt update
+
+    sudo apt install \
+        asciidoc \
+        gcc \
+        git \
+        libnbd-dev \
+        meson \
+        libssl-dev \
+        pkg-config \
+        python3 \
+        python3-pytest \
+        qemu-utils \
+        reuse
 
 ### FreeBSD
 
