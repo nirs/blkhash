@@ -21,17 +21,10 @@ static int copy_data(struct submission *sub)
     return 0;
 }
 
-struct submission *submission_new_data(struct stream *stream, int64_t index,
-                                       size_t len, const void *data,
-                                       struct completion *completion,
-                                       uint8_t flags)
+int submission_init_data(struct submission *sub, struct stream *stream,
+                         int64_t index, size_t len, const void *data,
+                         struct completion *completion, uint8_t flags)
 {
-    struct submission *sub;
-
-    sub = malloc(sizeof(*sub));
-    if (sub == NULL)
-        return NULL;
-
     sub->type = DATA;
     sub->stream = stream;
     sub->completion = completion;
@@ -42,45 +35,23 @@ struct submission *submission_new_data(struct stream *stream, int64_t index,
 
     if (flags & SUBMIT_COPY_DATA) {
         int err = copy_data(sub);
-        if (err) {
-            free(sub);
-            errno = err;
-            return NULL;
-        }
+        if (err)
+            return err;
     }
 
     if (sub->completion)
         completion_ref(sub->completion);
 
-    return sub;
+    return 0;
 }
 
-struct submission *submission_new_zero(struct stream *stream, int64_t index)
+void submission_init_zero(struct submission *sub, struct stream *stream, int64_t index)
 {
-    struct submission *sub;
-
-    sub = malloc(sizeof(*sub));
-    if (sub == NULL)
-        return NULL;
+    memset(sub, 0, sizeof(*sub));
 
     sub->type = ZERO;
     sub->stream = stream;
     sub->index = index;
-
-    return sub;
-}
-
-struct submission *submission_new_stop(void)
-{
-    struct submission *sub;
-
-    sub = malloc(sizeof(*sub));
-    if (sub == NULL)
-        return NULL;
-
-    sub->type = STOP;
-
-    return sub;
 }
 
 void submission_set_error(struct submission *sub, int error)
@@ -89,11 +60,8 @@ void submission_set_error(struct submission *sub, int error)
         completion_set_error(sub->completion, error);
 }
 
-void submission_free(struct submission *sub)
+void submission_destroy(struct submission *sub)
 {
-    if (sub == NULL)
-        return;
-
     if (sub->type == DATA) {
         if (sub->flags & SUBMIT_COPY_DATA)
             free((void *)sub->data);
@@ -102,5 +70,5 @@ void submission_free(struct submission *sub)
             completion_unref(sub->completion);
     }
 
-    free(sub);
+    memset(sub, 0, sizeof(*sub));
 }

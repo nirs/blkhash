@@ -18,27 +18,26 @@ static inline void set_error(struct worker *w, int error)
     }
 }
 
-static struct submission *pop_submission(struct worker *w)
+static void pop_submission(struct worker *w, struct submission *sub)
 {
-    struct submission *sub;
     bool was_full = false;
 
     mutex_lock(&w->mutex);
 
-    while (STAILQ_EMPTY(&w->queue))
+    while (w->queue_len == 0)
         cond_wait(&w->not_empty, &w->mutex);
 
-    sub = STAILQ_FIRST(&w->queue);
-    STAILQ_REMOVE_HEAD(&w->queue, entry);
-
     was_full = w->queue_len == QUEUE_SIZE;
+
+    memcpy(sub, &w->queue[w->queue_head], sizeof(*sub));
+
+    w->queue_head = (w->queue_head + 1) % QUEUE_SIZE;
     w->queue_len--;
+
     if (was_full)
         cond_signal(&w->not_full);
 
     mutex_unlock(&w->mutex);
-
-    return sub;
 }
 
 /* Called during cleanup - ignore errors. */
@@ -48,16 +47,15 @@ static void drain_queue(struct worker *w)
 
     mutex_lock(&w->mutex);
 
-    while (!STAILQ_EMPTY(&w->queue)) {
-        struct submission *sub;
+    was_full = w->queue_len == QUEUE_SIZE;
 
-        sub = STAILQ_FIRST(&w->queue);
-        STAILQ_REMOVE_HEAD(&w->queue, entry);
-        submission_free(sub);
+    while (w->queue_len > 0) {
+        submission_destroy(&w->queue[w->queue_head]);
+
+        w->queue_head = (w->queue_head + 1) % QUEUE_SIZE;
+        w->queue_len--;
     }
 
-    was_full = w->queue_len == QUEUE_SIZE;
-    w->queue_len = 0;
     if (was_full)
         cond_signal(&w->not_full);
 
@@ -67,23 +65,20 @@ static void drain_queue(struct worker *w)
 static void *worker_thread(void *arg)
 {
     struct worker *w = arg;
+    struct submission sub = {0};
 
     while (w->running) {
-        struct submission *sub;
+        pop_submission(w, &sub);
 
-        sub = pop_submission(w);
-        if (sub == NULL)
-            break;
-
-        if (sub->type == STOP)
+        if (sub.type == STOP) {
             w->running = false;
-        else {
-            int err = stream_update(sub->stream, sub);
+        } else {
+            int err = stream_update(sub.stream, &sub);
             if (err)
                 set_error(w, err);
         }
 
-        submission_free(sub);
+        submission_destroy(&sub);
     }
 
     drain_queue(w);
@@ -96,15 +91,19 @@ int worker_init(struct worker *w)
     int err;
 
     w->queue_len = 0;
+    w->queue_head = 0;
+    w->queue_tail = 0;
     w->error = 0;
     w->running = true;
     w->stopped = false;
 
-    STAILQ_INIT(&w->queue);
+    w->queue = calloc(QUEUE_SIZE, sizeof(*w->queue));
+    if (w->queue == NULL)
+        return errno;
 
     err = pthread_mutex_init(&w->mutex, NULL);
     if (err)
-        return err;
+        goto fail_mutex;
 
     err = pthread_cond_init(&w->not_empty, NULL);
     if (err)
@@ -126,6 +125,8 @@ fail_not_full:
     pthread_cond_destroy(&w->not_empty);
 fail_not_empty:
     pthread_mutex_destroy(&w->mutex);
+fail_mutex:
+    free(w->queue);
 
     return err;
 }
@@ -135,6 +136,7 @@ void worker_destroy(struct worker *w)
     cond_destroy(&w->not_full);
     cond_destroy(&w->not_empty);
     mutex_destroy(&w->mutex);
+    free(w->queue);
 }
 
 int worker_submit(struct worker *w, struct submission *sub)
@@ -143,50 +145,46 @@ int worker_submit(struct worker *w, struct submission *sub)
 
     mutex_lock(&w->mutex);
 
-    /* Nothing will be submitted after a worker was stopped. */
     if (w->stopped) {
         err = EPERM;
         goto out;
     }
 
-    /* The submission will leak if the worker failed. */
-    if (w->error) {
-        err = sub->type == STOP ? 0: w->error;
+    /* Stopping must not fail even if the worker has failed. */
+    if (sub->type == STOP) {
+        w->stopped = true;
+    } else if (w->error) {
+        err = w->error;
         goto out;
     }
 
     while (w->queue_len >= QUEUE_SIZE)
         cond_wait(&w->not_full, &w->mutex);
 
-    STAILQ_INSERT_TAIL(&w->queue, sub, entry);
-    w->queue_len++;
-
-    /* Ensure that nothing is submitted after the last submission. */
-    if (sub->type == STOP)
-        w->stopped = true;
-
     /* The submission is owned by the queue now. */
+    memcpy(&w->queue[w->queue_tail], sub, sizeof(*sub));
     sub = NULL;
+
+    w->queue_tail = (w->queue_tail + 1) % QUEUE_SIZE;
+    w->queue_len++;
 
     if (w->queue_len == 1)
         cond_signal(&w->not_empty);
 
 out:
     mutex_unlock(&w->mutex);
+
+    /* If the submission was not queued, destroy it to signal completion. */
     if (sub)
-        submission_free(sub);
+        submission_destroy(sub);
+
     return err;
 }
 
 int worker_stop(struct worker *w)
 {
-    struct submission *sub;
-
-    sub = submission_new_stop();
-    if (sub == NULL)
-        return errno;
-
-    return worker_submit(w, sub);
+    struct submission sub = {.type=STOP};
+    return worker_submit(w, &sub);
 }
 
 int worker_join(struct worker *w)
