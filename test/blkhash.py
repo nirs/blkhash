@@ -209,13 +209,15 @@ class Worker:
         self.thread.join()
 
     def run(self):
+        hasher = hashlib.new(self.digest_name).copy
         while True:
             work = self.queue.get()
             if work is None:
                 break
 
-            digest = hashlib.new(self.digest_name, work.data).digest()
-            work.stream.update(digest)
+            h = hasher()
+            h.update(work.data)
+            work.stream.update(h.digest())
 
 
 if __name__ == "__main__":
