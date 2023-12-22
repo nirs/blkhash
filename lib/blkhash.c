@@ -280,17 +280,14 @@ static inline struct worker *worker_for_stream(struct blkhash *h, int stream_ind
  */
 static int submit_zero_block(struct blkhash *h)
 {
-    struct submission *sub;
+    struct submission sub;
     struct worker *w;
     int err;
 
     for (unsigned i = 0; i < h->config.streams; i++) {
-        sub = submission_new_zero(&h->streams[i], h->block_index);
-        if (sub == NULL)
-            return set_error(h, errno);
-
+        submission_init_zero(&sub, &h->streams[i], h->block_index);
         w = worker_for_stream(h, i);
-        err = worker_submit(w, sub);
+        err = worker_submit(w, &sub);
         if (err)
             return set_error(h, err);
     }
@@ -305,19 +302,20 @@ static int submit_zero_block(struct blkhash *h)
 static int submit_data_block(struct blkhash *h, const void *buf, size_t len,
                              struct completion *completion, uint8_t flags)
 {
+    struct submission sub;
     struct stream *s;
     struct worker *w;
-    struct submission *sub;
     int err;
 
     s = stream_for_block(h, h->block_index);
     w = worker_for_stream(h, s->id);
 
-    sub = submission_new_data(s, h->block_index, len, buf, completion, flags);
-    if (sub == NULL)
-        return set_error(h, errno);
+    err = submission_init_data(&sub, s, h->block_index, len, buf, completion,
+                               flags);
+    if (err)
+        return set_error(h, err);
 
-    err = worker_submit(w, sub);
+    err = worker_submit(w, &sub);
     if (err)
         return set_error(h, err);
 

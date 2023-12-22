@@ -9,7 +9,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/queue.h>
 
 #include "blkhash-config.h"
 #include "blkhash.h"
@@ -85,9 +84,6 @@ enum submission_type {DATA, ZERO, STOP};
 struct submission {
     enum submission_type type;
 
-    /* Entry in the worker queue handling this submission stream. */
-    STAILQ_ENTRY(submission) entry;
-
     /* The stream handling this submission. */
     struct stream *stream;
 
@@ -107,13 +103,15 @@ struct submission {
 };
 
 struct worker {
-    STAILQ_HEAD(, submission) queue;
+    struct submission *queue;
     pthread_t thread;
     pthread_mutex_t mutex;
     pthread_cond_t not_empty;
     pthread_cond_t not_full;
 
     unsigned int queue_len;
+    unsigned int queue_head;
+    unsigned int queue_tail;
 
     /* If non-zero, the worker has failed. The value is the first error that
      * caused the failure. */
@@ -137,14 +135,12 @@ void completion_set_error(struct completion *c, int error);
 void completion_ref(struct completion *c);
 void completion_unref(struct completion *c);
 
-struct submission *submission_new_data(struct stream *stream, int64_t index,
-                                       size_t len, const void *data,
-                                       struct completion *completion,
-                                       uint8_t flags);
-struct submission *submission_new_zero(struct stream *stream, int64_t index);
-struct submission *submission_new_stop(void);
+int submission_init_data(struct submission *sub, struct stream *stream,
+                         int64_t index, size_t len, const void *data,
+                         struct completion *completion, uint8_t flags);
+void submission_init_zero(struct submission *sub, struct stream *stream, int64_t index);
 void submission_set_error(struct submission *sub, int error);
-void submission_free(struct submission *sub);
+void submission_destroy(struct submission *sub);
 
 int stream_init(struct stream *s, int id, const struct config *config);
 int stream_update(struct stream *s, struct submission *sub);
