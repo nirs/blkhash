@@ -53,7 +53,7 @@ static void drain_queue(struct worker *w)
         struct submission *sub = &w->queue[w->queue_head];
 
         submission_set_error(sub, w->error ? w->error : EIO);
-        submission_destroy(sub);
+        submission_complete(sub);
 
         w->queue_head = (w->queue_head + 1) % QUEUE_SIZE;
         w->queue_len--;
@@ -81,7 +81,7 @@ static void *worker_thread(void *arg)
                 set_error(w, err);
         }
 
-        submission_destroy(&sub);
+        submission_complete(&sub);
     }
 
     drain_queue(w);
@@ -175,10 +175,10 @@ int worker_submit(struct worker *w, struct submission *sub)
 out:
     mutex_unlock(&w->mutex);
 
-    /* If the submission failed set the error and destroy it to signal completion. */
+    /* If the submission failed complete the submission as failure. */
     if (err) {
         submission_set_error(sub, err);
-        submission_destroy(sub);
+        submission_complete(sub);
     }
 
     return err;
