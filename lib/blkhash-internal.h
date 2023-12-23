@@ -103,11 +103,11 @@ struct submission {
 };
 
 struct worker {
-    struct submission *queue;
-    pthread_t thread;
-    pthread_mutex_t mutex;
     pthread_cond_t not_empty;
     pthread_cond_t not_full;
+    pthread_mutex_t mutex;
+    pthread_t thread;
+    struct submission *queue;
 
     unsigned int queue_len;
     unsigned int queue_head;
