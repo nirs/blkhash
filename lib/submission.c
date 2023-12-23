@@ -22,7 +22,7 @@ static int copy_data(struct submission *sub)
 }
 
 int submission_init_data(struct submission *sub, struct stream *stream,
-                         int64_t index, size_t len, const void *data,
+                         int64_t index, uint32_t len, const void *data,
                          struct completion *completion, uint8_t flags)
 {
     sub->type = DATA;

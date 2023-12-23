@@ -157,7 +157,7 @@ struct blkhash_opts *blkhash_opts_new(const char *digest_name);
  *
  * Returns EINVAL if the value is invalid.
  */
-int blkhash_opts_set_block_size(struct blkhash_opts *o, size_t block_size);
+int blkhash_opts_set_block_size(struct blkhash_opts *o, uint32_t block_size);
 
 /*
  * Set the number of threads for computing block hashes. The defualt (4)
@@ -204,7 +204,7 @@ const char *blkhash_opts_get_digest_name(struct blkhash_opts *o);
 /*
  * Return the block size.
  */
-size_t blkhash_opts_get_block_size(struct blkhash_opts *o);
+uint32_t blkhash_opts_get_block_size(struct blkhash_opts *o);
 
 /*
  * Return the number of threads.
