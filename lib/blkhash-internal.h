@@ -97,8 +97,8 @@ struct submission {
     /* Length of data for DATA submission. */
     uint32_t len;
 
-    enum submission_type type;
     int error;
+    uint8_t type;
     uint8_t flags;
 };
 
