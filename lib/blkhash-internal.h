@@ -82,8 +82,6 @@ struct completion {
 enum submission_type {DATA, ZERO, STOP};
 
 struct submission {
-    enum submission_type type;
-
     /* The stream handling this submission. */
     struct stream *stream;
 
@@ -99,6 +97,7 @@ struct submission {
     /* Length of data for DATA submission. */
     size_t len;
 
+    enum submission_type type;
     uint8_t flags;
 };
 
