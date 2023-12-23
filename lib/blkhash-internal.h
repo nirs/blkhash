@@ -139,7 +139,7 @@ int submission_init_data(struct submission *sub, struct stream *stream,
                          struct completion *completion, uint8_t flags);
 void submission_init_zero(struct submission *sub, struct stream *stream, int64_t index);
 void submission_set_error(struct submission *sub, int error);
-void submission_destroy(struct submission *sub);
+void submission_complete(struct submission *sub);
 
 int stream_init(struct stream *s, int id, const struct config *config);
 int stream_update(struct stream *s, struct submission *sub);

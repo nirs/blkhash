@@ -60,7 +60,7 @@ void submission_set_error(struct submission *sub, int error)
         completion_set_error(sub->completion, error);
 }
 
-void submission_destroy(struct submission *sub)
+void submission_complete(struct submission *sub)
 {
     if (sub->type == DATA) {
         if (sub->flags & SUBMIT_COPY_DATA)
