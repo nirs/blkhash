@@ -50,7 +50,10 @@ static void drain_queue(struct worker *w)
     was_full = w->queue_len == QUEUE_SIZE;
 
     while (w->queue_len > 0) {
-        submission_destroy(&w->queue[w->queue_head]);
+        struct submission *sub = &w->queue[w->queue_head];
+
+        submission_set_error(sub, w->error ? w->error : EIO);
+        submission_destroy(sub);
 
         w->queue_head = (w->queue_head + 1) % QUEUE_SIZE;
         w->queue_len--;
@@ -161,9 +164,7 @@ int worker_submit(struct worker *w, struct submission *sub)
     while (w->queue_len >= QUEUE_SIZE)
         cond_wait(&w->not_full, &w->mutex);
 
-    /* The submission is owned by the queue now. */
     memcpy(&w->queue[w->queue_tail], sub, sizeof(*sub));
-    sub = NULL;
 
     w->queue_tail = (w->queue_tail + 1) % QUEUE_SIZE;
     w->queue_len++;
@@ -174,9 +175,11 @@ int worker_submit(struct worker *w, struct submission *sub)
 out:
     mutex_unlock(&w->mutex);
 
-    /* If the submission was not queued, destroy it to signal completion. */
-    if (sub)
+    /* If the submission failed set the error and destroy it to signal completion. */
+    if (err) {
+        submission_set_error(sub, err);
         submission_destroy(sub);
+    }
 
     return err;
 }
