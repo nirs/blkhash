@@ -102,7 +102,7 @@ struct blkhash_opts *blkhash_opts_new(const char *digest_name)
     return o;
 }
 
-int blkhash_opts_set_block_size(struct blkhash_opts *o, size_t block_size)
+int blkhash_opts_set_block_size(struct blkhash_opts *o, uint32_t block_size)
 {
     if (block_size % 2)
         return EINVAL;
@@ -140,7 +140,7 @@ const char *blkhash_opts_get_digest_name(struct blkhash_opts *o)
     return o->digest_name;
 }
 
-size_t blkhash_opts_get_block_size(struct blkhash_opts *o)
+uint32_t blkhash_opts_get_block_size(struct blkhash_opts *o)
 {
     return o->block_size;
 }

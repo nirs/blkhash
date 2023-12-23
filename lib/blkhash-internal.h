@@ -20,17 +20,17 @@
 
 struct blkhash_opts {
     const char *digest_name;
-    size_t block_size;
+    uint32_t block_size;
+    unsigned queue_depth;
     uint8_t threads;
     uint8_t streams;
-    unsigned queue_depth;
 };
 
 struct config {
     unsigned char zero_md[BLKHASH_MAX_MD_SIZE];
     const char *digest_name;
-    size_t block_size;
-    unsigned int md_len;
+    uint32_t block_size;
+    unsigned md_len;
     unsigned streams;
     unsigned workers;
     unsigned queue_depth;
@@ -95,7 +95,7 @@ struct submission {
     int64_t index;
 
     /* Length of data for DATA submission. */
-    size_t len;
+    uint32_t len;
 
     enum submission_type type;
     int error;
@@ -136,7 +136,7 @@ void completion_ref(struct completion *c);
 void completion_unref(struct completion *c);
 
 int submission_init_data(struct submission *sub, struct stream *stream,
-                         int64_t index, size_t len, const void *data,
+                         int64_t index, uint32_t len, const void *data,
                          struct completion *completion, uint8_t flags);
 void submission_init_zero(struct submission *sub, struct stream *stream, int64_t index);
 void submission_set_error(struct submission *sub, int error);
