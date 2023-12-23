@@ -62,13 +62,11 @@ void submission_set_error(struct submission *sub, int error)
 
 void submission_complete(struct submission *sub)
 {
-    if (sub->type == DATA) {
-        if (sub->flags & SUBMIT_COPY_DATA)
-            free((void *)sub->data);
+    if (sub->flags & SUBMIT_COPY_DATA)
+        free((void *)sub->data);
 
-        if (sub->completion)
-            completion_unref(sub->completion);
-    }
+    if (sub->completion)
+        completion_unref(sub->completion);
 
     memset(sub, 0, sizeof(*sub));
 }
