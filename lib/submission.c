@@ -31,6 +31,7 @@ int submission_init_data(struct submission *sub, struct stream *stream,
     sub->data = data;
     sub->index = index;
     sub->len = len;
+    sub->error = 0;
     sub->flags = flags;
 
     if (flags & SUBMIT_COPY_DATA) {
@@ -56,8 +57,14 @@ void submission_init_zero(struct submission *sub, struct stream *stream, int64_t
 
 void submission_set_error(struct submission *sub, int error)
 {
+    __atomic_store_n(&sub->error, error, __ATOMIC_RELEASE);
     if (sub->completion)
         completion_set_error(sub->completion, error);
+}
+
+int submission_error(struct submission *sub)
+{
+    return __atomic_load_n(&sub->error, __ATOMIC_ACQUIRE);
 }
 
 void submission_complete(struct submission *sub)
