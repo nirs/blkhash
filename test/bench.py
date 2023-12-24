@@ -58,23 +58,9 @@ def parse_args():
     return p.parse_args()
 
 
-def threads(limit=STREAMS):
-    """
-    Geneate powers of 2 up to limit. The value is also limited by the number of
-    online cpus.
-
-    For example on laptop with 12 cores:
-
-        list(threads(limit=32)) -> [1, 2, 4, 8, 12]
-
-    """
+def threads(limit=64):
     online_cpus = os.sysconf("SC_NPROCESSORS_ONLN")
-    n = 1
-    while n <= limit:
-        yield n
-        if n >= online_cpus:
-            break
-        n = min(n * 2, online_cpus)
+    return range(1, min(online_cpus, limit) + 1)
 
 
 def results(
