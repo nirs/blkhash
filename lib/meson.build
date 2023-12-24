@@ -11,9 +11,8 @@ blkhash_lib = library(
     'config.c',
     'digest.c',
     'event.c',
-    'stream.c',
+    'hash-pool.c',
     'submission.c',
-    'worker.c',
     'zero.c',
   ],
   include_directories : [
