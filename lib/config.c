@@ -48,5 +48,8 @@ int config_init(struct config *c, const struct blkhash_opts *opts)
     c->streams = opts->streams;
     c->queue_depth = opts->queue_depth;
 
+    /* XXX Initial value, needs testing */
+    c->max_submissions = MAX(MAX(c->queue_depth, c->workers) * 4, 32);
+
     return compute_zero_md(c);
 }

@@ -14,7 +14,10 @@
 
 /* May be defined in sys/param.h. */
 #undef MIN
+#undef MAX
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
 void format_hex(unsigned char *md, unsigned int len, char *s);

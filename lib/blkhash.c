@@ -13,12 +13,13 @@
 #include "blkhash.h"
 #include "digest.h"
 #include "event.h"
+#include "hash-pool.h"
+#include "submission.h"
 #include "threads.h"
 #include "util.h"
 
-/* Number of consecutive zero blocks per stream to consume before submitting
- * zero length block to all streams. */
-#define STREAM_ZERO_BATCH_SIZE (16 * 1024)
+/* Number of consecutive zero blocks to batch. */
+#define ZERO_BATCH_SIZE 1024
 
 struct buffer {
     unsigned char *data;
@@ -37,30 +38,28 @@ struct completion_queue {
 
 struct blkhash {
     struct config config;
+
+    /* For computing block hashes. */
+    struct hash_pool pool;
+
+    struct submission_queue sq;
     struct completion_queue cq;
 
     /* For keeping partial blocks when user call blkhash_update() with buffer
      * that is not aligned to block size. */
     struct buffer pending;
 
+    /* For computing root digest from the streams hashes. */
+    struct digest *root_digest;
+
     /* Current block index, increased when consuming a data or zero block. */
     int64_t block_index;
 
     /* The index of the last submitted block. */
-    int64_t update_index;
+    int64_t submitted_index;
 
-    /* The streams computing internal hashes. */
-    struct stream *streams;
-
-    /* Workers processing streams. */
-    struct worker *workers;
-
-    /* For computing root digest from the streams hashes. */
-    struct digest *root_digest;
-
-    /* Count initialized streams and workers to allow cleanups on errors. */
-    unsigned streams_count;
-    unsigned workers_count;
+    /* The index of the last hashed block. */
+    int64_t hashed_index;
 
     /*
      * Number of updates started and not reaped yet. Increased when submitting
@@ -193,6 +192,14 @@ struct blkhash *blkhash_new_opts(const struct blkhash_opts *opts)
     if (err)
         goto error;
 
+    err = hash_pool_init(&h->pool, &h->config);
+    if (err)
+        goto error;
+
+    err = submission_queue_init(&h->sq, h->config.max_submissions);
+    if (err)
+        goto error;
+
     if (h->config.queue_depth > 0) {
         err = pthread_mutex_init(&h->cq.mutex, NULL);
         if (err)
@@ -211,32 +218,10 @@ struct blkhash *blkhash_new_opts(const struct blkhash_opts *opts)
         }
     }
 
-    h->streams = calloc(h->config.streams, sizeof(*h->streams));
-    if (h->streams == NULL) {
+    h->pending.data = calloc(1, h->config.block_size);
+    if (h->pending.data == NULL) {
         err = errno;
         goto error;
-    }
-
-    while (h->streams_count < h->config.streams) {
-        err = stream_init(&h->streams[h->streams_count], h->streams_count, &h->config);
-        if (err)
-            goto error;
-
-        h->streams_count++;
-    }
-
-    h->workers = calloc(h->config.workers, sizeof(*h->workers));
-    if (h->workers == NULL) {
-        err = errno;
-        goto error;
-    }
-
-    while (h->workers_count < h->config.workers) {
-        err = worker_init(&h->workers[h->workers_count]);
-        if (err)
-            goto error;
-
-        h->workers_count++;
     }
 
     err = -digest_create(h->config.digest_name, &h->root_digest);
@@ -247,12 +232,6 @@ struct blkhash *blkhash_new_opts(const struct blkhash_opts *opts)
     if (err)
         goto error;
 
-    h->pending.data = calloc(1, h->config.block_size);
-    if (h->pending.data == NULL) {
-        err = errno;
-        goto error;
-    }
-
     return h;
 
 error:
@@ -262,65 +241,171 @@ error:
     return NULL;
 }
 
-static inline struct stream *stream_for_block(struct blkhash *h, int64_t block_index)
+static int hash_submission(struct blkhash *h, const struct submission *sub)
 {
-    int stream_index = block_index % h->config.streams;
-    return &h->streams[stream_index];
-}
-
-static inline struct worker *worker_for_stream(struct blkhash *h, int stream_index)
-{
-    int worker_index = stream_index % h->config.workers;
-    return &h->workers[worker_index];
-}
-
-/*
- * Submit one zero length block to all streams. Every stream will add zero
- * blocks from the last data block to the submitted block index.
- */
-static int submit_zero_block(struct blkhash *h)
-{
-    struct submission sub;
-    struct worker *w;
     int err;
 
-    for (unsigned i = 0; i < h->config.streams; i++) {
-        submission_init_zero(&sub, &h->streams[i], h->block_index);
-        w = worker_for_stream(h, i);
-        err = worker_submit(w, &sub);
+    err = submission_error(sub);
+    if (err)
+        return set_error(h, err);
+
+    /* Add zero blocks befor this block. */
+    while (h->hashed_index < sub->index) {
+        //fprintf(stderr, "hash zero block %ld\n", h->hashed_index);
+        err = -digest_update(h->root_digest, h->config.zero_md,
+                             h->config.md_len);
         if (err)
             return set_error(h, err);
+
+        h->hashed_index++;
     }
 
-    h->update_index = h->block_index;
+    /* Hash this block. */
+    if (sub->type == DATA) {
+        //fprintf(stderr, "hash data block %ld\n", sub->index);
+        err = -digest_update(h->root_digest, sub->md, h->config.md_len);
+        if (err)
+            return set_error(h, err);
+
+        h->hashed_index++;
+    }
+
+    return 0;
+}
+
+/* If the queue is full, wait until first submission is completed and add it to
+ * the root hash. */
+static int maybe_hash_first_submission(struct blkhash *h)
+{
+    struct submission *sub = NULL;
+    int err;
+
+    if (!submission_queue_full(&h->sq))
+        return 0;
+
+    err = submission_queue_pop(&h->sq, &sub);
+    if (err)
+        return set_error(h, err);
+
+    err = submission_wait(sub);
+    if (err)
+        return set_error(h, err);
+
+    if (hash_submission(h, sub))
+        return h->error;
+
+    submission_destroy(sub);
+
+    return 0;
+}
+
+/* Add all completed submissions to the root hash. */
+static int hash_completed_submissions(struct blkhash *h)
+{
+    struct submission *sub = NULL;
+
+    while ((sub = submission_queue_first(&h->sq))) {
+        if (!submission_is_completed(sub))
+            break;
+
+        /* Cannot fail here. */
+        submission_queue_pop(&h->sq, NULL);
+
+        if (hash_submission(h, sub))
+            return h->error;
+
+        submission_destroy(sub);
+    }
+
+    return 0;
+}
+
+/* Wait for inflight submissions and add to the root hash. */
+static int hash_inflight_submissions(struct blkhash *h)
+{
+    struct submission *sub = NULL;
+    int err;
+
+    while ((sub = submission_queue_first(&h->sq))) {
+        err = submission_wait(sub);
+        if (err)
+            return set_error(h, err);
+
+        /* Cannot fail here. */
+        submission_queue_pop(&h->sq, NULL);
+
+        if (hash_submission(h, sub))
+            return h->error;
+
+        submission_destroy(sub);
+    }
+
     return 0;
 }
 
 /*
- * Submit one data block to the worker handling this block.
+ * Submit one zero length block, adding zero blocks since the last hashed
+ * index.
+ */
+static int submit_zero_block(struct blkhash *h)
+{
+    struct submission *sub = NULL;
+    int err;
+
+    if (maybe_hash_first_submission(h))
+        return h->error;
+
+    err = submission_create_zero(h->block_index, &sub);
+    if (err)
+        return set_error(h, err);
+
+    err = submission_queue_push(&h->sq, sub);
+    if (err) {
+        submission_destroy(sub);
+        return set_error(h, err);
+    }
+
+    h->submitted_index = h->block_index;
+
+    if (hash_completed_submissions(h))
+        return h->error;
+
+    return 0;
+}
+
+/*
+ * Submit one data block to the hash pool.
  */
 static int submit_data_block(struct blkhash *h, const void *buf, size_t len,
                              struct completion *completion, uint8_t flags)
 {
-    struct submission sub;
-    struct stream *s;
-    struct worker *w;
+    struct submission *sub = NULL;
     int err;
 
-    s = stream_for_block(h, h->block_index);
-    w = worker_for_stream(h, s->id);
+    if (maybe_hash_first_submission(h))
+        return h->error;
 
-    err = submission_init_data(&sub, s, h->block_index, len, buf, completion,
-                               flags);
+    err = submission_create_data(h->block_index, len, buf, completion, flags,
+                                 &sub);
     if (err)
         return set_error(h, err);
 
-    err = worker_submit(w, &sub);
+    err = submission_queue_push(&h->sq, sub);
+    if (err) {
+        submission_destroy(sub);
+        return set_error(h, err);
+    }
+
+    err = hash_pool_submit(&h->pool, sub);
     if (err)
         return set_error(h, err);
 
-    h->update_index = h->block_index;
+    h->submitted_index = h->block_index;
     h->block_index++;
+
+    if (hash_completed_submissions(h))
+        return h->error;
+
     return 0;
 }
 
@@ -377,16 +462,14 @@ static size_t add_pending_zeros(struct blkhash *h, size_t len)
 }
 
 /*
- * Consume count zero blocks, sending zero length block to all workers if
- * enough zero blocks were consumed since the last data block.
+ * Consume count zero blocks, sending zero length block if enough zero blocks
+ * were consumed since the last data block.
  */
 static inline int consume_zero_blocks(struct blkhash *h, size_t count)
 {
-    const int64_t batch_size = STREAM_ZERO_BATCH_SIZE * h->config.streams;
-
     h->block_index += count;
 
-    if (h->block_index - h->update_index >= batch_size)
+    if (h->block_index - h->submitted_index >= ZERO_BATCH_SIZE)
         return submit_zero_block(h);
 
     return 0;
@@ -633,49 +716,6 @@ int blkhash_zero(struct blkhash *h, size_t len)
     return 0;
 }
 
-static void stop_workers(struct blkhash *h)
-{
-    int err;
-
-    /* Must use workers_count in case blkhash_new failed. */
-
-    for (unsigned i = 0; i < h->workers_count; i++) {
-        err = worker_stop(&h->workers[i]);
-        if (err)
-            ABORTF("worker_stop: %s", strerror(err));
-    }
-
-    for (unsigned i = 0; i < h->workers_count; i++) {
-        err = worker_join(&h->workers[i]);
-        if (err)
-            set_error(h, err);
-    }
-}
-
-static int compute_root_hash(struct blkhash *h, unsigned char *md,
-                             unsigned int *len)
-{
-    unsigned char stream_md[BLKHASH_MAX_MD_SIZE];
-    unsigned int stream_len;
-    int err;
-
-    for (unsigned i = 0; i < h->config.streams; i++) {
-        err = stream_final(&h->streams[i], stream_md, &stream_len);
-        if (err)
-            return set_error(h, err);
-
-        err = -digest_update(h->root_digest, stream_md, stream_len);
-        if (err)
-            return set_error(h, err);
-    }
-
-    err = -digest_final(h->root_digest, md, len);
-    if (err)
-        return set_error(h, err);
-
-    return 0;
-}
-
 int blkhash_final(struct blkhash *h, unsigned char *md_value,
                   unsigned int *md_len)
 {
@@ -684,18 +724,18 @@ int blkhash_final(struct blkhash *h, unsigned char *md_value,
 
     h->finalized = true;
 
-    if (h->pending.len > 0)
-        consume_pending(h, NULL);
+    if (h->pending.len > 0) {
+        if (consume_pending(h, NULL))
+            return h->error;
+    } else {
+        if (submit_zero_block(h))
+            return h->error;
+    }
 
-    if (h->error == 0)
-        submit_zero_block(h);
+    if (hash_inflight_submissions(h))
+        return h->error;
 
-    stop_workers(h);
-
-    if (h->error == 0)
-        compute_root_hash(h, md_value, md_len);
-
-    return h->error;
+    return -digest_final(h->root_digest, md_value, md_len);
 }
 
 void blkhash_free(struct blkhash *h)
@@ -703,27 +743,17 @@ void blkhash_free(struct blkhash *h)
     if (h == NULL)
         return;
 
-    if (!h->finalized)
-        stop_workers(h);
-
-    /* Must use workers_count in case blkhash_new failed. */
-    for (unsigned i = 0; i < h->workers_count; i++)
-        worker_destroy(&h->workers[i]);
-
-    /* Must use streams_count in case blkhash_new failed. */
-    for (unsigned i = 0; i < h->streams_count; i++)
-        stream_destroy(&h->streams[i]);
-
-    free(h->pending.data);
     digest_destroy(h->root_digest);
-    free(h->workers);
-    free(h->streams);
+    free(h->pending.data);
 
     if (h->config.queue_depth) {
         event_close(h->cq.event);
         free(h->cq.array);
         mutex_destroy(&h->cq.mutex);
     }
+
+    submission_queue_destroy(&h->sq);
+    hash_pool_destroy(&h->pool);
 
     free(h);
 }

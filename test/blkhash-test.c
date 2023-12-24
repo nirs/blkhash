@@ -7,10 +7,11 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "unity.h"
-#include "blkhash.h"
 #include "blkhash-config.h"
 #include "blkhash-internal.h"
+#include "blkhash.h"
+#include "submission.h"
+#include "unity.h"
 #include "util.h"
 
 static const size_t block_size = 64 * 1024;
@@ -449,9 +450,8 @@ static void check_false_sharing(const char *name, size_t type_size)
 
 void test_false_sharing()
 {
-    check_false_sharing("struct stream", sizeof(struct stream));
     check_false_sharing("struct config", sizeof(struct config));
-    check_false_sharing("struct worker", sizeof(struct worker));
+    check_false_sharing("struct submission", sizeof(struct submission));
 }
 
 int main(void)
