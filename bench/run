@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+
+import subprocess
+import sys
+
+import yaml
+
+
+def run(suite):
+    name = suite["name"]
+    for variant in suite["variants"]:
+        # digest-names is optional.
+        for digest_name in suite.get("digest-names", [None]):
+            # args is optional.
+            for args in suite.get("args", [{}]):
+                cmd = [
+                    f"test/bench-{name}-{variant}.py",
+                ]
+                if digest_name:
+                    cmd.append(f"--digest-name={digest_name}")
+                for key, value in args.items():
+                    cmd.append(f"--{key}={value}")
+                for key, value in suite["options"].items():
+                    cmd.append(f"--{key}={value}")
+
+                subprocess.run(cmd, check=True)
+
+
+with open(sys.argv[1]) as f:
+    for suite in yaml.safe_load_all(f):
+        run(suite)

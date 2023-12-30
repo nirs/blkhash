@@ -1,0 +1,9 @@
+---
+name: b3sum
+variants:
+  - file
+  - pipe
+options:
+  runs: 3
+  cool-down: 0
+  max-threads: 16
