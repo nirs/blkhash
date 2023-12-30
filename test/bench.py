@@ -207,6 +207,7 @@ def blksum(
     block_size=BLOCK_SIZE,
     cache=False,
     image_cached=False,
+    pipe=False,
     runs=RUNS,
     cool_down=None,
 ):
@@ -222,7 +223,11 @@ def blksum(
         command.append(f"--queue-depth={queue_depth}")
     if cache:
         command.append("--cache")
-    command.append(filename)
+
+    if pipe:
+        command.append("<" + filename)
+    else:
+        command.append(filename)
 
     threads_params = ",".join(str(n) for n in threads(max_threads))
     cmd = [
@@ -250,10 +255,17 @@ def b3sum(
     filename,
     output=None,
     max_threads=None,
+    pipe=False,
     runs=RUNS,
     cool_down=None,
 ):
-    command = ["b3sum", "--num-threads={t}", filename]
+    command = ["b3sum", "--num-threads={t}"]
+
+    if pipe:
+        command.append("<" + filename)
+    else:
+        command.append(filename)
+
     threads_params = ",".join(str(n) for n in threads(max_threads))
     cmd = [
         "hyperfine",
