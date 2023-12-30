@@ -22,6 +22,8 @@ for n in bench.threads(args.max_threads):
         "data",
         digest_name=args.digest_name,
         threads=n,
+        read_size=args.read_size,
+        block_size=args.block_size,
         timeout_seconds=args.timeout,
         cool_down=args.cool_down,
     )
@@ -38,6 +40,9 @@ for n in bench.threads(args.max_threads):
         digest_name=args.digest_name,
         threads=n,
         aio=True,
+        queue_depth=args.queue_depth,
+        read_size=args.read_size,
+        block_size=args.block_size,
         timeout_seconds=args.timeout,
         cool_down=args.cool_down,
     )

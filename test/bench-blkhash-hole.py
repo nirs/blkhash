@@ -22,6 +22,7 @@ for n in bench.threads(args.max_threads):
         "hole",
         digest_name=args.digest_name,
         threads=n,
+        block_size=args.block_size,
         timeout_seconds=args.timeout,
         cool_down=args.cool_down,
     )

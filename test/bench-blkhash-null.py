@@ -21,6 +21,8 @@ for input_type in "data", "zero", "hole":
             input_type,
             digest_name="null",
             threads=n,
+            read_size=args.read_size,
+            block_size=args.block_size,
             timeout_seconds=args.timeout,
             cool_down=args.cool_down,
         )
@@ -36,6 +38,9 @@ for input_type in "data", "zero", "hole":
                 digest_name="null",
                 threads=n,
                 aio=True,
+                queue_depth=args.queue_depth,
+                read_size=args.read_size,
+                block_size=args.block_size,
                 timeout_seconds=args.timeout,
                 cool_down=args.cool_down,
             )

@@ -33,6 +33,9 @@ for input_type in ["data", "zero", "hole"]:
             digest_name=args.digest_name,
             threads=n,
             aio=True,
+            queue_depth=args.queue_depth,
+            read_size=args.read_size,
+            block_size=args.block_size,
             timeout_seconds=args.timeout,
             cool_down=args.cool_down,
         )

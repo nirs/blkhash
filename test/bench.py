@@ -22,7 +22,14 @@ DIGEST_BENCH = os.path.join(build_dir, "digest-bench")
 
 DIGEST = "sha256"
 RUNS = 10
+
+# Optimal value reading from qemu-nbd. Using higher values typically do not
+# improve read throughput, but is required when using larger number of threads.
+QUEUE_DEPTH = 16
+
 STREAMS = 64
+READ_SIZE = "256k"
+BLOCK_SIZE = "64k"
 TIMEOUT = 2
 COOL_DOWN = 6
 
@@ -33,6 +40,21 @@ def parse_args():
         "--digest-name",
         default=DIGEST,
         help=f"Digest name (default {DIGEST})",
+    )
+    p.add_argument(
+        "--queue-depth",
+        help=f"Number of inflight requests (default number of threads, minimum "
+             f"{QUEUE_DEPTH})",
+    )
+    p.add_argument(
+        "--read-size",
+        default=READ_SIZE,
+        help=f"Size of read buffer (default {READ_SIZE})",
+    )
+    p.add_argument(
+        "--block-size",
+        default=BLOCK_SIZE,
+        help=f"Hash block size (default {BLOCK_SIZE})",
     )
     p.add_argument(
         "--runs",
@@ -114,6 +136,8 @@ def blkhash(
     input_size=None,
     aio=None,
     queue_depth=None,
+    read_size=READ_SIZE,
+    block_size=BLOCK_SIZE,
     threads=4,
     streams=STREAMS,
     cool_down=COOL_DOWN,
@@ -125,14 +149,21 @@ def blkhash(
         f"--timeout-seconds={timeout_seconds}",
         f"--threads={threads}",
         f"--streams={streams}",
+        f"--read-size={read_size}",
+        f"--block-size={block_size}",
     ]
 
     if input_size:
         cmd.append(f"--input-size={input_size}")
     if aio:
         cmd.append("--aio")
-        if queue_depth:
-            cmd.append(f"--queue-depth={queue_depth}")
+        if queue_depth is None:
+            # Queue depth is imporant for I/O so we won't want go use less than
+            # 16. When using many threads we want to match the number of
+            # threads to ensures that threads has enough work in the queue.
+            queue_depth = max(16, threads)
+        cmd.append(f"--queue-depth={queue_depth}")
+
 
     time.sleep(cool_down)
     cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
