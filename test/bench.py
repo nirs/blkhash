@@ -203,7 +203,10 @@ def blksum(
     max_threads=None,
     streams=STREAMS,
     queue_depth=None,
+    read_size=READ_SIZE,
+    block_size=BLOCK_SIZE,
     cache=False,
+    image_cached=False,
     runs=RUNS,
     cool_down=None,
 ):
@@ -212,6 +215,8 @@ def blksum(
         f"--digest={digest_name}",
         "--threads={t}",
         f"--streams={streams}",
+        f"--read-size={read_size}",
+        f"--block-size={block_size}",
     ]
     if queue_depth:
         command.append(f"--queue-depth={queue_depth}")
@@ -234,7 +239,7 @@ def blksum(
         cmd.append(f"--export-json={output}")
     cmd.append(" ".join(command))
 
-    if cache:
+    if image_cached:
         cache_image(filename)
 
     subprocess.run(cmd, check=True)
