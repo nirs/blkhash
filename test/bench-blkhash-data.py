@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: Red Hat Inc
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+import os
 import bench
 
 args = bench.parse_args()
@@ -48,4 +49,9 @@ for n in bench.threads(args.max_threads):
     )
     runs.append(r)
 
-bench.write(results, f"blkhash-data-{args.digest_name}-r{args.read_size}-b{args.block_size}.json")
+filename = os.path.join(
+    args.out_dir,
+    "blkhash",
+    f"data-{args.digest_name}-r{args.read_size}-b{args.block_size}.json",
+)
+bench.write(results, filename)

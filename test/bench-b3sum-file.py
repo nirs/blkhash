@@ -5,15 +5,17 @@ import bench
 
 args = bench.parse_args()
 
-base = "/data/tmp/blksum"
 prefix = "b3sum-file"
 images = ["20p", "40p", "80p"]
+
+outdir = os.path.join(args.out_dir, "b3sum")
+os.makedirs(outdir, exist_ok=True)
 
 files = []
 
 for image in images:
-    filename = os.path.join(base, f"{image}.raw")
-    output = f"{prefix}-{image}.json"
+    filename = os.path.join(args.image_dir, f"{image}.raw")
+    output = os.path.join(outdir, f"{prefix}-{image}.json")
     bench.b3sum(
         filename,
         output=output,
@@ -26,5 +28,5 @@ for image in images:
 bench.plot_blksum(
     *files,
     title="b3sum file",
-    output=f"{prefix}.png",
+    output=os.path.join(outdir, f"{prefix}.png"),
 )

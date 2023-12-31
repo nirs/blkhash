@@ -84,6 +84,17 @@ def parse_args():
         "--host-name",
         help="Host name for graphs",
     )
+    p.add_argument(
+        "--image-dir",
+        default="/data/tmp/blksum",
+        help="Images directory",
+    )
+    p.add_argument(
+        "-o",
+        "--out-dir",
+        default=".",
+        help="Output directory",
+    )
     return p.parse_args()
 
 
@@ -338,5 +349,7 @@ def format_humansize(n):
 
 
 def write(results, filename):
+    outdir = os.path.dirname(filename)
+    os.makedirs(outdir, exist_ok=True)
     with open(filename, "w") as f:
         json.dump(results, f, indent=2)

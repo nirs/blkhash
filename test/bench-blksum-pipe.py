@@ -5,17 +5,19 @@ import bench
 
 args = bench.parse_args()
 
-base = "/data/tmp/blksum"
 prefix = f"blksum-{args.digest_name}-pipe-r{args.read_size}-b{args.block_size}"
 images = ["20p", "40p", "80p"]
 
 bench.build(nbd="auto", blake3="enabled")
 
+outdir = os.path.join(args.out_dir, "blksum")
+os.makedirs(outdir, exist_ok=True)
+
 files = []
 
 for image in images:
-    filename = os.path.join(base, f"{image}.raw")
-    output = f"{prefix}-{image}.json"
+    filename = os.path.join(args.image_dir, f"{image}.raw")
+    output = os.path.join(outdir, f"{prefix}-{image}.json")
     bench.blksum(
         filename,
         digest_name=args.digest_name,
@@ -34,5 +36,5 @@ for image in images:
 bench.plot_blksum(
     *files,
     title=f"blksum {args.digest_name} pipe",
-    output=f"{prefix}.png",
+    output=os.path.join(outdir, f"{prefix}.png"),
 )

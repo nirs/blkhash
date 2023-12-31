@@ -11,6 +11,7 @@ computation. Include also single thread non-zero data using same algorihtm for
 reference.
 """
 
+import os
 import bench
 
 args = bench.parse_args()
@@ -59,4 +60,9 @@ r = bench.digest(
 )
 runs.append(r)
 
-bench.write(results, f"blkhash-zero-optimization-{args.digest_name}-r{args.read_size}-b{args.block_size}.json")
+filename = os.path.join(
+    args.out_dir,
+    "blkhash",
+    f"zero-optimization-{args.digest_name}-r{args.read_size}-b{args.block_size}.json",
+)
+bench.write(results, filename)

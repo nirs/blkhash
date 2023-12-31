@@ -13,6 +13,7 @@ hashing requires the async API. Show also single thread result for same
 algorihtm for reference.
 """
 
+import os
 import bench
 
 args = bench.parse_args()
@@ -79,4 +80,9 @@ r = bench.digest(
 )
 runs.append(r)
 
-bench.write(results, f"blkhash-parallel-{args.digest_name}-r{args.read_size}-b{args.block_size}.json")
+filename = os.path.join(
+    args.out_dir,
+    "blkhash",
+    f"parallel-{args.digest_name}-r{args.read_size}-b{args.block_size}.json",
+)
+bench.write(results, filename)

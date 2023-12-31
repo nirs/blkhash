@@ -15,6 +15,7 @@ options:
   timeout: 4
   cool-down: 0
   max-threads: 16
+  out-dir: out
 ---
 name: blkhash
 variants:
@@ -28,3 +29,4 @@ options:
   timeout: 4
   cool-down: 0
   max-threads: 16
+  out-dir: out

@@ -7,3 +7,5 @@ options:
   runs: 3
   cool-down: 0
   max-threads: 16
+  image-dir: /data/tmp/blksum
+  out-dir: out
