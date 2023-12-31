@@ -59,5 +59,4 @@ r = bench.digest(
 )
 runs.append(r)
 
-if args.output:
-    bench.write(results, args.output)
+bench.write(results, f"blkhash-zero-optimization-{args.digest_name}-r{args.read_size}-b{args.block_size}.json")

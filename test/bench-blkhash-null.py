@@ -46,5 +46,4 @@ for input_type in "data", "zero", "hole":
             )
             runs.append(r)
 
-if args.output:
-    bench.write(results, args.output)
+bench.write(results, f"blkhash-null-r{args.read_size}-b{args.block_size}.json")

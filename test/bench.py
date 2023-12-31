@@ -84,11 +84,6 @@ def parse_args():
         "--host-name",
         help="Host name for graphs",
     )
-    p.add_argument(
-        "-o",
-        "--output",
-        help="Write results to specifed file (default no output)",
-    )
     return p.parse_args()
 
 
