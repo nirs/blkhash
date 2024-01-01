@@ -105,6 +105,11 @@ digest_bench = executable(
   ],
 )
 
+cache = executable(
+  'cache',
+  'cache.c',
+)
+
 env = environment()
 env.set('BUILD_DIR', meson.current_build_dir())
 env.set('BLKSUM', blksum.full_path())

@@ -44,7 +44,7 @@ def parse_args():
     p.add_argument(
         "--queue-depth",
         help=f"Number of inflight requests (default number of threads, minimum "
-             f"{QUEUE_DEPTH})",
+        f"{QUEUE_DEPTH})",
     )
     p.add_argument(
         "--read-size",
@@ -170,7 +170,6 @@ def blkhash(
             queue_depth = max(16, threads)
         cmd.append(f"--queue-depth={queue_depth}")
 
-
     time.sleep(cool_down)
     cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
     r = json.loads(cp.stdout)
@@ -252,8 +251,12 @@ def blksum(
 
     if image_cached:
         cache_image(filename)
+    try:
+        subprocess.run(cmd, check=True)
+    finally:
+        if image_cached:
+            uncache_image(filename)
 
-    subprocess.run(cmd, check=True)
     add_image_info(filename, output)
 
 
@@ -288,8 +291,17 @@ def b3sum(
     cmd.append(" ".join(command))
 
     cache_image(filename)
-    subprocess.run(cmd, check=True)
+    try:
+        subprocess.run(cmd, check=True)
+    finally:
+        uncache_image(filename)
+
     add_image_info(filename, output)
+
+
+def uncache_image(filename):
+    cmd = ["build/test/cache", "--drop", filename]
+    subprocess.run(cmd, check=True)
 
 
 def cache_image(filename):
@@ -298,10 +310,12 @@ def cache_image(filename):
     in practice the we need to read it twice, and in some cases reading 3 times
     gives more consitent results.
     """
-    cmd = ["dd", f"if={filename}", "bs=1M", "of=/dev/null"]
-    for i in range(3):
-        cp = subprocess.run(cmd, check=True, stderr=subprocess.PIPE)
-        stats = cp.stderr.decode().splitlines()[-1]
+    cmd = ["build/test/cache", filename]
+
+    subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
+    subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
+    cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
+    stats = cp.stdout.decode().strip()
 
     print("image:")
     print(f"  filename: {filename}")

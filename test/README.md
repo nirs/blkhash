@@ -389,3 +389,23 @@ For each case we measure both aligned and unaligned buffer.
     unaligned data best: 40.00 TiB in 0.839 seconds (47.69 TiB/s)
     unaligned data worst: 60.00 GiB in 1.666 seconds (36.02 GiB/s)
     unaligned zero: 60.00 GiB in 1.651 seconds (36.34 GiB/s)
+
+
+## The cache program
+
+This is a helper to load image data into the page cache or to drop image
+from the page cache.
+
+To load image data into the page cache:
+
+    $ build/test/cache /data/tmp/blksum/80p.raw
+    10.000 GiB in 4.678 seconds (2.138 GiB/s)
+
+A second run will be much faster now:
+
+    $ build/test/cache /data/tmp/blksum/80p.raw
+    10.000 GiB in 0.786 seconds (12.716 GiB/s)
+
+To drop image data from the page cache:
+
+    $ build/test/cache --drop /data/tmp/blksum/80p.raw
