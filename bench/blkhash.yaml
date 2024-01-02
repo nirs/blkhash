@@ -9,8 +9,13 @@ digest-names:
 args:
   - read-size: 256k
     block-size: 64k
-  - read-size: 512k
+    queue-depth: 16
+  - read-size: 256k
+    block-size: 128k
+    queue-depth: 16
+  - read-size: 256k
     block-size: 256k
+    queue-depth: 32
 options:
   timeout: 4
   cool-down: 0
@@ -23,8 +28,13 @@ variants:
 args:
   - read-size: 256k
     block-size: 64k
-  - read-size: 512k
+    queue-depth: 16
+  - read-size: 256k
+    block-size: 128k
+    queue-depth: 16
+  - read-size: 256k
     block-size: 256k
+    queue-depth: 32
 options:
   timeout: 4
   cool-down: 0
