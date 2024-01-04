@@ -6,7 +6,7 @@ import bench
 args = bench.parse_args()
 
 prefix = f"blksum-{args.digest_name}-pipe-r{args.read_size}-b{args.block_size}"
-images = ["20p", "40p", "80p"]
+images = ["10p", "20p", "40p", "80p"]
 
 bench.build(nbd="auto", blake3="enabled")
 

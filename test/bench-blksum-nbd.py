@@ -6,7 +6,7 @@ import bench
 args = bench.parse_args()
 
 formats = ["raw", "qcow2"]
-images = ["20p", "40p", "80p"]
+images = ["10p", "20p", "40p", "80p"]
 
 bench.build(nbd="enabled", blake3="enabled")
 

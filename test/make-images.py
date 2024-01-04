@@ -17,13 +17,13 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--distro",
-        default="fedora-38",
-        help="Distro name (default 'fedora38')",
+        default="fedora-39",
+        help="Distro name (default 'fedora-39')",
     )
     parser.add_argument(
         "--image-size",
-        default="20G",
-        help="Image virtual size (default '20G')",
+        default="13G",
+        help="Image virtual size (default '13G')",
     )
     parser.add_argument(
         "target_dir",
