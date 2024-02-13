@@ -21,7 +21,7 @@ filename = sys.argv[1]
 with open(filename) as f:
     results = json.load(f)
 
-plt.style.use(["test/web.mplstyle"])
+plt.style.use(["test/paper.mplstyle"])
 fig, ax = plt.subplots(layout="constrained")
 
 for data in results["data"]:
@@ -51,4 +51,4 @@ ax.set_yscale(results["yscale"])
 ax.set_ylim(bottom=0)
 
 basename, _ = os.path.splitext(filename)
-plt.savefig(basename + ".png", format="png")
+plt.savefig(basename + ".eps", format="eps")
