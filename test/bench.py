@@ -8,6 +8,7 @@ import subprocess
 import time
 
 import host
+import perf
 from units import *
 
 # We pass the build directory from meson.build to support running the tests
@@ -171,10 +172,7 @@ def blkhash(
         cmd.append(f"--queue-depth={queue_depth}")
 
     time.sleep(cool_down)
-    cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
-    r = json.loads(cp.stdout)
-    print(description(r))
-    return r
+    return _run_with_stats(cmd)
 
 
 def digest(
@@ -195,8 +193,18 @@ def digest(
         cmd.append(f"--input-size={input_size}")
 
     time.sleep(cool_down)
-    cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
-    r = json.loads(cp.stdout)
+    return _run_with_stats(cmd)
+
+
+def _run_with_stats(cmd):
+    if perf.is_available():
+        stats, stdout = perf.stat(cmd, events=("cycles:u",), capture_stdout=True)
+        r = json.loads(stdout)
+        r["cycles"] = stats["cycles:u"]["counter-value"]
+        r["cpb"] = r["cycles"] / r["total-size"]
+    else:
+        cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
+        r = json.loads(cp.stdout)
     print(description(r))
     return r
 
@@ -349,9 +357,12 @@ def image_info(filename):
 
 
 def description(r):
-    hsize = format_humansize(r["total-size"])
     hrate = format_humansize(r["throughput"])
-    return f"{r['threads']:>4} threads: {hsize} in {r['elapsed']:.3f} s ({hrate}/s)"
+    if "cpb" in r:
+        # For holes we ahve very low cpb value (e.g. 0.0003).
+        return f"{r['threads']:>4} threads: {hrate}/s, {r['cpb']:.4f} cpb"
+    else:
+        return f"{r['threads']:>4} threads: {hrate}/s"
 
 
 def format_humansize(n):
