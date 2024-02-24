@@ -5,6 +5,17 @@ import json
 import subprocess
 
 
+def is_available():
+    try:
+        cp = subprocess.run(["perf", "--version"], stdout=subprocess.PIPE)
+    except FileNotFoundError:
+        return False
+    else:
+        if cp.returncode != 0:
+            raise RuntimeError(f"Cannot check if perf exist: {cp.stderr.decode()}")
+        return True
+
+
 def stat(args, detailed=0, events=(), capture_stdout=False):
     """
     Run a command and gather performance counter statistics.
