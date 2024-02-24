@@ -19,6 +19,7 @@ import argparse
 import collections
 import hashlib
 import queue
+import struct
 import threading
 
 from functools import partial
@@ -92,7 +93,7 @@ class Blkhash:
 
     The hash is:
 
-        H( H(block 1) || H(block 2) ... H(block N) )
+        H( H(block 1) || H(block 2) ... H(block N) || length)
 
     """
 
@@ -111,11 +112,14 @@ class Blkhash:
         self.futures = collections.deque()
         self.root = hashlib.new(digest_name)
         self.pending = None
+        self.length = 0
         self.finalized = False
 
     def update(self, data):
         if self.finalized:
             raise RuntimeError("Hash finalized")
+
+        self.length += len(data)
 
         with memoryview(data) as view:
             if self.pending:
@@ -157,6 +161,10 @@ class Blkhash:
         while len(self.futures):
             block_digest = self.futures.popleft().result()
             self.root.update(block_digest)
+
+        data = struct.pack("<Q", self.length)
+        self.root.update(data)
+
         self.hashpool.stop()
 
 

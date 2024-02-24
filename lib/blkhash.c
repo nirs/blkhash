@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include <assert.h>
+#include <endian.h>
 #include <errno.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -60,6 +61,9 @@ struct blkhash {
 
     /* The index of the last hashed block. */
     int64_t hashed_index;
+
+    /* Message length incremented on each update or zero. */
+    uint64_t message_length;
 
     /*
      * Number of updates started and not reaped yet. Increased when submitting
@@ -269,6 +273,19 @@ static int hash_submission(struct blkhash *h, const struct submission *sub)
 
         h->hashed_index++;
     }
+
+    return 0;
+}
+
+static int hash_message_length(struct blkhash *h)
+{
+    uint64_t data = htole64(h->message_length);
+    int err;
+
+    //printf("message-length: %lu\n", h->message_length);
+    err = -digest_update(h->root_digest, &data, sizeof(data));
+    if (err)
+        return set_error(h, err);
 
     return 0;
 }
@@ -567,6 +584,8 @@ int blkhash_update(struct blkhash *h, const void *buf, size_t len)
     if (h->error)
         return h->error;
 
+    h->message_length += len;
+
     /* We copy user data to simplify the interface. Users that want higher
      * performance should use the async interface. */
     return do_update(h, buf, len, NULL, SUBMIT_COPY_DATA);
@@ -616,6 +635,8 @@ int blkhash_aio_update(struct blkhash *h, const void *buf, size_t len,
         set_error(h, errno);
         return h->error;
     }
+
+    h->message_length += len;
 
     /* We don't copy user data, and the user must wait for completion before
      * using or freeing the buffer. Users that want simpler interface should
@@ -687,6 +708,8 @@ int blkhash_zero(struct blkhash *h, size_t len)
     if (h->error)
         return h->error;
 
+    h->message_length += len;
+
     /* Try to fill the pending buffer and consume it. */
     if (h->pending.len > 0) {
         len -= add_pending_zeros(h, len);
@@ -728,6 +751,9 @@ int blkhash_final(struct blkhash *h, unsigned char *md_value,
     }
 
     if (hash_inflight_submissions(h))
+        return h->error;
+
+    if (hash_message_length(h))
         return h->error;
 
     return -digest_final(h->root_digest, md_value, md_len);
