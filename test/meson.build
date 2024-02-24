@@ -161,6 +161,9 @@ endforeach
 # On Centos Stream 8 pytest is installed as pytest-3
 pytest = find_program('pytest', '/usr/bin/pytest-3', required: false)
 
+# Used to measure cycles per byte.
+perf = find_program('perf', '/usr/bin/perf', required: false)
+
 if pytest.found()
   test(
     'bench-test',
@@ -173,6 +176,17 @@ if pytest.found()
     env: env,
     workdir: meson.current_source_dir(),
   )
+
+  if perf.found()
+    test(
+      'perf-test',
+      pytest,
+      args: ['perf_test.py'],
+      env: env,
+      workdir: meson.current_source_dir(),
+      is_parallel : false,
+    )
+  endif
 
   test(
     'blksum-test',
