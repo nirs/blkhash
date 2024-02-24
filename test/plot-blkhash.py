@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: Red Hat Inc
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """
-Generate plot from benchmarks results.
+Generate plot from blkhash benchmarks results.
 """
 
 import sys
