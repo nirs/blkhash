@@ -29,6 +29,7 @@ Install required packages:
         libnbd-devel \
         meson \
         openssl-devel \
+        perf \
         python3 \
         python3-pytest \
         qemu-img \
