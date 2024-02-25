@@ -10,6 +10,7 @@ import json
 import os
 
 import matplotlib.pyplot as plt
+from matplotlib import ticker
 
 import bench
 from units import *
@@ -71,6 +72,7 @@ ax.set_xlabel(LABELS[results["xlabel"]])
 ax.set_xscale(results["xscale"])
 ax.set_ylabel(LABELS[args.key])
 ax.set_yscale(results["yscale"])
+ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
 
 if results["yscale"] != "log":
     ax.set_ylim(bottom=0)
