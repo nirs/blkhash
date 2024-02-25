@@ -107,17 +107,13 @@ def threads(limit=64):
 def results(
     test_name,
     host_name=None,
-    xlabel="Number of threads",
-    xscale="linear",
-    ylabel="Throughput GiB/s",
     yscale="linear",
 ):
     return {
         "test-name": test_name,
         "host-name": host_name,
-        "xlabel": xlabel,
-        "xscale": xscale,
-        "ylabel": ylabel,
+        "xlabel": "threads",
+        "xscale": "linear",
         "yscale": yscale,
         "host": host.info(),
         "data": [],

@@ -5,7 +5,7 @@
 Generate plot from blkhash benchmarks results.
 """
 
-import sys
+import argparse
 import json
 import os
 
@@ -14,19 +14,42 @@ import matplotlib.pyplot as plt
 import bench
 from units import *
 
-if len(sys.argv) != 2:
-    sys.exit(f"Usage: {sys.argv[0]} FILENAME")
+LABELS = {
+    "gips": "Throughput (GiB/s)",
+    "cpb": "Throughput (cpb)",
+    "threads": "Number of threads",
+}
 
-filename = sys.argv[1]
-with open(filename) as f:
+p = argparse.ArgumentParser()
+p.add_argument(
+    "--key",
+    choices=["gips", "cpb"],
+    help="focus on throughput (gips) or cycles per byte (cpb)",
+)
+p.add_argument(
+    "--target",
+    choices=["web", "paper"],
+    help="target for web (png) or for paper (eps)",
+)
+p.add_argument("filename", help="results filename")
+args = p.parse_args()
+
+if args.target == "web":
+    file_format = "png"
+elif args.target == "paper":
+    file_format = "eps"
+else:
+    raise RuntimeError(f"Unsupported output: {args.output}")
+
+with open(args.filename) as f:
     results = json.load(f)
 
-plt.style.use(["test/paper.mplstyle"])
+plt.style.use([f"test/{args.target}.mplstyle"])
 fig, ax = plt.subplots(layout="constrained")
 
 for data in results["data"]:
     x = [r["threads"] for r in data["runs"]]
-    y = [r["throughput"] / GiB for r in data["runs"]]
+    y = [r[args.key] for r in data["runs"]]
     ax.plot(
         x,
         y,
@@ -43,12 +66,11 @@ if results["host-name"]:
 fig.suptitle(title)
 ax.legend()
 ax.grid(**results.get("grid", {}))
-ax.set_xlabel(results["xlabel"])
+ax.set_xlabel(LABELS[results["xlabel"]])
 ax.set_xscale(results["xscale"])
-#ax.set_xticks([r["threads"] for r in results["data"][0]["runs"]])
-ax.set_ylabel(results["ylabel"])
+ax.set_ylabel(LABELS[args.key])
 ax.set_yscale(results["yscale"])
 ax.set_ylim(bottom=0)
 
-basename, _ = os.path.splitext(filename)
-plt.savefig(basename + ".eps", format="eps")
+basename, _ = os.path.splitext(args.filename)
+plt.savefig(f"{basename}-{args.key}.{file_format}", format=file_format)
