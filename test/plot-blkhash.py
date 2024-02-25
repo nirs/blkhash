@@ -63,6 +63,7 @@ for data in results["data"]:
 title = results["test-name"]
 if results["host-name"]:
     title += f" ({results['host-name']})"
+
 fig.suptitle(title)
 ax.legend()
 ax.grid(**results.get("grid", {}))
@@ -70,7 +71,9 @@ ax.set_xlabel(LABELS[results["xlabel"]])
 ax.set_xscale(results["xscale"])
 ax.set_ylabel(LABELS[args.key])
 ax.set_yscale(results["yscale"])
-ax.set_ylim(bottom=0)
+
+if results["yscale"] != "log":
+    ax.set_ylim(bottom=0)
 
 basename, _ = os.path.splitext(args.filename)
 plt.savefig(f"{basename}-{args.key}.{file_format}", format=file_format)
