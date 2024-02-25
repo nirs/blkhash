@@ -61,11 +61,12 @@ for data in results["data"]:
         label=data["name"],
     )
 
-title = results["test-name"]
-if results["host-name"]:
-    title += f" ({results['host-name']})"
+if args.target != "paper":
+    title = results["test-name"]
+    if results["host-name"]:
+        title += f" ({results['host-name']})"
+    fig.suptitle(title)
 
-fig.suptitle(title)
 ax.legend()
 ax.grid(**results.get("grid", {}))
 ax.set_xlabel(LABELS[results["xlabel"]])
