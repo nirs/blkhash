@@ -75,6 +75,22 @@ make
 sudo make install
 ```
 
+#### Installing perf
+
+Install the linux-tools package for your kernel:
+
+```sh
+sudo apt-get install linux-tools-$(uname -r)
+```
+
+Allow access to perf events:
+
+```sh
+sudo sh -c 'echo -1 > /proc/sys/kernel/perf_event_paranoid'
+```
+
+You may wan to consider a more secure setup.
+
 ### FreeBSD
 
 FreeBSD 13 or later is required.
