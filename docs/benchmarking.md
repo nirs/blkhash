@@ -58,6 +58,15 @@ pip install --upgrade pip matplotlib
 
 ## Running the benchmarks
 
+### Disable SMT (HyperThreading)
+
+HyperThreading on Intel CPUs is typically not very useful for this
+workload, and gives confusing results.
+
+```
+sudo sh -c "echo off > /sys/devices/system/cpu/smt/control"
+```
+
 ### blkhash benchmarks
 
 The benchmarks are mostly automated, but you may need to modify some
