@@ -55,7 +55,7 @@ for data in results["data"]:
         x,
         y,
         linewidth=data.get("linewidth"),
-        marker=data.get("marker", "s"),
+        marker=data.get("marker", "D"),
         markersize=data.get("markersize"),
         zorder=data.get("zorder"),
         label=data["name"],
