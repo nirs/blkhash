@@ -1,7 +1,6 @@
 ---
 name: blkhash
 variants:
-  - parallel
   - zero-optimization
 digest-names:
   - blake3
@@ -9,17 +8,16 @@ digest-names:
 args:
   - read-size: 256k
     block-size: 64k
-    queue-depth: 16
   - read-size: 256k
     block-size: 128k
-    queue-depth: 16
-  - read-size: 256k
+  - read-size: 512k
     block-size: 256k
-    queue-depth: 32
+  - read-size: 1m
+    block-size: 512k
 options:
   timeout: 4
   cool-down: 0
-  max-threads: 16
+  max-threads: 64
   out-dir: out
 ---
 name: blkhash
@@ -28,15 +26,14 @@ variants:
 args:
   - read-size: 256k
     block-size: 64k
-    queue-depth: 16
   - read-size: 256k
     block-size: 128k
-    queue-depth: 16
-  - read-size: 256k
+  - read-size: 512k
     block-size: 256k
-    queue-depth: 32
+  - read-size: 1m
+    block-size: 512k
 options:
   timeout: 4
   cool-down: 0
-  max-threads: 16
+  max-threads: 64
   out-dir: out
