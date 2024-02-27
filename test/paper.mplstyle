@@ -6,6 +6,6 @@ font.family: serif
 font.size: 11
 grid.alpha: 0.2
 grid.linewidth: 0.8
-lines.linewidth: 1.5
-lines.marker: s
-lines.markersize: 3
+lines.linewidth: 1
+lines.marker: D
+lines.markersize: 2

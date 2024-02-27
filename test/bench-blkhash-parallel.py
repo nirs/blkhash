@@ -66,7 +66,7 @@ runs = []
 results["data"].append(
     {
         "name": args.digest_name,
-        "marker": "D",
+        "marker": "s",
         "linewidth": 0,
         "runs": runs,
     }

@@ -47,7 +47,7 @@ print(f"\ndigest-bench --digest-name {args.digest_name}\n")
 runs = []
 results["data"].append({
     "name": args.digest_name,
-    "marker": "D",
+    "marker": "s",
     "linewidth": 0,
     "runs": runs,
 })

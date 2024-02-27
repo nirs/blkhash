@@ -6,6 +6,6 @@ font.family: sans
 font.size: 9
 grid.alpha: 0.5
 grid.linewidth: 0.8
-lines.linewidth: 2
-lines.marker: s
-lines.markersize: 4
+lines.linewidth: 1
+lines.marker: D
+lines.markersize: 2
