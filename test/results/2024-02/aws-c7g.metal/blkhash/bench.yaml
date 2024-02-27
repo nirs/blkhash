@@ -1,0 +1,39 @@
+---
+name: blkhash
+variants:
+  - zero-optimization
+digest-names:
+  - blake3
+  - sha256
+args:
+  - read-size: 256k
+    block-size: 64k
+  - read-size: 256k
+    block-size: 128k
+  - read-size: 512k
+    block-size: 256k
+  - read-size: 1m
+    block-size: 512k
+options:
+  timeout: 2
+  cool-down: 0
+  max-threads: 64
+  out-dir: out
+---
+name: blkhash
+variants:
+  - digest
+args:
+  - read-size: 256k
+    block-size: 64k
+  - read-size: 256k
+    block-size: 128k
+  - read-size: 512k
+    block-size: 256k
+  - read-size: 1m
+    block-size: 512k
+options:
+  timeout: 2
+  cool-down: 0
+  max-threads: 64
+  out-dir: out
