@@ -3,6 +3,8 @@
 
 import pytest
 import bench
+import blkhash
+from units import MiB
 
 DIGEST = "sha256"
 INPUT_SIZE = "1m"
@@ -18,7 +20,7 @@ def test_blkhash_data_sha256(threads):
         threads=threads,
         cool_down=0,
     )["checksum"]
-    assert r == "2a6d5ed17da97865da0fd3ca9a792f3bfaf325940c44fd6a2f0a224a051eb6f0"
+    assert r == checksum(b"\x55" * MiB)
 
 
 @threads_params
@@ -30,7 +32,7 @@ def test_blkhash_zero_sha256(threads):
         threads=threads,
         cool_down=0,
     )["checksum"]
-    assert r == "c55a2d6fcdfc2a95e50bd053c07f173e8573ffc34cdcdf3488ddce5e60e9222a"
+    assert r == checksum(b"\x00" * MiB)
 
 
 @threads_params
@@ -42,7 +44,7 @@ def test_blkhash_hole_sha256(threads):
         threads=threads,
         cool_down=0,
     )["checksum"]
-    assert r == "c55a2d6fcdfc2a95e50bd053c07f173e8573ffc34cdcdf3488ddce5e60e9222a"
+    assert r == checksum(b"\x00" * MiB)
 
 
 @threads_params
@@ -97,3 +99,9 @@ def test_digest_null():
         cool_down=0,
     )["checksum"]
     assert r == ""
+
+
+def checksum(data):
+    h = blkhash.Blkhash(DIGEST)
+    h.update(data)
+    return h.hexdigest()
