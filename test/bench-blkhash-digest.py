@@ -46,23 +46,6 @@ for n in bench.threads(args.max_threads):
     )
     runs.append(r)
 
-print(f"\nblkhash-bench --digest-name sha512-256 --input-type data --aio\n")
-runs = []
-results["data"].append({"name": "blk-sha512-256", "runs": runs})
-for n in bench.threads(args.max_threads):
-    r = bench.blkhash(
-        "data",
-        digest_name="sha512-256",
-        threads=n,
-        aio=True,
-        queue_depth=args.queue_depth,
-        read_size=args.read_size,
-        block_size=args.block_size,
-        timeout_seconds=args.timeout,
-        cool_down=args.cool_down,
-    )
-    runs.append(r)
-
 print(f"\nblkhash-bench --digest-name sha256 --input-type data --aio\n")
 runs = []
 results["data"].append({"name": "blk-sha256", "runs": runs})
