@@ -784,8 +784,7 @@
     },
     {
       "name": "sha256",
-      "marker": "s",
-      "linewidth": 0,
+      "marker": "",
       "runs": [
         {
           "input-type": "data",
@@ -794,6 +793,22 @@
           "input-size": 0,
           "read-size": 262144,
           "threads": 1,
+          "total-size": 3324772352,
+          "elapsed": 2.0,
+          "throughput": 1662290594,
+          "kiops": 6.341,
+          "gips": 1.548,
+          "checksum": "efe3dfe9a9d364c14215999810c74e3319fb3644b5bc2b43d6a50abaa81a6dca",
+          "cycles": 5198290948.0,
+          "cpb": 1.563502819936828
+        },
+        {
+          "input-type": "data",
+          "digest-name": "sha256",
+          "timeout-seconds": 2,
+          "input-size": 0,
+          "read-size": 262144,
+          "threads": 64,
           "total-size": 3324772352,
           "elapsed": 2.0,
           "throughput": 1662290594,

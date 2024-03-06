@@ -721,8 +721,7 @@
     },
     {
       "name": "blake3",
-      "marker": "s",
-      "linewidth": 0,
+      "marker": "",
       "runs": [
         {
           "input-type": "data",
@@ -731,6 +730,22 @@
           "input-size": 0,
           "read-size": 262144,
           "threads": 1,
+          "total-size": 31549816832,
+          "elapsed": 4.0,
+          "throughput": 7887339841,
+          "kiops": 30.088,
+          "gips": 7.346,
+          "checksum": "db22431ac22fdd6f47486d54df4d7c2447fe627ba0ddb3b80be6e751801a7087",
+          "cycles": 15198496776.0,
+          "cpb": 0.48173011136421673
+        },
+        {
+          "input-type": "data",
+          "digest-name": "blake3",
+          "timeout-seconds": 4,
+          "input-size": 0,
+          "read-size": 262144,
+          "threads": 48,
           "total-size": 31549816832,
           "elapsed": 4.0,
           "throughput": 7887339841,
