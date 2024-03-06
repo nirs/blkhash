@@ -1,0 +1,120 @@
+{
+  "test-name": "blkhash blake3 - unallocated",
+  "host-name": null,
+  "xlabel": "Number of threads",
+  "xscale": "linear",
+  "ylabel": "Throughput GiB/s",
+  "yscale": "linear",
+  "host": {
+    "platform": "Linux-6.6.6-100.fc38.x86_64-x86_64-with-glibc2.37",
+    "online-cpus": 12,
+    "cpu": "Intel(R) Core(TM) i7-10850H CPU @ 2.70GHz",
+    "smt": "on",
+    "tuned-profile": "latency-performance"
+  },
+  "data": [
+    {
+      "name": "blk-blake3",
+      "runs": [
+        {
+          "input-type": "hole",
+          "digest-name": "blake3",
+          "timeout-seconds": 2,
+          "input-size": 0,
+          "aio": false,
+          "queue-depth": 16,
+          "block-size": 65536,
+          "read-size": 262144,
+          "hole-size": 17179869184,
+          "threads": 1,
+          "streams": 64,
+          "total-size": 3917010173952,
+          "elapsed": 2.03,
+          "throughput": 1930011364200,
+          "kiops": 0.112,
+          "gips": 1797.463,
+          "checksum": "47efcf4be11d5e805ed6a84a6965249f3258433f547a8c6fd9b0746ffe4adae9"
+        },
+        {
+          "input-type": "hole",
+          "digest-name": "blake3",
+          "timeout-seconds": 2,
+          "input-size": 0,
+          "aio": false,
+          "queue-depth": 16,
+          "block-size": 65536,
+          "read-size": 262144,
+          "hole-size": 17179869184,
+          "threads": 2,
+          "streams": 64,
+          "total-size": 7765300871168,
+          "elapsed": 2.024,
+          "throughput": 3836630058037,
+          "kiops": 0.223,
+          "gips": 3573.14,
+          "checksum": "e7512f8a1c1bc3a058e98659d55d60c7c173296bb3ba571f88f9ac5be1ada2af"
+        },
+        {
+          "input-type": "hole",
+          "digest-name": "blake3",
+          "timeout-seconds": 2,
+          "input-size": 0,
+          "aio": false,
+          "queue-depth": 16,
+          "block-size": 65536,
+          "read-size": 262144,
+          "hole-size": 17179869184,
+          "threads": 4,
+          "streams": 64,
+          "total-size": 15461882265600,
+          "elapsed": 2.01,
+          "throughput": 7690569488271,
+          "kiops": 0.448,
+          "gips": 7162.401,
+          "checksum": "bdf2ffe8f73a9c3c761eda4232465f88b3bcf7e01b334e46570ea93fd8f4c596"
+        },
+        {
+          "input-type": "hole",
+          "digest-name": "blake3",
+          "timeout-seconds": 2,
+          "input-size": 0,
+          "aio": false,
+          "queue-depth": 16,
+          "block-size": 65536,
+          "read-size": 262144,
+          "hole-size": 17179869184,
+          "threads": 8,
+          "streams": 64,
+          "total-size": 19928648253440,
+          "elapsed": 2.014,
+          "throughput": 9895884191650,
+          "kiops": 0.576,
+          "gips": 9216.26,
+          "checksum": "32735e975ab8cacee3b5f22fb201069e02ef60fad9cc20bec737658d33fdce58"
+        },
+        {
+          "input-type": "hole",
+          "digest-name": "blake3",
+          "timeout-seconds": 2,
+          "input-size": 0,
+          "aio": false,
+          "queue-depth": 16,
+          "block-size": 65536,
+          "read-size": 262144,
+          "hole-size": 17179869184,
+          "threads": 12,
+          "streams": 64,
+          "total-size": 27350351740928,
+          "elapsed": 2.015,
+          "throughput": 13576609684157,
+          "kiops": 0.79,
+          "gips": 12644.203,
+          "checksum": "dc945ae70f6c684ca2526ab32fe66cf4e696f660b1e8bcb4e00563b3162f246f"
+        }
+      ]
+    }
+  ],
+  "grid": {
+    "axis": "x"
+  }
+}

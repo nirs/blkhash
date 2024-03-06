@@ -9,6 +9,7 @@
 
 #include "unity.h"
 #include "blkhash.h"
+#include "blkhash-config.h"
 #include "blkhash-internal.h"
 #include "util.h"
 
@@ -102,6 +103,9 @@ void test_digests()
         "null",
         "blake2b512",
         "blake2s256",
+#ifdef HAVE_BLAKE3
+        "blake3",
+#endif
         "sha224",
         "sha256",
         "sha384",

@@ -1,0 +1,44 @@
+---
+name: blksum
+variants:
+  - nbd
+  - file
+digest-names:
+  - blake3
+  - sha256
+args:
+  - read-size: 256k
+    block-size: 64k
+    queue-depth: 16
+  - read-size: 256k
+    block-size: 128k
+    queue-depth: 16
+  - read-size: 256k
+    block-size: 256k
+    queue-depth: 32
+options:
+  runs: 3
+  cool-down: 0
+  max-threads: 16
+  image-dir: /data/tmp/blksum
+  out-dir: out
+---
+name: blksum
+variants:
+  - pipe
+digest-names:
+  - blake3
+  - sha256
+args:
+  - read-size: 2m
+    block-size: 64k
+  - read-size: 2m
+    block-size: 128k
+  - read-size: 2m
+    block-size: 256k
+options:
+  runs: 3
+  cool-down: 0
+  max-threads: 16
+  image-dir: /data/tmp/blksum
+  out-dir: out

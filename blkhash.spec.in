@@ -25,6 +25,11 @@ BuildRequires: procps-ng
 BuildRequires: python3-pytest
 BuildRequires: qemu-img
 
+# blake3 is available since fedora 38.
+%if 0%{?fedora} >= 38
+BuildRequires: blake3-devel
+%endif
+
 Requires: qemu-img
 
 %description
@@ -49,7 +54,7 @@ This package provides the development headers for the %{name} library.
 %autosetup
 
 %build
-%meson
+%meson --auto-features=auto
 %meson_build
 
 %check

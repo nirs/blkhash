@@ -17,13 +17,13 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--distro",
-        default="fedora-38",
-        help="Distro name (default 'fedora38')",
+        default="fedora-39",
+        help="Distro name (default 'fedora-39')",
     )
     parser.add_argument(
         "--image-size",
-        default="20G",
-        help="Image virtual size (default '20G')",
+        default="13G",
+        help="Image virtual size (default '13G')",
     )
     parser.add_argument(
         "target_dir",
@@ -55,7 +55,7 @@ def main():
 
         with tempfile.TemporaryDirectory(dir="/var/tmp", prefix="blkhash-") as tmp_dir:
             create_data_files(tmp_dir, wanted_size - current_size)
-            copy_data(image_raw, tmp_dir, "/var/tmp")
+            copy_data(image_raw, tmp_dir, "/var/lib/blkhash")
 
         image_qcow2 = os.path.join(args.target_dir, image_name + ".qcow2")
         convert_image(image_raw, "raw", image_qcow2, "qcow2")
@@ -73,11 +73,6 @@ def create_base_image(distro, size, path):
         f"--output={path}",
         "--format=raw",
         f"--size={size}",
-        f"--hostname={distro}",
-        "--ssh-inject=root",
-        "--root-password=password:root",
-        "--selinux-relabel",
-        "--install=qemu-guest-agent",
     ]
     subprocess.run(cmd, check=True)
 
@@ -109,6 +104,8 @@ def convert_image(src, src_format, dst, dst_format):
 
 def copy_data(image, src_dir, dst_dir):
     print(f"Copying data to image")
+    cmd = ["guestfish", "--rw", "-a", image, "-i", "mkdir", dst_dir]
+    subprocess.run(cmd, check=True)
     cmd = ["virt-copy-in", "-a", image, src_dir, dst_dir]
     subprocess.run(cmd, check=True)
 

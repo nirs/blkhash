@@ -7,6 +7,7 @@ FROM registry.fedoraproject.org/fedora:38
 RUN echo v1 \
     && dnf install -y \
         asciidoc \
+        blake3-devel \
         gcc \
         git \
         libnbd-devel \

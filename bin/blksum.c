@@ -93,6 +93,7 @@ static struct options opt = {
 enum {
     QUEUE_DEPTH=CHAR_MAX + 1,
     READ_SIZE,
+    BLOCK_SIZE,
 };
 
 /* Start with ':' to enable detection of missing argument. */
@@ -108,6 +109,7 @@ static struct option long_options[] = {
    {"streams",      required_argument,  0,  'S'},
    {"queue-depth",  required_argument,  0,  QUEUE_DEPTH},
    {"read-size",    required_argument,  0,  READ_SIZE},
+   {"block-size",   required_argument,  0,  BLOCK_SIZE},
    {0,              0,                  0,  0}
 };
 
@@ -119,7 +121,7 @@ static void usage(int code)
         "\n"
         "    blksum [-d DIGEST|--digest=DIGEST] [-p|--progress]\n"
         "           [-c|--cache] [-t N|--threads N] [-S N|--streams=N]\n"
-        "           [--queue-depth=N] [--read-size=N]\n"
+        "           [--queue-depth=N] [--read-size=N] [--block-size=N]\n"
         "           [-l|--list-digests] [-h|--help]\n"
         "           [filename]\n"
         "\n"
@@ -199,6 +201,22 @@ static void parse_options(int argc, char *argv[])
 
             opt.read_size = value;
             opt.flags |= USER_READ_SIZE;
+            break;
+        }
+        case BLOCK_SIZE: {
+            long page_size = sysconf(_SC_PAGE_SIZE);
+            if (page_size == -1)
+                page_size = 4 * KiB; /* Safe default for checkingb alignment. */
+
+            int value = parse_humansize(optarg);
+            if (value == -EINVAL)
+                FAIL("Invalid value for option %s: '%s'", optname, optarg);
+
+            if (opt.block_size % page_size)
+                FAIL("Invalid block-size (%zu) is not a multiply of page size (%ld)",
+                     opt.block_size, page_size);
+
+            opt.block_size = value;
             break;
         }
         case ':':

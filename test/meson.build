@@ -27,6 +27,7 @@ digest_test = executable(
   include_directories : [
     blkhash_inc,
     common_inc,
+    config_inc,
     include_inc,
   ],
   link_with: [
@@ -104,6 +105,11 @@ digest_bench = executable(
   ],
 )
 
+cache = executable(
+  'cache',
+  'cache.c',
+)
+
 env = environment()
 env.set('BUILD_DIR', meson.current_build_dir())
 env.set('BLKSUM', blksum.full_path())
@@ -115,12 +121,16 @@ test('util-test', util_test)
 test('zero-bench', zero_bench, args: ['quick'])
 
 benchmarks = [
-  'bench-data',
-  'bench-zero',
-  'bench-hole',
-  'bench-null',
+  'bench-blkhash-data',
+  'bench-blkhash-zero',
+  'bench-blkhash-hole',
+  'bench-blkhash-null',
   'bench-digest',
 ]
+
+if blake3.found()
+  benchmarks += ['bench-blkhash-digest']
+endif
 
 foreach b : benchmarks
   test(
