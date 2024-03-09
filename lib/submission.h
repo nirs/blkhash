@@ -21,9 +21,6 @@
  */
 #define SUBMIT_COPY_DATA 0x1
 
-/* XXX Replace with boolean flag. */
-enum submission_type {DATA, ZERO};
-
 struct submission {
     unsigned char md[BLKHASH_MAX_MD_SIZE];
 
@@ -43,7 +40,10 @@ struct submission {
     uint32_t len;
 
     int error;
-    uint8_t type;
+
+    /* Block is unallocated or full of zeros. */
+    bool zero;
+
     uint8_t flags;
 
     /* Align to avoid false sharing between workers. */

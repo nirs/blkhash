@@ -41,7 +41,7 @@ int submission_create_data(int64_t index, uint32_t len, const void *data,
     sub->index = index;
     sub->len = len;
     sub->error = 0;
-    sub->type = DATA;
+    sub->zero = false;
     sub->flags = flags;
 
     if (flags & SUBMIT_COPY_DATA) {
@@ -86,7 +86,7 @@ int submission_create_zero(int64_t index, struct submission **out)
     sub->index = index;
     sub->len = 0;
     sub->error = 0;
-    sub->type = ZERO;
+    sub->zero = true;
     sub->flags = 0;
 
     *out = sub;

@@ -261,7 +261,7 @@ static int hash_submission(struct blkhash *h, const struct submission *sub)
     }
 
     /* Hash this block. */
-    if (sub->type == DATA) {
+    if (!sub->zero) {
         //fprintf(stderr, "hash data block %ld\n", sub->index);
         err = -digest_update(h->root_digest, sub->md, h->config.md_len);
         if (err)
