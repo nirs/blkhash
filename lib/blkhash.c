@@ -261,7 +261,7 @@ static int hash_submission(struct blkhash *h, const struct submission *sub)
     }
 
     /* Hash this block. */
-    if (!sub->zero) {
+    if (!submission_is_zero(sub)) {
         //fprintf(stderr, "hash data block %ld\n", sub->index);
         err = -digest_update(h->root_digest, sub->md, h->config.md_len);
         if (err)
@@ -287,9 +287,7 @@ static int maybe_hash_first_submission(struct blkhash *h)
     if (err)
         return set_error(h, err);
 
-    err = submission_wait(sub);
-    if (err)
-        return set_error(h, err);
+    submission_wait(sub);
 
     if (hash_submission(h, sub))
         return h->error;
@@ -324,12 +322,9 @@ static int hash_completed_submissions(struct blkhash *h)
 static int hash_inflight_submissions(struct blkhash *h)
 {
     struct submission *sub = NULL;
-    int err;
 
     while ((sub = submission_queue_first(&h->sq))) {
-        err = submission_wait(sub);
-        if (err)
-            return set_error(h, err);
+        submission_wait(sub);
 
         /* Cannot fail here. */
         submission_queue_pop(&h->sq, NULL);

@@ -31,63 +31,23 @@ int submission_create_data(int64_t index, uint32_t len, const void *data,
     if (sub == NULL)
         return errno;
 
-    if (sem_init(&sub->sem, 0, 0)) {
-        err = errno;
-        goto fail_sem;
-    }
-
     sub->completion = completion;
     sub->data = data;
     sub->index = index;
     sub->len = len;
     sub->error = 0;
     sub->zero = false;
+    sub->completed = false;
     sub->flags = flags;
 
     if (flags & SUBMIT_COPY_DATA) {
         err = copy_data(sub);
         if (err)
-            goto fail_copy;
+            goto error;
     }
 
     if (sub->completion)
         completion_ref(sub->completion);
-
-    *out = sub;
-    return 0;
-
-fail_copy:
-    if (sem_destroy(&sub->sem))
-        ABORTF("sem_destroy: %s", strerror(errno));
-fail_sem:
-    free(sub);
-
-    return err;
-}
-
-int submission_create_zero(int64_t index, struct submission **out)
-{
-    struct submission *sub;
-    int err;
-
-    sub = malloc(sizeof(*sub));
-    if (sub == NULL)
-        return errno;
-
-    /* Initialize to 1 so submission_is_completed() and submssion_wait() will
-     * return imediately. */
-    if (sem_init(&sub->sem, 0, 1)) {
-        err = errno;
-        goto error;
-    }
-
-    sub->completion = NULL;
-    sub->data = NULL;
-    sub->index = index;
-    sub->len = 0;
-    sub->error = 0;
-    sub->zero = true;
-    sub->flags = 0;
 
     *out = sub;
     return 0;
@@ -97,41 +57,24 @@ error:
     return err;
 }
 
-void submission_set_error(struct submission *sub, int error)
+int submission_create_zero(int64_t index, struct submission **out)
 {
-    __atomic_store_n(&sub->error, error, __ATOMIC_RELEASE);
-    if (sub->completion)
-        completion_set_error(sub->completion, error);
-}
+    struct submission *sub;
 
-int submission_error(const struct submission *sub)
-{
-    return __atomic_load_n(&sub->error, __ATOMIC_ACQUIRE);
-}
-
-void submission_complete(struct submission *sub)
-{
-    if (sub->completion) {
-        completion_unref(sub->completion);
-        sub->completion = NULL;
-    }
-
-    /* Cannot fail in current code. */
-    if (sem_post(&sub->sem))
-        ABORTF("sem_post: %s", strerror(errno));
-}
-
-int submission_wait(struct submission *sub)
-{
-    int err;
-
-    do {
-        err = sem_wait(&sub->sem);
-    } while (err != 0 && errno == EINTR);
-
-    if (err != 0)
+    sub = malloc(sizeof(*sub));
+    if (sub == NULL)
         return errno;
 
+    sub->completion = NULL;
+    sub->data = NULL;
+    sub->index = index;
+    sub->len = 0;
+    sub->error = 0;
+    sub->zero = true;
+    sub->completed = true;
+    sub->flags = 0;
+
+    *out = sub;
     return 0;
 }
 
@@ -139,10 +82,6 @@ void submission_destroy(struct submission *sub)
 {
     if (sub == NULL)
         return;
-
-    /* Cannot fail in current code. */
-    if (sem_destroy(&sub->sem))
-        ABORTF("sem_destroy: %s", strerror(errno));
 
     if (sub->data && sub->flags & SUBMIT_COPY_DATA)
         free((void *)sub->data);

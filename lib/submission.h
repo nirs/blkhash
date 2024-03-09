@@ -5,7 +5,6 @@
 #define SUBMISSION_H
 
 #include <errno.h>
-#include <semaphore.h>
 #include <stdbool.h>
 #include <string.h>
 
@@ -24,9 +23,6 @@
 struct submission {
     unsigned char md[BLKHASH_MAX_MD_SIZE];
 
-    /* For signalling and waiting for completion. */
-    sem_t sem;
-
     /* Completion for DATA submission, used to wait until all submissions are
      * handled by the workers. */
     struct completion *completion;
@@ -43,6 +39,9 @@ struct submission {
 
     /* Block is unallocated or full of zeros. */
     bool zero;
+
+    /* Processing was completed. */
+    bool completed;
 
     uint8_t flags;
 
@@ -63,32 +62,67 @@ int submission_create_data(int64_t index, uint32_t len, const void *data,
 
 int submission_create_zero(int64_t index, struct submission **out);
 
-void submission_set_error(struct submission *sub, int error);
-
-int submission_error(const struct submission *sub);
-
-void submission_complete(struct submission *sub);
-
-/* Called many times for the first submission in the queue. */
-static inline bool submission_is_completed(struct submission *sub)
+static inline void submission_set_zero(struct submission *sub)
 {
-    int err;
-
-    do {
-        err = sem_trywait(&sub->sem);
-    } while (err != 0 && errno == EINTR);
-
-    if (err != 0) {
-        if (errno != EAGAIN)
-            ABORTF("sem_trywait: %s", strerror(errno));
-
-        return false;
-    }
-
-    return true;
+    sub->zero = true;
 }
 
-int submission_wait(struct submission *sub);
+static inline bool submission_is_zero(const struct submission *sub)
+{
+    return sub->zero;
+}
+
+static inline void submission_set_error(struct submission *sub, int error)
+{
+    sub->error = error;
+
+    if (sub->completion)
+        completion_set_error(sub->completion, error);
+}
+
+static inline int submission_error(const struct submission *sub)
+{
+    return sub->error;
+}
+
+static inline void submission_complete(struct submission *sub)
+{
+    if (sub->completion) {
+        completion_unref(sub->completion);
+        sub->completion = NULL;
+    }
+
+    /*
+     * Syncronize with the fence in submission_is_completed().  No reads or
+     * writes in the current thread can be reordered after this store.
+     *
+     * See https://en.cppreference.com/w/c/atomic/memory_order#Constants
+     */
+    __atomic_store_n(&sub->completed, true, __ATOMIC_RELEASE);
+}
+
+static inline bool submission_is_completed(const struct submission *sub)
+{
+    bool completed = __atomic_load_n(&sub->completed, __ATOMIC_RELAXED);
+
+    /*
+     * Syncronize with the store in submission_complete().  All memory writes
+     * (including non-atomic and relaxed atomic) that happened-before the
+     * atomic store in submission_complete() become visible side-effects in
+     * this thread.
+     *
+     * See https://en.cppreference.com/w/c/atomic/memory_order#Release-Acquire_ordering
+     */
+    __atomic_thread_fence(__ATOMIC_ACQUIRE);
+
+    return completed;
+}
+
+static inline void submission_wait(const struct submission *sub)
+{
+    while (!submission_is_completed(sub))
+        ;
+}
 
 void submission_destroy(struct submission *sub);
 

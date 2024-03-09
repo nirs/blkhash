@@ -107,7 +107,7 @@ static void *worker_thread(void *arg)
             break;
 
         if (is_zero_block(p, sub))
-            sub->zero = true;
+            submission_set_zero(sub);
         else
             compute_block_digest(sub, digest);
 
