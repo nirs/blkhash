@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include <assert.h>
-#include <endian.h>
 #include <errno.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -279,7 +278,14 @@ static int hash_submission(struct blkhash *h, const struct submission *sub)
 
 static int hash_message_length(struct blkhash *h)
 {
-    uint64_t data = htole64(h->message_length);
+    uint64_t data;
+
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+    data = h->message_length;
+#else
+    data = __builtin_bswap64(h->message_length);
+#endif
+
     int err;
 
     //printf("message-length: %lu\n", h->message_length);
