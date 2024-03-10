@@ -56,7 +56,7 @@ static void cache(int fd, off_t size)
         ssize_t nr;
         size_t count;
 
-        count = MIN(size - pos, sizeof(buf));
+        count = MIN((size_t)(size - pos), sizeof(buf));
 
         do {
             nr = pread(fd, buf, count, pos);
