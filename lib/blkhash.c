@@ -49,8 +49,8 @@ struct blkhash {
      * that is not aligned to block size. */
     struct buffer pending;
 
-    /* For computing root digest from the streams hashes. */
-    struct digest *root_digest;
+    /* For computing outer digest from block hashes. */
+    struct digest *outer_digest;
 
     /* Current block index, increased when consuming a data or zero block. */
     int64_t block_index;
@@ -227,11 +227,11 @@ struct blkhash *blkhash_new_opts(const struct blkhash_opts *opts)
         goto error;
     }
 
-    err = -digest_create(h->config.digest_name, &h->root_digest);
+    err = -digest_create(h->config.digest_name, &h->outer_digest);
     if (err)
         goto error;
 
-    err = -digest_init(h->root_digest);
+    err = -digest_init(h->outer_digest);
     if (err)
         goto error;
 
@@ -255,7 +255,7 @@ static int hash_submission(struct blkhash *h, const struct submission *sub)
     /* Add zero blocks befor this block. */
     while (h->hashed_index < sub->index) {
         //fprintf(stderr, "hash zero block %ld\n", h->hashed_index);
-        err = -digest_update(h->root_digest, h->config.zero_md,
+        err = -digest_update(h->outer_digest, h->config.zero_md,
                              h->config.md_len);
         if (err)
             return set_error(h, err);
@@ -266,7 +266,7 @@ static int hash_submission(struct blkhash *h, const struct submission *sub)
     /* Hash this block. */
     if (!submission_is_zero(sub)) {
         //fprintf(stderr, "hash data block %ld\n", sub->index);
-        err = -digest_update(h->root_digest, sub->md, h->config.md_len);
+        err = -digest_update(h->outer_digest, sub->md, h->config.md_len);
         if (err)
             return set_error(h, err);
 
@@ -289,7 +289,7 @@ static int hash_message_length(struct blkhash *h)
     int err;
 
     //printf("message-length: %lu\n", h->message_length);
-    err = -digest_update(h->root_digest, &data, sizeof(data));
+    err = -digest_update(h->outer_digest, &data, sizeof(data));
     if (err)
         return set_error(h, err);
 
@@ -297,7 +297,7 @@ static int hash_message_length(struct blkhash *h)
 }
 
 /* If the queue is full, wait until first submission is completed and add it to
- * the root hash. */
+ * the outer hash. */
 static int maybe_hash_first_submission(struct blkhash *h)
 {
     struct submission *sub = NULL;
@@ -320,7 +320,7 @@ static int maybe_hash_first_submission(struct blkhash *h)
     return 0;
 }
 
-/* Add all completed submissions to the root hash. */
+/* Add all completed submissions to the outer hash. */
 static int hash_completed_submissions(struct blkhash *h)
 {
     struct submission *sub = NULL;
@@ -341,7 +341,7 @@ static int hash_completed_submissions(struct blkhash *h)
     return 0;
 }
 
-/* Wait for inflight submissions and add to the root hash. */
+/* Wait for inflight submissions and add to the outer hash. */
 static int hash_inflight_submissions(struct blkhash *h)
 {
     struct submission *sub = NULL;
@@ -762,7 +762,7 @@ int blkhash_final(struct blkhash *h, unsigned char *md_value,
     if (hash_message_length(h))
         return h->error;
 
-    return -digest_final(h->root_digest, md_value, md_len);
+    return -digest_final(h->outer_digest, md_value, md_len);
 }
 
 void blkhash_free(struct blkhash *h)
@@ -770,7 +770,7 @@ void blkhash_free(struct blkhash *h)
     if (h == NULL)
         return;
 
-    digest_destroy(h->root_digest);
+    digest_destroy(h->outer_digest);
     free(h->pending.data);
 
     if (h->config.queue_depth) {
