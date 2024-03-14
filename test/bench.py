@@ -102,10 +102,11 @@ def parse_args():
 def threads(limit=64):
     # Powers of 2 with extra samples between. 12 samples instead of 64 saves
     # lot of testing time.
-    samples = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64]
+    samples = {1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64}
     online_cpus = os.sysconf("SC_NPROCESSORS_ONLN")
     limit = min(limit, online_cpus)
-    return [v for v in samples if v <= limit]
+    samples.add(limit)
+    return [v for v in sorted(samples) if v <= limit]
 
 
 def results(
