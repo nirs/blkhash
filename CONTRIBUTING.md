@@ -70,7 +70,7 @@ git clone https://github.com/BLAKE3-team/BLAKE3.git
 cd BLALE3
 mkdir build
 cd build
-cmake -DCMAKE_BUILD_TYPE=Release ../c
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=true ../c
 make
 sudo make install
 ```
