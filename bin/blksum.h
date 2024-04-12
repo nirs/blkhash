@@ -49,7 +49,6 @@ struct options {
     size_t queue_depth;
     size_t block_size;
     unsigned threads;
-    unsigned streams;
     int64_t extents_size;
     const char *aio;
     bool cache;

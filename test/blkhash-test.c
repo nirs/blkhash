@@ -14,11 +14,11 @@
 #include "unity.h"
 #include "util.h"
 
+static const unsigned threads = 64;
 static const size_t block_size = 64 * 1024;
 static const char * digest_name = "sha256";
 static const unsigned int digest_len = 32;
 static const unsigned int hexdigest_len = digest_len * 2 + 1; /* NULL */
-static const unsigned streams = BLKHASH_STREAMS;
 
 void setUp() {}
 void tearDown() {}
@@ -41,8 +41,6 @@ void checksum(struct extent *extents, unsigned int len,
     opts = blkhash_opts_new(digest_name);
     TEST_ASSERT_NOT_NULL_MESSAGE(opts, strerror(errno));
     err = blkhash_opts_set_block_size(opts, block_size);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, err, strerror(err));
-    err = blkhash_opts_set_streams(opts, streams);
     TEST_ASSERT_EQUAL_INT_MESSAGE(0, err, strerror(err));
     err = blkhash_opts_set_threads(opts, threads);
     TEST_ASSERT_EQUAL_INT_MESSAGE(0, err, strerror(err));
@@ -143,7 +141,7 @@ void test_block_data()
     };
     char hexdigest[hexdigest_len];
 
-    for (unsigned i = 1; i <= streams; i*=2) {
+    for (unsigned i = 1; i <= threads; i*=2) {
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
@@ -159,7 +157,7 @@ void test_block_data_zero()
     };
     char hexdigest[hexdigest_len];
 
-    for (unsigned i = 1; i <= streams; i*=2) {
+    for (unsigned i = 1; i <= threads; i*=2) {
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
@@ -175,7 +173,7 @@ void test_block_zero()
     };
     char hexdigest[hexdigest_len];
 
-    for (unsigned i = 1; i <= streams; i*=2) {
+    for (unsigned i = 1; i <= threads; i*=2) {
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
@@ -191,7 +189,7 @@ void test_partial_block_data()
     };
     char hexdigest[hexdigest_len];
 
-    for (unsigned i = 1; i <= streams; i*=2) {
+    for (unsigned i = 1; i <= threads; i*=2) {
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
@@ -207,7 +205,7 @@ void test_partial_block_data_zero()
     };
     char hexdigest[hexdigest_len];
 
-    for (unsigned i = 1; i <= streams; i*=2) {
+    for (unsigned i = 1; i <= threads; i*=2) {
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
@@ -223,7 +221,7 @@ void test_partial_block_zero()
     };
     char hexdigest[hexdigest_len];
 
-    for (unsigned i = 1; i <= streams; i*=2) {
+    for (unsigned i = 1; i <= threads; i*=2) {
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
@@ -239,7 +237,7 @@ void test_sparse()
     };
     char hexdigest[hexdigest_len];
 
-    for (unsigned i = 1; i <= streams; i*=2) {
+    for (unsigned i = 1; i <= threads; i*=2) {
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
@@ -255,7 +253,7 @@ void test_sparse_large()
     };
     char hexdigest[hexdigest_len];
 
-    for (unsigned i = 1; i <= streams; i*=2) {
+    for (unsigned i = 1; i <= threads; i*=2) {
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
@@ -272,7 +270,7 @@ void test_sparse_unaligned()
     };
     char hexdigest[hexdigest_len];
 
-    for (unsigned i = 1; i <= streams; i*=2) {
+    for (unsigned i = 1; i <= threads; i*=2) {
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
@@ -288,7 +286,7 @@ void test_zero()
     };
     char hexdigest[hexdigest_len];
 
-    for (unsigned i = 1; i <= streams; i*=2) {
+    for (unsigned i = 1; i <= threads; i*=2) {
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
@@ -305,7 +303,7 @@ void test_zero_unaligned()
     };
     char hexdigest[hexdigest_len];
 
-    for (unsigned i = 1; i <= streams; i*=2) {
+    for (unsigned i = 1; i <= threads; i*=2) {
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
@@ -326,7 +324,7 @@ void test_full()
     };
     char hexdigest[hexdigest_len];
 
-    for (unsigned i = 1; i <= streams; i*=2) {
+    for (unsigned i = 1; i <= threads; i*=2) {
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
@@ -346,7 +344,7 @@ void test_full_unaligned()
     };
     char hexdigest[hexdigest_len];
 
-    for (unsigned i = 1; i <= streams; i*=2) {
+    for (unsigned i = 1; i <= threads; i*=2) {
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
@@ -377,7 +375,7 @@ void test_mix()
     };
     char hexdigest[hexdigest_len];
 
-    for (unsigned i = 1; i <= streams; i*=2) {
+    for (unsigned i = 1; i <= threads; i*=2) {
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(
@@ -407,7 +405,7 @@ void test_mix_unaligned()
     };
     char hexdigest[hexdigest_len];
 
-    for (unsigned i = 1; i <= streams; i*=2) {
+    for (unsigned i = 1; i <= threads; i*=2) {
         checksum(extents, ARRAY_SIZE(extents), digest_name, block_size, i,
                  hexdigest);
         TEST_ASSERT_EQUAL_STRING(

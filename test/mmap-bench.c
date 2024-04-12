@@ -26,7 +26,6 @@ static const char *digest_name = "sha256";
 static bool aio;
 static int queue_depth = 16;
 static int threads = 4;
-static int streams = BLKHASH_STREAMS;
 static int block_size = 64 * KiB;
 static int read_size = 256 * KiB;
 static const char *filename;
@@ -73,7 +72,7 @@ static void teardown_requests(void)
     free(requests);
 }
 
-static const char *short_options = ":hd:aq:t:S:b:r:";
+static const char *short_options = ":hd:aq:t:b:r:";
 
 static struct option long_options[] = {
     {"help",                no_argument,        0,  'h'},
@@ -81,7 +80,6 @@ static struct option long_options[] = {
     {"aio",                 no_argument,        0,  'a'},
     {"queue-depth",         required_argument,  0,  'q'},
     {"threads",             required_argument,  0,  't'},
-    {"streams",             required_argument,  0,  'S'},
     {"block-size",          required_argument,  0,  'b'},
     {"read-size",           required_argument,  0,  'r'},
     {0,                     0,                  0,  0},
@@ -95,9 +93,9 @@ static void usage(int code)
 "\n"
 "    mmap-bench [-d DIGEST|--digest-name=DIGEST]\n"
 "               [-a|--aio] [-q N|--queue-depth N]\n"
-"               [-t N|--threads N] [-S N|--streams N]\n"
-"               [-b N|--block-size N] [-r N|--read-size N]\n"
-"               [-h|--help] filename\n"
+"               [-t N|--threads N] [-b N|--block-size N]\n"
+"               [-r N|--read-size N] [-h|--help]\n"
+"               filename\n"
 "\n";
 
     fputs(msg, stderr);
@@ -134,9 +132,6 @@ static void parse_options(int argc, char *argv[])
             break;
         case 't':
             threads = parse_threads(optname, optarg);
-            break;
-        case 'S':
-            streams = parse_threads(optname, optarg);
             break;
         case 'b':
             block_size = parse_size(optname, optarg);
@@ -308,10 +303,6 @@ int main(int argc, char *argv[])
     if (err)
         FAILF("blkhash_opts_set_block_size: %s", strerror(err));
 
-    err = blkhash_opts_set_streams(opts, streams);
-    if (err)
-        FAILF("blkhash_opts_set_streams: %s", strerror(err));
-
     err = blkhash_opts_set_threads(opts, threads);
     if (err)
         FAILF("blkhash_opts_set_threads: %s", strerror(err));
@@ -346,7 +337,6 @@ int main(int argc, char *argv[])
     printf("  \"block-size\": %d,\n", block_size);
     printf("  \"read-size\": %d,\n", read_size);
     printf("  \"threads\": %d,\n", threads);
-    printf("  \"streams\": %d,\n", streams);
     printf("  \"total-size\": %" PRIi64 ",\n", bytes_hashed);
     printf("  \"elapsed\": %.3f,\n", seconds);
     printf("  \"throughput\": %" PRIi64 ",\n", (int64_t)(bytes_hashed / seconds));

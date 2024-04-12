@@ -28,7 +28,7 @@ RUNS = 10
 # improve read throughput, but is required when using larger number of threads.
 QUEUE_DEPTH = 16
 
-STREAMS = 64
+THREADS = 64
 READ_SIZE = "256k"
 BLOCK_SIZE = "64k"
 TIMEOUT = 2
@@ -78,8 +78,8 @@ def parse_args():
     p.add_argument(
         "--max-threads",
         type=int,
-        default=STREAMS,
-        help=f"Maximum number of cpus to test (default {STREAMS})",
+        default=THREADS,
+        help=f"Maximum number of cpus to test (default {THREADS})",
     )
     p.add_argument(
         "--host-name",
@@ -147,7 +147,6 @@ def blkhash(
     read_size=READ_SIZE,
     block_size=BLOCK_SIZE,
     threads=4,
-    streams=STREAMS,
     cool_down=COOL_DOWN,
 ):
     cmd = [
@@ -156,7 +155,6 @@ def blkhash(
         f"--digest-name={digest_name}",
         f"--timeout-seconds={timeout_seconds}",
         f"--threads={threads}",
-        f"--streams={streams}",
         f"--read-size={read_size}",
         f"--block-size={block_size}",
     ]
@@ -215,7 +213,6 @@ def blksum(
     output=None,
     digest_name=DIGEST,
     max_threads=None,
-    streams=STREAMS,
     queue_depth=None,
     read_size=READ_SIZE,
     block_size=BLOCK_SIZE,
@@ -229,7 +226,6 @@ def blksum(
         "build/bin/blksum",
         f"--digest={digest_name}",
         "--threads={t}",
-        f"--streams={streams}",
         f"--read-size={read_size}",
         f"--block-size={block_size}",
     ]

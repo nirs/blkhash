@@ -13,7 +13,6 @@ blkhash_opts_free,
 blkhash_opts_set_block_size,
 blkhash_opts_set_threads,
 blkhash_opts_set_queue_depth,
-blkhash_opts_set_streams
 - manage blkhash options.
 
 SYNOPSIS
@@ -31,8 +30,6 @@ int blkhash_opts_set_block_size(struct blkhash_opts *o, size_t block_size);
 int blkhash_opts_set_threads(struct blkhash_opts *o, uint8_t threads);
 
 int blkhash_opts_set_queue_depth(struct blkhash_opts *o, unsigned queue_depth);
-
-int blkhash_opts_set_streams(struct blkhash_opts *o, uint8_t streams);
 
 ------------------------------------------------------------------------
 
@@ -70,8 +67,7 @@ blkhash_opts_set_threads()
 Set the number of threads for computing block hashes. The defualt (4)
 is good for most cases, but if you have very fast storage and a big
 machine, using more threads can speed up hash computation. Changing
-this value does not change the hash value. The valid range is 1 to the
-number of streams. For best performance, the value should be power of 2.
+this value does not change the hash value. The valid range is 1 to 128.
 
 Return EINVAL if the value is invalid.
 
@@ -81,20 +77,6 @@ blkhash_opts_set_queue_depth()
 Set the maximum number of inflight async updates supported by the
 hash and enable the async API. If not set, the async APIs will fail
 with ENOTSUP.
-
-Return EINVAL if the value is invalid.
-
-blkhash_opts_set_streams()
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Set the number of hash streams, enabling parallel hashing. The number of
-streams limits the number of threads. The defualt value (64) allows up
-to 64 threads. If you want to use more threads you need to increase this
-value.  Note that changing this value changes the hash value and the
-computed hash will not be compatible with other users of the library.
-
-The value must be equal or larger then the number of threads. For best
-performance, the value should be power of 2.
 
 Return EINVAL if the value is invalid.
 

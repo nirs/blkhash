@@ -21,7 +21,7 @@
 #define MAX_QUEUE_DEPTH 128
 
 /* Allow larger number for testing on big machines. */
-#define MAX_STREAMS 128
+#define MAX_THREADS 128
 
 bool debug = false;
 uint64_t started = 0;
@@ -58,12 +58,6 @@ static struct options opt = {
      */
     .threads = 4,
 
-    /*
-     * Number of blkhash streams. Changing this value changes the
-     * algorithm and hash value.
-     */
-    .streams = BLKHASH_STREAMS,
-
     /* Maximum size for extents call. */
     .extents_size = 1 * GiB,
 
@@ -97,7 +91,7 @@ enum {
 };
 
 /* Start with ':' to enable detection of missing argument. */
-static const char *short_options = ":hld:t:S:cp";
+static const char *short_options = ":hld:t:cp";
 
 static struct option long_options[] = {
    {"help",         no_argument,        0,  'h'},
@@ -106,7 +100,6 @@ static struct option long_options[] = {
    {"progress",     no_argument,        0,  'p'},
    {"cache",        no_argument,        0,  'c'},
    {"threads",      required_argument,  0,  't'},
-   {"streams",      required_argument,  0,  'S'},
    {"queue-depth",  required_argument,  0,  QUEUE_DEPTH},
    {"read-size",    required_argument,  0,  READ_SIZE},
    {"block-size",   required_argument,  0,  BLOCK_SIZE},
@@ -120,10 +113,9 @@ static void usage(int code)
         "Compute message digest for disk images\n"
         "\n"
         "    blksum [-d DIGEST|--digest=DIGEST] [-p|--progress]\n"
-        "           [-c|--cache] [-t N|--threads N] [-S N|--streams=N]\n"
-        "           [--queue-depth=N] [--read-size=N] [--block-size=N]\n"
-        "           [-l|--list-digests] [-h|--help]\n"
-        "           [filename]\n"
+        "           [-c|--cache] [-t N|--threads N] [--queue-depth=N]\n"
+        "           [--read-size=N] [--block-size=N] [-l|--list-digests]\n"
+        "           [-h|--help] [filename]\n"
         "\n"
         "Please read the blksum(1) manual page for more info.\n"
         "\n",
@@ -168,20 +160,11 @@ static void parse_options(int argc, char *argv[])
             break;
         case 't': {
             int value = parse_humansize(optarg);
-            if (value == -EINVAL || value < 1)
+            if (value == -EINVAL || value < 1 || value > MAX_THREADS)
                 FAIL("Invalid value for option %s: '%s' (valid range 1-%d)",
-                     optname, optarg, MAX_STREAMS);
+                     optname, optarg, MAX_THREADS);
 
             opt.threads = value;
-            break;
-        }
-        case 'S': {
-            int value = parse_humansize(optarg);
-            if (value == -EINVAL || value < 1)
-                FAIL("Invalid value for option %s: '%s' (valid range 1-%d)",
-                     optname, optarg, MAX_STREAMS);
-
-            opt.streams = value;
             break;
         }
         case QUEUE_DEPTH: {
@@ -232,10 +215,6 @@ static void parse_options(int argc, char *argv[])
      * Validate arguments - must be done after all arguments are set,
      * since they depend on each other.
      */
-
-    if (opt.threads > opt.streams)
-        FAIL("Number of threads (%d) is larger than number of streams (%d)",
-             opt.threads, opt.streams);
 
     if (opt.read_size % opt.block_size)
         FAIL("Invalid read-size is not a multiply of block size (%ld)",

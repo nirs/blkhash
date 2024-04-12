@@ -9,9 +9,6 @@
 /* Maxmum length of md_value buffer for any digest name. */
 #define BLKHASH_MAX_MD_SIZE 64
 
-/* The default number of streams. */
-#define BLKHASH_STREAMS 64
-
 struct blkhash;
 struct blkhash_opts;
 
@@ -165,9 +162,6 @@ int blkhash_opts_set_block_size(struct blkhash_opts *o, uint32_t block_size);
  * machine, using more threads can speed up hash computation. Changing
  * this value does not change the hash value.
  *
- * The valid range is 1 to the number of streams. For best performance,
- * the value should be power of 2.
- *
  * Return EINVAL if the value is invalid.
  */
 int blkhash_opts_set_threads(struct blkhash_opts *o, uint8_t threads);
@@ -180,21 +174,6 @@ int blkhash_opts_set_threads(struct blkhash_opts *o, uint8_t threads);
  * Return EINVAL if the value is invalid.
  */
 int blkhash_opts_set_queue_depth(struct blkhash_opts *o, unsigned queue_depth);
-
-/*
- * Set the number of hash streams, enabling parallel hashing. The number
- * of streams limits the number of threads. The defualt value (64)
- * allows up to 64 threads. If you want to use more threads you need to
- * increase this value.  Note that changing this value changes the hash
- * value and the computed hash will not be compatible with other users
- * of the library.
- *
- * The value must be equal or larger then the number of threads. For
- * best performance, the value should be power of 2.
- *
- * Return EINVAL if the value is invalid.
- */
-int blkhash_opts_set_streams(struct blkhash_opts *o, uint8_t streams);
 
 /*
  * Return the digest name.
@@ -216,11 +195,6 @@ uint8_t blkhash_opts_get_threads(struct blkhash_opts *o);
  * hash.
  */
 unsigned blkhash_opts_get_queue_depth(struct blkhash_opts *o);
-
-/*
- * Return the number of streams.
- */
-uint8_t blkhash_opts_get_streams(struct blkhash_opts *o);
 
 /*
  * Free resource allocated in blkhash_opts_new().

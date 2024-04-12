@@ -21,6 +21,9 @@
 /* Number of consecutive zero blocks to batch. */
 #define ZERO_BATCH_SIZE 1024
 
+/* Allow large number for testing. */
+#define MAX_THREADS 128
+
 struct buffer {
     unsigned char *data;
     size_t len;
@@ -83,7 +86,6 @@ static const struct blkhash_opts default_opts = {
     .digest_name = "sha256",
     .block_size = 64 * KiB,
     .threads = 4,
-    .streams = BLKHASH_STREAMS,
     .queue_depth = 0,
 };
 
@@ -115,7 +117,7 @@ int blkhash_opts_set_block_size(struct blkhash_opts *o, uint32_t block_size)
 
 int blkhash_opts_set_threads(struct blkhash_opts *o, uint8_t threads)
 {
-    if (threads < 1 || threads > o->streams)
+    if (threads < 1 || threads > MAX_THREADS)
         return EINVAL;
 
     o->threads = threads;
@@ -125,15 +127,6 @@ int blkhash_opts_set_threads(struct blkhash_opts *o, uint8_t threads)
 int blkhash_opts_set_queue_depth(struct blkhash_opts *o, unsigned queue_depth)
 {
     o->queue_depth = queue_depth;
-    return 0;
-}
-
-int blkhash_opts_set_streams(struct blkhash_opts *o, uint8_t streams)
-{
-    if (streams < o->threads)
-        return EINVAL;
-
-    o->streams = streams;
     return 0;
 }
 
@@ -155,11 +148,6 @@ uint8_t blkhash_opts_get_threads(struct blkhash_opts *o)
 unsigned blkhash_opts_get_queue_depth(struct blkhash_opts *o)
 {
     return o->queue_depth;
-}
-
-uint8_t blkhash_opts_get_streams(struct blkhash_opts *o)
-{
-    return o->streams;
 }
 
 void blkhash_opts_free(struct blkhash_opts *o)

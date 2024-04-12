@@ -23,7 +23,6 @@ struct blkhash_opts {
     uint32_t block_size;
     unsigned queue_depth;
     uint8_t threads;
-    uint8_t streams;
 };
 
 struct config {
@@ -31,7 +30,6 @@ struct config {
     const char *digest_name;
     uint32_t block_size;
     unsigned md_len;
-    unsigned streams;
     unsigned workers;
     unsigned queue_depth;
     unsigned max_submissions;
