@@ -6,7 +6,7 @@ import bench
 args = bench.parse_args()
 
 prefix = "b3sum-file"
-images = ["20p", "40p", "80p"]
+images = ["10p", "20p", "40p", "80p"]
 
 outdir = os.path.join(args.out_dir, "b3sum")
 os.makedirs(outdir, exist_ok=True)

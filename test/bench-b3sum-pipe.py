@@ -7,7 +7,7 @@ args = bench.parse_args()
 
 base = "/data/tmp/blksum"
 prefix = "b3sum-pipe"
-images = ["20p", "40p", "80p"]
+images = ["10p", "20p", "40p", "80p"]
 
 outdir = os.path.join(args.out_dir, "b3sum")
 os.makedirs(outdir, exist_ok=True)
