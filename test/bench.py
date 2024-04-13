@@ -225,7 +225,7 @@ def blksum(
     command = [
         "build/bin/blksum",
         f"--digest={digest_name}",
-        "--threads={t}",
+        "--threads={t}",  # Expanded by hyperfile.
         f"--read-size={read_size}",
         f"--block-size={block_size}",
     ]
@@ -261,6 +261,61 @@ def blksum(
     finally:
         if image_cached:
             uncache_image(filename)
+
+    add_image_info(filename, output)
+
+
+def mmap(
+    filename,
+    output=None,
+    digest_name=DIGEST,
+    max_threads=None,
+    queue_depth=None,
+    read_size=READ_SIZE,
+    block_size=BLOCK_SIZE,
+    runs=RUNS,
+    cool_down=None,
+):
+    """
+        mmap-bench [-d DIGEST|--digest-name=DIGEST]
+               [-a|--aio] [-q N|--queue-depth N]
+               [-t N|--threads N] [-b N|--block-size N]
+               [-r N|--read-size N] [-h|--help]
+               filename
+    """
+    command = [
+        "build/test/mmap-bench",
+        f"--digest-name={digest_name}",
+        "--aio",
+        "--threads={t}",  # Expanded by hyperfile.
+        f"--read-size={read_size}",
+        f"--block-size={block_size}",
+    ]
+    if queue_depth:
+        command.append(f"--queue-depth={queue_depth}")
+
+    command.append(filename)
+
+    threads_params = ",".join(str(n) for n in threads(max_threads))
+    cmd = [
+        "hyperfine",
+        f"--runs={runs}",
+        "--time-unit=second",
+        "--parameter-list",
+        "t",
+        threads_params,
+    ]
+    if cool_down:
+        cmd.append(f"--prepare=sleep {cool_down}")
+    if output:
+        cmd.append(f"--export-json={output}")
+    cmd.append(" ".join(command))
+
+    cache_image(filename)
+    try:
+        subprocess.run(cmd, check=True)
+    finally:
+        uncache_image(filename)
 
     add_image_info(filename, output)
 
