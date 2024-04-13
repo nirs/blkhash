@@ -24,6 +24,7 @@ for image in images:
         pipe=True,
         cool_down=args.cool_down,
         runs=args.runs,
+        label=f"b3sum-{image}",
     )
     files.append(output)
 

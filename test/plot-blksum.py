@@ -31,16 +31,15 @@ for filename in args.filenames:
     with open(filename) as f:
         data = json.load(f)
 
+    label = data.get("label") or os.path.splitext(os.path.basename(filename))[0]
+
     # openssl results are from single thread and there is no "t" parameter.
     x = [int(r.get("parameters", {"t": "1"})["t"]) for r in data["results"]]
 
     # Convert mean time to througput
     y = [data["size"] / r["mean"] / GiB for r in data["results"]]
 
-    kwargs = {
-        "label": os.path.splitext(os.path.basename(filename))[0],
-    }
-
+    kwargs = {"label": label}
     if len(x) == 1:
         kwargs["linewidth"] = 0
         kwargs["marker"] = "D"

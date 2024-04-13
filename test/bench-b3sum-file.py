@@ -22,6 +22,7 @@ for image in images:
         max_threads=args.max_threads,
         cool_down=args.cool_down,
         runs=args.runs,
+        label=f"b3sum-{image}",
     )
     files.append(output)
 

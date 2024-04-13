@@ -220,6 +220,7 @@ def blksum(
     image_cached=False,
     pipe=False,
     runs=RUNS,
+    label=None,
     cool_down=None,
 ):
     command = [
@@ -262,7 +263,7 @@ def blksum(
         if image_cached:
             uncache_image(filename)
 
-    add_image_info(filename, output)
+    add_image_info(filename, output, label=label)
 
 
 def mmap(
@@ -274,6 +275,7 @@ def mmap(
     read_size=READ_SIZE,
     block_size=BLOCK_SIZE,
     runs=RUNS,
+    label=None,
     cool_down=None,
 ):
     """
@@ -317,7 +319,7 @@ def mmap(
     finally:
         uncache_image(filename)
 
-    add_image_info(filename, output)
+    add_image_info(filename, output, label=label)
 
 
 def b3sum(
@@ -326,6 +328,7 @@ def b3sum(
     max_threads=None,
     pipe=False,
     runs=RUNS,
+    label=None,
     cool_down=None,
 ):
     command = ["b3sum", "--num-threads={t}"]
@@ -356,7 +359,7 @@ def b3sum(
     finally:
         uncache_image(filename)
 
-    add_image_info(filename, output)
+    add_image_info(filename, output, label=label)
 
 
 def uncache_image(filename):
@@ -383,11 +386,13 @@ def cache_image(filename):
     print()
 
 
-def add_image_info(filename, output):
+def add_image_info(filename, output, label=None):
     info = image_info(filename)
     with open(output) as f:
         results = json.load(f)
     results["size"] = info["virtual-size"]
+    if label:
+        results["label"] = label
     with open(output, "w") as f:
         json.dump(results, f)
 

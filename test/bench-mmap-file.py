@@ -28,11 +28,12 @@ for image in images:
         max_threads=args.max_threads,
         cool_down=args.cool_down,
         runs=args.runs,
+        label=f"mmap-{image}",
     )
     files.append(output)
 
 bench.plot_blksum(
     *files,
-    title=f"mmap {args.digest_name}",
+    title=f"mmap {args.digest_name} ({args.read_size}/{args.block_size})",
     output=os.path.join(outdir, f"{prefix}.png"),
 )

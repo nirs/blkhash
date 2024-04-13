@@ -32,11 +32,12 @@ for format in formats:
             image_cached=True,
             cool_down=args.cool_down,
             runs=args.runs,
+            label=f"blksum-{image}",
         )
         files.append(output)
 
     bench.plot_blksum(
         *files,
-        title=f"blksum {args.digest_name} nbd {format}",
+        title=f"blksum {args.digest_name} nbd {format} ({args.read_size}/{args.block_size})",
         output=os.path.join(outdir, f"{prefix}.png"),
     )
