@@ -50,10 +50,7 @@ done
 Used to create graphs from benchmark results.
 
 ```
-sudo apt install python3-venv
-python3 -m venv venv
-source venv/bin/activate
-pip install --upgrade pip matplotlib
+sudo apt install python3-matplotlib
 ```
 
 ## Running the benchmarks
