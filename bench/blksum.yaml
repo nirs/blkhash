@@ -13,9 +13,9 @@ args:
   - read-size: 256k
     block-size: 128k
     queue-depth: 16
-  - read-size: 256k
+  - read-size: 512k
     block-size: 256k
-    queue-depth: 32
+    queue-depth: 16
 options:
   runs: 3
   cool-down: 0
