@@ -376,10 +376,11 @@ def b3sum(
 
     if pipe:
         command.append("<" + filename)
+        threads_params = "1"
     else:
         command.append(filename)
+        threads_params = ",".join(str(n) for n in threads(max_threads))
 
-    threads_params = ",".join(str(n) for n in threads(max_threads))
     cmd = [
         "hyperfine",
         f"--runs={runs}",
@@ -400,7 +401,7 @@ def b3sum(
     finally:
         uncache_image(filename)
 
-    amend_output(filename, output, label=label)
+    amend_output(filename, output, label=label, gen_max_threads=max_threads)
 
 
 def uncache_image(filename):
