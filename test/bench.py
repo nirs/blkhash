@@ -323,6 +323,46 @@ def mmap(
     amend_output(filename, output, label=label)
 
 
+def openssl(
+    filename,
+    digest_name=DIGEST,
+    output=None,
+    max_threads=None,
+    pipe=False,
+    runs=RUNS,
+    label=None,
+    cool_down=None,
+):
+    command = ["openssl", digest_name]
+
+    if pipe:
+        command.append("<" + filename)
+    else:
+        command.append(filename)
+
+    cmd = [
+        "hyperfine",
+        f"--runs={runs}",
+        "--time-unit=second",
+        "--parameter-list",
+        "t",
+        "1",
+    ]
+    if cool_down:
+        cmd.append(f"--prepare=sleep {cool_down}")
+    if output:
+        cmd.append(f"--export-json={output}")
+    cmd.append(" ".join(command))
+
+    cache_image(filename)
+    try:
+        subprocess.run(cmd, check=True)
+    finally:
+        uncache_image(filename)
+
+    amend_output(filename, output, label=label, gen_max_threads=max_threads)
+
+
 def b3sum(
     filename,
     output=None,
