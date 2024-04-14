@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 import argparse
+import copy
 import json
 import os
 import subprocess
@@ -263,7 +264,7 @@ def blksum(
         if image_cached:
             uncache_image(filename)
 
-    add_image_info(filename, output, label=label)
+    amend_output(filename, output, label=label)
 
 
 def mmap(
@@ -279,11 +280,11 @@ def mmap(
     cool_down=None,
 ):
     """
-        mmap-bench [-d DIGEST|--digest-name=DIGEST]
-               [-a|--aio] [-q N|--queue-depth N]
-               [-t N|--threads N] [-b N|--block-size N]
-               [-r N|--read-size N] [-h|--help]
-               filename
+    mmap-bench [-d DIGEST|--digest-name=DIGEST]
+           [-a|--aio] [-q N|--queue-depth N]
+           [-t N|--threads N] [-b N|--block-size N]
+           [-r N|--read-size N] [-h|--help]
+           filename
     """
     command = [
         "build/test/mmap-bench",
@@ -319,7 +320,7 @@ def mmap(
     finally:
         uncache_image(filename)
 
-    add_image_info(filename, output, label=label)
+    amend_output(filename, output, label=label)
 
 
 def b3sum(
@@ -359,7 +360,7 @@ def b3sum(
     finally:
         uncache_image(filename)
 
-    add_image_info(filename, output, label=label)
+    amend_output(filename, output, label=label)
 
 
 def uncache_image(filename):
@@ -386,15 +387,29 @@ def cache_image(filename):
     print()
 
 
-def add_image_info(filename, output, label=None):
-    info = image_info(filename)
+def amend_output(filename, output, label=None, gen_max_threads=None):
     with open(output) as f:
-        results = json.load(f)
-    results["size"] = info["virtual-size"]
+        data = json.load(f)
+
+    info = image_info(filename)
+    data["size"] = info["virtual-size"]
+
+    if (
+        gen_max_threads is not None
+        and len(data["results"]) == 1
+        and data["results"][0]["parameters"]["t"] == "1"
+    ):
+        # Generate result with max_threads.
+        results = data["results"]
+        generated = copy.deepcopy(results[0])
+        generated["parameters"]["t"] = str(gen_max_threads)
+        results.append(generated)
+
     if label:
-        results["label"] = label
+        data["label"] = label
+
     with open(output, "w") as f:
-        json.dump(results, f)
+        json.dump(data, f)
 
 
 def plot_blksum(*files, title=None, output=None):
