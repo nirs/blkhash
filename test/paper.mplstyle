@@ -1,6 +1,6 @@
 axes.linewidth: 0.8
 figure.dpi: 300
-figure.figsize: 4, 3.2
+figure.figsize: 4, 2.4
 font.family: serif
 font.size: 9
 grid.alpha: 0.2
