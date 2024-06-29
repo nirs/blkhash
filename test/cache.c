@@ -45,10 +45,12 @@ static void cache(int fd, off_t size)
     double rate;
     off_t pos = 0;
 
+#ifdef __linux__
     if (posix_fadvise(fd, 0, size, POSIX_FADV_WILLNEED)) {
         perror("posix_fadvise");
         exit(EXIT_FAILURE);
     }
+#endif
 
     clock_gettime(CLOCK_MONOTONIC, &start);
 
@@ -56,7 +58,7 @@ static void cache(int fd, off_t size)
         ssize_t nr;
         size_t count;
 
-        count = MIN(size - pos, sizeof(buf));
+        count = MIN((size_t)(size - pos), sizeof(buf));
 
         do {
             nr = pread(fd, buf, count, pos);
@@ -80,6 +82,7 @@ static void cache(int fd, off_t size)
 
 static void uncache(int fd, off_t size)
 {
+#ifdef __linux__
     if (posix_fadvise(fd, 0, size, POSIX_FADV_DONTNEED)) {
         perror("posix_fadvise");
         exit(EXIT_FAILURE);
@@ -89,6 +92,12 @@ static void uncache(int fd, off_t size)
         perror("fsync");
         exit(EXIT_FAILURE);
     }
+#else
+    (void)fd;
+    (void)size;
+    fprintf(stderr, "Implemented only on Linux");
+    exit(EXIT_FAILURE);
+#endif
 }
 
 static const char *short_options = "hd";

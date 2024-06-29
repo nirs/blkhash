@@ -19,8 +19,8 @@ using the same digest algorithm.
 
 ## Zero optimization
 
-`blkhash` can be up to 4 orders of magnitude faster than SHA256,
-depending on the image content.
+`blkhash` can be up to 4 orders of magnitude faster than `SHA256`,
+depending on the image content and number of threads.
 
 The following graph shows zero optimization performance for 3 cases:
 
@@ -28,34 +28,12 @@ The following graph shows zero optimization performance for 3 cases:
 - zero - hashing buffer full of zeros
 - hole - hashing unallocated area
 
-![zero optimization](../media/zero-optimization.png)
-
-## Parallel computation
-
-After optimizing unallocated areas and areas full with zeros, we still
-need to compute the hashes for data blocks. The only way to speed this
-operation is with parallel computation.
-
-The easy to use API scales well up to 8 cores. When using larger number
-of cores, the asynchronous API scales well up to 32 cores up to 31.5
-times faster compared to SHA256.
-
-The following graph shows parallel computing performance with 2 cases:
-- blkhash - the simple API
-- blkhash-aio - the asynchronous API
-
-![parallel hashing](../media/parallel.png)
+![zero optimization](../media/zero-optimization-sha256-r1m-b512k-gips.png)
 
 ## Tested hardware
 
-The benchmarks shown here ran on *Dell PowerEdge R640* with this
-configuration:
-
-- kernel: Linux-4.18.0-425.13.1.el8_7.x86_64-x86_64-with-glibc2.28
-- online cpus:  40
-- smt: off
-- cpu: Intel(R) Xeon(R) Gold 5218R CPU @ 2.10GHz
-- tuned-profile: latency-performance
+The benchmarks shown here ran on *AWS c7g.metal* instance with 64 cores
+running *Ubuntu*.
 
 ## How we test
 
@@ -63,13 +41,15 @@ configuration:
 measuring the throughput of the library by hashing buffers directory
 into the library, without actual I/O.
 
-The benchmarks were run using
-[bench-zero-optimization.py](../test/bench-zero-optimization.py)
-and [bench-parallel.py](../test/bench-parallel.py) generating json test
-results.
+The `blkhash-bench` program is run by the `bench/run` tool:
 
-The graphs were created using the [plot.py](../test/plot.py) tool from
-the json test results.
+```
+bench/run bench/blkhash.yaml
+```
+
+The graphs were created using the
+[plot-blkhash.py](../test/plot-blkhash.py) tool from the json test
+results.
 
 See [blksum performance](blksum-performance.md) for computing a hash of
 actual disk images on storage.

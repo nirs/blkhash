@@ -47,8 +47,7 @@ print(f"\ndigest-bench --digest-name {args.digest_name}\n")
 runs = []
 results["data"].append({
     "name": args.digest_name,
-    "marker": "D",
-    "linewidth": 0,
+    "marker": "",  # No marker
     "runs": runs,
 })
 
@@ -59,6 +58,11 @@ r = bench.digest(
     cool_down=args.cool_down,
 )
 runs.append(r)
+
+# Add fake run to create a line instead of single point of data.
+fake_run = r.copy()
+fake_run["threads"] = bench.threads(args.max_threads)[-1]
+runs.append(fake_run)
 
 filename = os.path.join(
     args.out_dir,

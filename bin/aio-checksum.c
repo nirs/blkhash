@@ -453,9 +453,6 @@ static void create_hash(struct worker *w)
     if (blkhash_opts_set_block_size(ho, w->opt->block_size))
         FAIL("Invalid block size value: %zu", w->opt->block_size);
 
-    if (blkhash_opts_set_streams(ho, w->opt->streams))
-        FAIL("Invalid streams value: %zu", w->opt->streams);
-
     if (blkhash_opts_set_threads(ho, w->opt->threads))
         FAIL("Invalid threads value: %zu", w->opt->threads);
 

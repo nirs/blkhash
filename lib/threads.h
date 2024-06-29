@@ -35,6 +35,13 @@ static inline void cond_signal(pthread_cond_t *c)
         ABORTF("pthread_cond_signal: %s", strerror(err));
 }
 
+static inline void cond_broadcast(pthread_cond_t *c)
+{
+    int err =  pthread_cond_broadcast(c);
+    if (err)
+        ABORTF("pthread_cond_broadcast: %s", strerror(err));
+}
+
 static inline void cond_wait(pthread_cond_t *c, pthread_mutex_t *m)
 {
     int err = pthread_cond_wait(c, m);

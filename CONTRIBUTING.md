@@ -20,7 +20,7 @@ Fedora 38 or later is required for development.
 
 Install required packages:
 
-    dnf install \
+    sudo dnf install \
         asciidoc \
         blake3 \
         blake3-devel \
@@ -29,12 +29,67 @@ Install required packages:
         libnbd-devel \
         meson \
         openssl-devel \
+        perf \
         python3 \
         python3-pytest \
         qemu-img \
         reuse \
         rpm-build \
         rpmlint
+
+### Ubuntu
+
+Tested with Ubuntu 22.04.
+
+    sudo apt update
+
+    sudo apt install \
+        asciidoc \
+        cmake \
+        gcc \
+        git \
+        libnbd-dev \
+        meson \
+        libssl-dev \
+        pkg-config \
+        python3 \
+        python3-pytest \
+        qemu-utils \
+        reuse
+
+#### Installing blake3
+
+blake3 is not packaged for Ubuntu yet, so you need to build and install
+it from source.
+
+> IMPORTANT: Don't forget to use Release build type. Debug build can be
+> 25 times slower.
+
+```sh
+git clone https://github.com/BLAKE3-team/BLAKE3.git
+cd BLALE3
+mkdir build
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=true ../c
+make
+sudo make install
+```
+
+#### Installing perf
+
+Install the linux-tools package for your kernel:
+
+```sh
+sudo apt-get install linux-tools-$(uname -r)
+```
+
+Allow access to perf events:
+
+```sh
+sudo sh -c 'echo -1 > /proc/sys/kernel/perf_event_paranoid'
+```
+
+You may wan to consider a more secure setup.
 
 ### FreeBSD
 

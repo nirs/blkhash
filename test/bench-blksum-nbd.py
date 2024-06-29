@@ -14,7 +14,6 @@ outdir = os.path.join(args.out_dir, "blksum")
 os.makedirs(outdir, exist_ok=True)
 
 for format in formats:
-    files = []
     prefix = f"blksum-{args.digest_name}-nbd-{format}-r{args.read_size}-b{args.block_size}"
 
     for image in images:
@@ -32,11 +31,5 @@ for format in formats:
             image_cached=True,
             cool_down=args.cool_down,
             runs=args.runs,
+            label=f"blksum-{image}",
         )
-        files.append(output)
-
-    bench.plot_blksum(
-        *files,
-        title=f"blksum {args.digest_name} nbd {format}",
-        output=os.path.join(outdir, f"{prefix}.png"),
-    )

@@ -2,12 +2,14 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 import argparse
+import copy
 import json
 import os
 import subprocess
 import time
 
 import host
+import perf
 from units import *
 
 # We pass the build directory from meson.build to support running the tests
@@ -27,7 +29,7 @@ RUNS = 10
 # improve read throughput, but is required when using larger number of threads.
 QUEUE_DEPTH = 16
 
-STREAMS = 64
+THREADS = 64
 READ_SIZE = "256k"
 BLOCK_SIZE = "64k"
 TIMEOUT = 2
@@ -77,8 +79,8 @@ def parse_args():
     p.add_argument(
         "--max-threads",
         type=int,
-        default=STREAMS,
-        help=f"Maximum number of cpus to test (default {STREAMS})",
+        default=THREADS,
+        help=f"Maximum number of cpus to test (default {THREADS})",
     )
     p.add_argument(
         "--host-name",
@@ -99,24 +101,25 @@ def parse_args():
 
 
 def threads(limit=64):
+    # Powers of 2 with extra samples between. 12 samples instead of 64 saves
+    # lot of testing time.
+    samples = {1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64}
     online_cpus = os.sysconf("SC_NPROCESSORS_ONLN")
-    return range(1, min(online_cpus, limit) + 1)
+    limit = min(limit, online_cpus)
+    samples.add(limit)
+    return [v for v in sorted(samples) if v <= limit]
 
 
 def results(
     test_name,
     host_name=None,
-    xlabel="Number of threads",
-    xscale="linear",
-    ylabel="Throughput GiB/s",
     yscale="linear",
 ):
     return {
         "test-name": test_name,
         "host-name": host_name,
-        "xlabel": xlabel,
-        "xscale": xscale,
-        "ylabel": ylabel,
+        "xlabel": "threads",
+        "xscale": "linear",
         "yscale": yscale,
         "host": host.info(),
         "data": [],
@@ -145,7 +148,6 @@ def blkhash(
     read_size=READ_SIZE,
     block_size=BLOCK_SIZE,
     threads=4,
-    streams=STREAMS,
     cool_down=COOL_DOWN,
 ):
     cmd = [
@@ -154,7 +156,6 @@ def blkhash(
         f"--digest-name={digest_name}",
         f"--timeout-seconds={timeout_seconds}",
         f"--threads={threads}",
-        f"--streams={streams}",
         f"--read-size={read_size}",
         f"--block-size={block_size}",
     ]
@@ -171,10 +172,7 @@ def blkhash(
         cmd.append(f"--queue-depth={queue_depth}")
 
     time.sleep(cool_down)
-    cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
-    r = json.loads(cp.stdout)
-    print(description(r))
-    return r
+    return _run_with_stats(cmd)
 
 
 def digest(
@@ -195,8 +193,18 @@ def digest(
         cmd.append(f"--input-size={input_size}")
 
     time.sleep(cool_down)
-    cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
-    r = json.loads(cp.stdout)
+    return _run_with_stats(cmd)
+
+
+def _run_with_stats(cmd):
+    if perf.is_available():
+        stats, stdout = perf.stat(cmd, events=("cycles:u",), capture_stdout=True)
+        r = json.loads(stdout)
+        r["cycles"] = stats["cycles:u"]["counter-value"]
+        r["cpb"] = r["cycles"] / r["total-size"]
+    else:
+        cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
+        r = json.loads(cp.stdout)
     print(description(r))
     return r
 
@@ -206,7 +214,6 @@ def blksum(
     output=None,
     digest_name=DIGEST,
     max_threads=None,
-    streams=STREAMS,
     queue_depth=None,
     read_size=READ_SIZE,
     block_size=BLOCK_SIZE,
@@ -214,13 +221,13 @@ def blksum(
     image_cached=False,
     pipe=False,
     runs=RUNS,
+    label=None,
     cool_down=None,
 ):
     command = [
         "build/bin/blksum",
         f"--digest={digest_name}",
-        "--threads={t}",
-        f"--streams={streams}",
+        "--threads={t}",  # Expanded by hyperfile.
         f"--read-size={read_size}",
         f"--block-size={block_size}",
     ]
@@ -257,23 +264,40 @@ def blksum(
         if image_cached:
             uncache_image(filename)
 
-    add_image_info(filename, output)
+    amend_output(filename, output, label=label)
 
 
-def b3sum(
+def mmap(
     filename,
     output=None,
+    digest_name=DIGEST,
     max_threads=None,
-    pipe=False,
+    queue_depth=None,
+    read_size=READ_SIZE,
+    block_size=BLOCK_SIZE,
     runs=RUNS,
+    label=None,
     cool_down=None,
 ):
-    command = ["b3sum", "--num-threads={t}"]
+    """
+    mmap-bench [-d DIGEST|--digest-name=DIGEST]
+           [-a|--aio] [-q N|--queue-depth N]
+           [-t N|--threads N] [-b N|--block-size N]
+           [-r N|--read-size N] [-h|--help]
+           filename
+    """
+    command = [
+        "build/test/mmap-bench",
+        f"--digest-name={digest_name}",
+        "--aio",
+        "--threads={t}",  # Expanded by hyperfile.
+        f"--read-size={read_size}",
+        f"--block-size={block_size}",
+    ]
+    if queue_depth:
+        command.append(f"--queue-depth={queue_depth}")
 
-    if pipe:
-        command.append("<" + filename)
-    else:
-        command.append(filename)
+    command.append(filename)
 
     threads_params = ",".join(str(n) for n in threads(max_threads))
     cmd = [
@@ -296,7 +320,88 @@ def b3sum(
     finally:
         uncache_image(filename)
 
-    add_image_info(filename, output)
+    amend_output(filename, output, label=label)
+
+
+def openssl(
+    filename,
+    digest_name=DIGEST,
+    output=None,
+    max_threads=None,
+    pipe=False,
+    runs=RUNS,
+    label=None,
+    cool_down=None,
+):
+    command = ["openssl", digest_name]
+
+    if pipe:
+        command.append("<" + filename)
+    else:
+        command.append(filename)
+
+    cmd = [
+        "hyperfine",
+        f"--runs={runs}",
+        "--time-unit=second",
+        "--parameter-list",
+        "t",
+        "1",
+    ]
+    if cool_down:
+        cmd.append(f"--prepare=sleep {cool_down}")
+    if output:
+        cmd.append(f"--export-json={output}")
+    cmd.append(" ".join(command))
+
+    cache_image(filename)
+    try:
+        subprocess.run(cmd, check=True)
+    finally:
+        uncache_image(filename)
+
+    amend_output(filename, output, label=label, gen_max_threads=max_threads)
+
+
+def b3sum(
+    filename,
+    output=None,
+    max_threads=None,
+    pipe=False,
+    runs=RUNS,
+    label=None,
+    cool_down=None,
+):
+    command = ["b3sum", "--num-threads={t}"]
+
+    if pipe:
+        command.append("<" + filename)
+        threads_params = "1"
+    else:
+        command.append(filename)
+        threads_params = ",".join(str(n) for n in threads(max_threads))
+
+    cmd = [
+        "hyperfine",
+        f"--runs={runs}",
+        "--time-unit=second",
+        "--parameter-list",
+        "t",
+        threads_params,
+    ]
+    if cool_down:
+        cmd.append(f"--prepare=sleep {cool_down}")
+    if output:
+        cmd.append(f"--export-json={output}")
+    cmd.append(" ".join(command))
+
+    cache_image(filename)
+    try:
+        subprocess.run(cmd, check=True)
+    finally:
+        uncache_image(filename)
+
+    amend_output(filename, output, label=label, gen_max_threads=max_threads)
 
 
 def uncache_image(filename):
@@ -323,13 +428,29 @@ def cache_image(filename):
     print()
 
 
-def add_image_info(filename, output):
-    info = image_info(filename)
+def amend_output(filename, output, label=None, gen_max_threads=None):
     with open(output) as f:
-        results = json.load(f)
-    results["size"] = info["virtual-size"]
+        data = json.load(f)
+
+    info = image_info(filename)
+    data["size"] = info["virtual-size"]
+
+    if (
+        gen_max_threads is not None
+        and len(data["results"]) == 1
+        and data["results"][0]["parameters"]["t"] == "1"
+    ):
+        # Generate result with max_threads.
+        results = data["results"]
+        generated = copy.deepcopy(results[0])
+        generated["parameters"]["t"] = str(gen_max_threads)
+        results.append(generated)
+
+    if label:
+        data["label"] = label
+
     with open(output, "w") as f:
-        json.dump(results, f)
+        json.dump(data, f)
 
 
 def plot_blksum(*files, title=None, output=None):
@@ -349,9 +470,12 @@ def image_info(filename):
 
 
 def description(r):
-    hsize = format_humansize(r["total-size"])
     hrate = format_humansize(r["throughput"])
-    return f"{r['threads']:>4} threads: {hsize} in {r['elapsed']:.3f} s ({hrate}/s)"
+    if "cpb" in r:
+        # For holes we ahve very low cpb value (e.g. 0.0003).
+        return f"{r['threads']:>4} threads: {hrate}/s, {r['cpb']:.4f} cpb"
+    else:
+        return f"{r['threads']:>4} threads: {hrate}/s"
 
 
 def format_humansize(n):

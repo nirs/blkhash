@@ -3,34 +3,28 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 """
-blkhash parallel reference implementaion.
+blkhash reference implementaion.
 
-This is a simple and slow implementaion for verifying the C
-implementation. It does not use any optimzation and support only raw
-images.
+This is a trivial implemention not supporting zero optimization or
+multi-threading. It is usefful for verifying the C implemention.
 
 Usage:
 
-    blkhash.py [-h] [-d DIGEST] filename
+    blkhash.py [-h] [-d DIGEST_NAME] [-b BLOCK_SIZE] filename
 
 """
 
 import argparse
 import hashlib
-import queue
-import threading
+import struct
 
-from collections import namedtuple
 from functools import partial
 
 # Values must match the compiled valeus in blksum.c.
 # Changing these will change the computed checksum.
 BLOCK_SIZE = 64 * 1024
-STREAMS = 64
 
 # Values that do not affect te hash value.
-THREADS = 4
-QUEUE_SIZE = 16
 READ_SIZE = 1024**2
 
 
@@ -43,45 +37,22 @@ def main():
         help="Digest name (default sha256)",
     )
     p.add_argument(
-        "-t",
-        "--threads",
+        "-b",
+        "--block-size",
         type=int,
-        default=THREADS,
-        help=f"Number of threads (default {THREADS})",
-    )
-    p.add_argument(
-        "-s",
-        "--streams",
-        type=int,
-        default=STREAMS,
-        help=f"Number of streams (default {STREAMS})",
+        default=BLOCK_SIZE,
+        help="Digest name (default sha256)",
     )
     p.add_argument("filename", help="Filename to checksum")
 
     args = p.parse_args()
-    blkhash = checksum(
-        args.filename,
-        args.digest_name,
-        threads=args.threads,
-        streams=args.streams,
-    )
+    blkhash = checksum(args.filename, args.digest_name, block_size=args.block_size)
     print(f"{blkhash}  {args.filename}")
 
 
-def checksum(
-    filename,
-    digest_name,
-    block_size=BLOCK_SIZE,
-    threads=THREADS,
-    streams=STREAMS,
-):
+def checksum(filename, digest_name, block_size=BLOCK_SIZE):
     with open(filename, "rb") as f:
-        h = Blkhash(
-            digest_name,
-            block_size=block_size,
-            threads=threads,
-            streams=streams,
-        )
+        h = Blkhash(digest_name, block_size=block_size)
         for data in iter(partial(f.read, READ_SIZE), b""):
             h.update(data)
         return h.hexdigest()
@@ -91,62 +62,24 @@ class Blkhash:
     """
     Compute block checksum for raw image.
 
-    Compute root hash for N streams:
+    The hash is:
 
-        H( H(stream 0) || H(stream 1) ... H(stream N-1) )
-
-    Blocks are handled by the stream matching:
-
-        stream_index == block_index % N
-
-    Example with 16 blocks image and 4 streams:
-
-        H(stream 0) = H( H(block 0) || H(block 4) || H(block 8)  || H(block 12) )
-        H(stream 1) = H( H(block 1) || H(block 5) || H(block 9)  || H(block 13) )
-        H(stream 2) = H( H(block 2) || H(block 6) || H(block 10) || H(block 14) )
-        H(stream 3) = H( H(block 3) || H(block 7) || H(block 11) || H(block 15) )
-
-    We use T threads, each stream is mapped to thread matching:
-
-        thread_index = stream_index % T
-
-    Example with 2 threads:
-
-        thread 0: stream 0, stream 2
-        thread 1: stream 1, stream 3
-
-    Example with 4 threads:
-
-        thread 0: stream 0
-        thread 1: stream 1
-        thread 2: stream 2
-        thread 3: stream 3
+        H( H(block 1) || ... || H(block N) || length)
 
     """
 
-    def __init__(
-        self,
-        digest_name,
-        block_size=BLOCK_SIZE,
-        threads=THREADS,
-        streams=STREAMS,
-    ):
-        assert threads > 0
-        assert threads <= streams
-
+    def __init__(self, digest_name, block_size=BLOCK_SIZE):
         self.digest_name = digest_name
         self.block_size = block_size
-        self.streams = [hashlib.new(digest_name) for _ in range(streams)]
-        self.workers = [Worker(digest_name) for _ in range(threads)]
+        self.outer_hash = hashlib.new(digest_name)
         self.pending = None
-        self.index = 0
+        self.length = 0
         self.finalized = False
 
     def update(self, data):
-        if self.finalized:
-            raise RuntimeError("Hash finalized")
-
+        assert not self.finalized
         with memoryview(data) as view:
+            # Consume pending data.
             if self.pending:
                 take = self.block_size - len(self.pending)
                 self.pending += view[:take]
@@ -155,67 +88,33 @@ class Blkhash:
                     self._add_block(self.pending)
                     self.pending = None
 
+            # Consume all full blocks.
             while len(view) >= self.block_size:
                 self._add_block(view[: self.block_size])
                 view = view[self.block_size :]
 
+            # Store partial block pending.
             if len(view):
                 self.pending = bytearray(view)
 
     def hexdigest(self):
         self._finalize()
-        root = hashlib.new(self.digest_name)
-        for stream in self.streams:
-            root.update(stream.digest())
-        return root.hexdigest()
+        return self.outer_hash.hexdigest()
 
     def _add_block(self, data):
-        stream_index = self.index % len(self.streams)
-        worker_index = stream_index % len(self.workers)
-        work = Work(data, self.streams[stream_index])
-        self.workers[worker_index].submit(work)
-        self.index += 1
+        block_hash = hashlib.new(self.digest_name, data).digest()
+        self.outer_hash.update(block_hash)
+        self.length += len(data)
 
     def _finalize(self):
-        if not self.finalized:
-            self.finalized = True
-            if self.pending:
-                self._add_block(self.pending)
-                self.pending = None
-            for worker in self.workers:
-                worker.stop()
-            for worker in self.workers:
-                worker.wait()
-
-
-Work = namedtuple("Work", "data, stream")
-
-
-class Worker:
-    def __init__(self, digest_name):
-        self.digest_name = digest_name
-        self.queue = queue.Queue(maxsize=QUEUE_SIZE)
-        self.thread = threading.Thread(target=self.run)
-        self.thread.daemon = True
-        self.thread.start()
-
-    def submit(self, work):
-        self.queue.put(work)
-
-    def stop(self):
-        self.queue.put(None)
-
-    def wait(self):
-        self.thread.join()
-
-    def run(self):
-        while True:
-            work = self.queue.get()
-            if work is None:
-                break
-
-            digest = hashlib.new(self.digest_name, work.data).digest()
-            work.stream.update(digest)
+        if self.finalized:
+            return
+        self.finalized = True
+        if self.pending:
+            self._add_block(self.pending)
+            self.pending = None
+        data = struct.pack("<Q", self.length)
+        self.outer_hash.update(data)
 
 
 if __name__ == "__main__":

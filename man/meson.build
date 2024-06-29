@@ -53,7 +53,6 @@ if not get_option('man').disabled()
       'blkhash_opts_set_block_size.3',
       'blkhash_opts_set_threads.3',
       'blkhash_opts_set_queue_depth.3',
-      'blkhash_opts_set_streams.3',
     ],
     install: true,
     install_dir: join_paths(get_option('prefix'), get_option('mandir'), 'man3')
