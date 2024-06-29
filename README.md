@@ -10,7 +10,7 @@ Block based hash optimized for disk images.
 ![blksum demo](https://i.imgur.com/FXifrxt.gif)
 
 Disk images are typically sparse, containing unallocated areas read as
-zeros by the guest. The `blkhash` hash algorithm is optimized for
+zeros by the guest. The `blkhash` hash construction is optimized for
 computing checksums of sparse disk images.
 
 This project provides the `blksum` command and the `blkhash` C library.
@@ -53,7 +53,7 @@ Here is a graph comparing `blksum` and `sha256sum` throughput in GiB/s:
 
 ## The blkhash library
 
-The `blkhash` C library implements the block based hash algorithm, using
+The `blkhash` C library implements the block based hash construction, using
 zero detection and multiple threads to speed up the computation.
 
 The library provides 2 APIs:
@@ -104,7 +104,7 @@ contribute to the project.
 
 ## Related projects
 
-- The `blkhash` algorithm is based on
+- The `blkhash` construction is based on
   [ovirt-imageio](https://github.com/oVirt/ovirt-imageio)
   [blkhash module](https://github.com/oVirt/ovirt-imageio/blob/master/ovirt_imageio/_internal/blkhash.py).
 

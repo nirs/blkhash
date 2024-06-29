@@ -5,7 +5,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 # The blkhash library
 
-The `blkhash` C library implements the block based hash algorithm, using
+The `blkhash` C library implements the block based hash construction, using
 zero detection and multiple threads to speed up the computation.
 
 The library provides 2 APIs: the simple API and the async API.
