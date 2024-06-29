@@ -67,7 +67,8 @@ The library provides 2 APIs:
 - The async API - high performance API for very fast storage and large
   number of threads
 
-Here is a graph comparing `blkhash` and `sha256` throughput in GiB/s:
+Here is a graph showing `blkhash` throughput in GiB/s using `SHA256`
+digest algorithm:
 
 ![blkhash performance](media/zero-optimization.png)
 
