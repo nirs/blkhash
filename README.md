@@ -48,7 +48,7 @@ Why use `blksum`?
 Here is a graph showing `blksum` throughput in GiB/s using `SHA256`
 digest algorithm:
 
-![blksum performance](media/blksum-qcow2.png)
+![blksum performance](media/blksum-sha256-nbd-raw-r512k-b128k.png)
 
 - See [blksum](docs/blksum.md) to learn more about the `blksum`
   command and how to use it.
@@ -70,7 +70,7 @@ The library provides 2 APIs:
 Here is a graph showing `blkhash` throughput in GiB/s using `SHA256`
 digest algorithm:
 
-![blkhash performance](media/zero-optimization.png)
+![blkhash performance](media/zero-optimization-sha256-r1m-b512k-gips.png)
 
 - See [blkhash](docs/blkhash.md) to learn more about the `blkhash`
   library and how to use it.
