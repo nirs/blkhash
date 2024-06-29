@@ -83,10 +83,16 @@ The `blkhash` library and `blksum` command are developed on Linux, but
 should be portable to any platform where openssl is available. Some
 optimizations are implemented only for Linux.
 
-The `blksum` command requires
-[libnbd](https://libguestfs.org/libnbd.3.html) for `NBD` support, and
-[qemu-nbd](https://www.qemu.org/docs/master/tools/qemu-nbd.html) for
-`qcow2` format support.
+The `blkhash` library requires:
+- [openssl](https://www.openssl.org/) for `SHA256` and other digest
+  algorithms
+- [blake3](https://github.com/BLAKE3-team/BLAKE3/) for `BLAKE3` digest
+algorithm
+
+The `blksum` command requires:
+- [libnbd](https://libguestfs.org/libnbd.3.html) for `NBD` support
+- [qemu-nbd](https://www.qemu.org/docs/master/tools/qemu-nbd.html) for
+`qcow2` format support
 
 See [portability](docs/portability.md) for more info.
 
