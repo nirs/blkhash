@@ -85,7 +85,7 @@ arguments:
 To create graphs from the benchmarks run:
 
 ```
-test/plot.py bechmark-output.json
+test/plot-blkhash.py bechmark-output.json
 ```
 
 This creates the png file:
@@ -100,19 +100,19 @@ Example run with blake3 digest:
 test/bench-blkhash-digest.py \
     --output blkhash-digest.json
 
-test/plot.py blkhash-digest.json
+test/plot-blkhash.py blkhash-digest.json
 
 test/bench-blkhash-parallel.py \
     --digest-name blake3 \
     --output blkhash-parallel-blake3.json
 
-test/plot.py blkhash-parallel-blake3.json
+test/plot-blkhash.py blkhash-parallel-blake3.json
 
 test/bench-blkhash-zero-optimization.py \
     --digest-name blake3 \
     --output blkhash-zero-optimization-blake3.json
 
-test/plot.py blkhash-zero-optimization-blake3.json
+test/plot-blkhash.py blkhash-zero-optimization-blake3.json
 ```
 
 ### blksum benchmarks
