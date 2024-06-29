@@ -78,12 +78,12 @@ without copying the image data.
 ### Creating a hash
 
 To use the async API, create a `blkhash_opts` and set the `queue_depth`
-to number of inflight requests, and optionally the number of threads.
+to number of in-flight requests, and optionally the number of threads.
 
 ```C
 struct blkhash_opts *opts = blkhash_opts_new(“sha256”);
 blkhash_opts_set_queue_depth(opts, 16);
-blkhash_opts_set_threads(opts, 32);
+blkhash_opts_set_threads(opts, 16);
 ```
 
 Create a hash with the `blkhash_opts` and free it:
