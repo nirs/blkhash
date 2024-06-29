@@ -35,14 +35,18 @@ If you want to use the `libblkhash` library please install the
 The `blksum` command computes message digest for disk images, similar to
 standard tools like `sha256sum`.
 
-Unlike standard tools, `blksum`:
+Why use `blksum`?
 
-- Understands image format - compute a checksum of the guest visible data
-- Much faster - up to 4 orders of magnitude faster compared with standard tools
-- Support multiple sources - file, block device, pipe, NBD URL
-- Configurable digest algorithms - using any digest algorithm from `openssl`
+- Much faster - up to 4 orders of magnitude faster compared with common
+  tools such as `sha256sum`.
+- Support `qcow2` and `raw` image formats - images with same content
+  but different format have the same checksum.
+- Support multiple sources - file, block device, pipe, or NBD URL
+- Configurable digest algorithms - using `BLAKE3`, `SHA256` or other
+  digest algorithms provided by `openssl`
 
-Here is a graph comparing `blksum` and `sha256sum` throughput in GiB/s:
+Here is a graph showing `blksum` throughput in GiB/s using `SHA256`
+digest algorithm:
 
 ![blksum performance](media/blksum-qcow2.png)
 
