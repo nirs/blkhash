@@ -77,6 +77,17 @@ digest algorithm:
 - See [blkhash performance](docs/blkhash-performance.md) to learn more
   about `blkhash` performance.
 
+## The blkhash paper
+
+For in-depth discussion of the `blkhash` construction and proof of
+security, please check
+[the blkhash paper](https://www.scitepress.org/PublicationsDetail.aspx?ID=PbV0U1TDO90=):
+Soffer, N. and Waisbard, E.  (2024). An Efficient Hash Function
+Construction for Sparse Data. In Proceedings of the 21st International
+Conference on Security and Cryptography - SECRYPT; ISBN
+978-989-758-709-2; ISSN 2184-7711, SciTePress, pages 698-703. DOI:
+10.5220/0012764500003767.
+
 ## Portability
 
 The `blkhash` library and `blksum` command are developed on Linux, but
