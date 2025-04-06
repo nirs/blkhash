@@ -30,14 +30,6 @@ workflow:
     paths:
       - rpms
 
-fedora-38:
-  extends: .test
-  image: quay.io/nirsof/blkhash-test:fedora-38
-
-fedora-39:
-  extends: .test
-  image: quay.io/nirsof/blkhash-test:fedora-39
-
 fedora-40:
   extends: .test
   image: quay.io/nirsof/blkhash-test:fedora-40
