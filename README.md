@@ -22,7 +22,7 @@ You can install the `blkhash` package on *Fedora*, *Centos Stream*, and
 [blkhash copr repo](https://copr.fedorainfracloud.org/coprs/nsoffer/blkhash/):
 
     dnf copr enable nsoffer/blkhash
-    dnf install blkash
+    dnf install blkhash
 
 This installs the `blksum` command and the `libblkhash` library.
 
