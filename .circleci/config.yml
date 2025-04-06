@@ -25,7 +25,5 @@ workflows:
             parameters:
               distro:
                 - centos-9
-                - fedora-38
-                - fedora-39
                 - fedora-40
                 - fedora-41

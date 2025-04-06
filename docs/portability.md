@@ -22,17 +22,9 @@ build system or have no automated testing.
 
 | OS                | Arch          | CI                | libnbd |
 |-------------------|---------------|-------------------|--------|
-| Fedora 38         | x86_64        | gitlab, circleci  | yes    |
-| Fedora 39         | x86_64        | gitlab, circleci  | yes    |
 | Fedora 40         | x86_64        | gitlab, circleci  | yes    |
 | Fedora 41         | x86_64        | gitlab, circleci  | yes    |
 | CentOS Stream 9   | x86_64        | gitlab, circleci  | yes    |
-| Fedora 38         | aarch64       | copr              | yes    |
-| Fedora 38         | s390x         | copr              | yes    |
-| Fedora 38         | x86_64        | copr              | yes    |
-| Fedora 39         | aarch64       | copr              | yes    |
-| Fedora 39         | s390x         | copr              | yes    |
-| Fedora 39         | x86_64        | copr              | yes    |
 | Fedora 40         | aarch64       | copr              | yes    |
 | Fedora 40         | s390x         | copr              | yes    |
 | Fedora 40         | x86_64        | copr              | yes    |
@@ -51,5 +43,6 @@ build system or have no automated testing.
 | RHEL 8.7          | x86_64        | no                | yes    |
 | FreeBSD 13        | x86_64        | no                | no     |
 | FreeBSD 14        | x86_64        | no                | no     |
-| macOS 13 Ventura  | Apple Silicon | no                | no     |
-| macOS 14.5 Sonoma | Apple Silicon | no                | no     |
+| macOS 13          | Apple Silicon | no                | no     |
+| macOS 14.5        | Apple Silicon | no                | no     |
+| macOS 15.3        | Apple Silicon | no                | no     |
