@@ -24,6 +24,7 @@ build system or have no automated testing.
 |-------------------|---------------|-------------------|--------|
 | Fedora 40         | x86_64        | gitlab, circleci  | yes    |
 | Fedora 41         | x86_64        | gitlab, circleci  | yes    |
+| Fedora 42         | x86_64        | gitlab, circleci  | yes    |
 | CentOS Stream 9   | x86_64        | gitlab, circleci  | yes    |
 | Fedora 40         | aarch64       | copr              | yes    |
 | Fedora 40         | s390x         | copr              | yes    |
@@ -31,6 +32,9 @@ build system or have no automated testing.
 | Fedora 41         | aarch64       | copr              | yes    |
 | Fedora 41         | s390x         | copr              | yes    |
 | Fedora 41         | x86_64        | copr              | yes    |
+| Fedora 42         | aarch64       | copr              | yes    |
+| Fedora 42         | s390x         | copr              | yes    |
+| Fedora 42         | x86_64        | copr              | yes    |
 | CentOS Stream 9   | aarch64       | copr              | yes    |
 | CentOS Stream 9   | s390x         | copr              | yes    |
 | CentOS Stream 9   | x86_64        | copr              | yes    |

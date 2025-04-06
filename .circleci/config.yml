@@ -27,3 +27,4 @@ workflows:
                 - centos-9
                 - fedora-40
                 - fedora-41
+                - fedora-42
