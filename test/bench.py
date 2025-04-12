@@ -200,8 +200,9 @@ def _run_with_stats(cmd):
     if perf.is_available():
         stats, stdout = perf.stat(cmd, events=("cycles:u",), capture_stdout=True)
         r = json.loads(stdout)
-        r["cycles"] = stats["cycles:u"]["counter-value"]
-        r["cpb"] = r["cycles"] / r["total-size"]
+        if "cycles:u" in stats:
+            r["cycles"] = stats["cycles:u"]["counter-value"]
+            r["cpb"] = r["cycles"] / r["total-size"]
     else:
         cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
         r = json.loads(cp.stdout)
