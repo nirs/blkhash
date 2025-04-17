@@ -263,7 +263,7 @@ static int read_completed(void *user_data, int *error)
 
 static void start_read(struct worker *w, struct command *cmd)
 {
-    /* Must increase the conter before calling, since sources faking aync
+    /* Must increase the counter before calling, since sources faking aync
      * support will call read_completed *before* the call returns. */
     assert(w->commands_in_flight < w->opt->queue_depth);
     w->commands_in_flight++;

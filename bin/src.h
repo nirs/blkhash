@@ -35,7 +35,7 @@ struct src_ops {
     ssize_t (*pread)(struct src *s, void *buf, size_t len, int64_t offset);
 
     /*
-     * May read less then len bytes. Empty read singals end of file. Returns
+     * May read less then len bytes. Empty read signals end of file. Returns
      * the number of bytes read. Optional if pread() is available.
      */
     ssize_t (*read)(struct src *s, void *buf, size_t len);
@@ -73,7 +73,7 @@ struct src_ops {
      * must not be 0.
      *
      * The number and range of returned extents are:
-     * - At least one extent is retruned.
+     * - At least one extent is returned.
      * - The first extent starts at specified offset.
      * - The last extent may end before offset + length.
      */
