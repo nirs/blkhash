@@ -38,7 +38,7 @@ fedora-41:
   extends: .test
   image: quay.io/nirsof/blkhash-test:fedora-41
 
-fedora-41:
+fedora-42:
   extends: .test
   image: quay.io/nirsof/blkhash-test:fedora-42
 

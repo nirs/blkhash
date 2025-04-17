@@ -37,7 +37,7 @@ static struct options opt = {
     .digest_name = "sha256",
 
     /*
-     * Maximum read size in bytes. The curent value gives best
+     * Maximum read size in bytes. The current value gives best
      * performance with i7-10850H when reading from fast NVMe. More
      * testing is needed with shared storage and different CPUs.
      */

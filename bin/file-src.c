@@ -42,7 +42,7 @@ static ssize_t file_ops_pread(struct src *s, void *buf, size_t len, int64_t offs
     return pos;
 }
 
-/* Fake async implementaion to keep callers happy. */
+/* Fake async implementation to keep callers happy. */
 static int file_ops_aio_pread(struct src *s, void *buf, size_t len,
                               int64_t offset, completion_callback cb,
                               void *user_data)

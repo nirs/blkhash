@@ -42,7 +42,7 @@ static ssize_t nbd_ops_pread(struct src *s, void *buf, size_t len, int64_t offse
 }
 
 /*
- * Extent callback should return -1 if it failed, and set *errror. Other
+ * Extent callback should return -1 if it failed, and set *error. Other
  * return values are ignored, unlike completion callback.
  */
 static int extent_callback (void *user_data, const char *metacontext,
@@ -103,7 +103,7 @@ static int nbd_ops_extents(struct src *s, int64_t offset, int64_t length,
     /*
      * According to nbd_block_status(3), the extent callback may not be
      * called at all if the server does not support base:allocation, or
-     * could not retrun the requested data for some reason. Treat this
+     * could not return the requested data for some reason. Treat this
      * as a temporary error so caller can use a fallback. Hopefully the
      * next call would succeed.
      */
@@ -228,7 +228,7 @@ struct src *open_nbd(const char *uri)
         FAIL_NBD();
 
 #if LIBNBD_HAVE_NBD_SET_PREAD_INITIALIZE
-    /* Disable uneeded memset() before pread. */
+    /* Disable unneeded memset() before pread. */
     if (nbd_set_pread_initialize(h, false))
         FAIL_NBD();
 #endif

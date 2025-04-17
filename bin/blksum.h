@@ -84,6 +84,8 @@ void list_digests(void);
 
 int probe_file(const char *path, struct file_info *fi);
 
+void optimize_for_nbd_server(const char *filename, struct options *opt,
+                             struct file_info *fi);
 struct nbd_server *start_nbd_server(struct server_options *opt);
 char *nbd_server_uri(struct nbd_server *s);
 void stop_nbd_server(struct nbd_server *s);
