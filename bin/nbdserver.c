@@ -291,7 +291,11 @@ static void exec_qemu_nbd(int fd, char **env, struct server_options *opt)
     if (!debug)
         saved_stderr = suppress_stderr();
 
-    execvpe(argv[0], argv, env);
+    /* execvpe is not available in macOS, so we need to pass the environment
+     * using the environ global. */
+    environ = env;
+
+    execvp(argv[0], argv);
 
     /* execvpe failed. */
 
