@@ -109,12 +109,12 @@ uint64_t gettime(void)
 
 bool supports_direct_io(const char *filename)
 {
-#ifdef O_DIRECT
+/* QEMU uses O_DSYNC if O_DIRECT isn't available. */
+#ifndef O_DIRECT
+#define O_DIRECT O_DSYNC
+#endif
     int fd = open(filename, O_RDONLY | O_DIRECT);
     if (fd != -1)
         close(fd);
     return fd != -1;
-#else
-    return false;
-#endif
 }
