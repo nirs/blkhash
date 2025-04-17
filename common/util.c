@@ -4,7 +4,6 @@
 #define _GNU_SOURCE     /* For O_DIRECT */
 
 #include <errno.h>
-#include <fcntl.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -105,16 +104,4 @@ uint64_t gettime(void)
 
     clock_gettime(clock_id, &ts);
     return (uint64_t)ts.tv_sec * MICROSECONDS + ts.tv_nsec / 1000;
-}
-
-bool supports_direct_io(const char *filename)
-{
-/* QEMU uses O_DSYNC if O_DIRECT isn't available. */
-#ifndef O_DIRECT
-#define O_DIRECT O_DSYNC
-#endif
-    int fd = open(filename, O_RDONLY | O_DIRECT);
-    if (fd != -1)
-        close(fd);
-    return fd != -1;
 }

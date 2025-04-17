@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include <assert.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <sys/queue.h>
@@ -470,6 +471,19 @@ static void create_hash(struct worker *w)
 }
 
 #ifdef HAVE_NBD
+
+static bool qemu_can_use_direct_io(const char *filename)
+{
+/* QEMU uses O_DSYNC if O_DIRECT isn't available. */
+#ifndef O_DIRECT
+#define O_DIRECT O_DSYNC
+#endif
+    int fd = open(filename, O_RDONLY | O_DIRECT);
+    if (fd != -1)
+        close(fd);
+    return fd != -1;
+}
+
 static void optimize(const char *filename, struct options *opt,
                      struct file_info *fi)
 {
@@ -514,7 +528,7 @@ static void optimize(const char *filename, struct options *opt,
          * file systems so we must check if file can be used with direct
          * I/O.
          */
-        if (!opt->cache && !supports_direct_io(filename)) {
+        if (!opt->cache && !qemu_can_use_direct_io(filename)) {
             opt->cache = true;
             DEBUG("Optimize for '%s' image on '%s': cache=yes",
                   fi->format, fi->fs_name);
@@ -528,6 +542,7 @@ static void optimize(const char *filename, struct options *opt,
         }
     }
 }
+
 #endif
 
 static void init_worker(struct worker *w, const char *filename, struct options
