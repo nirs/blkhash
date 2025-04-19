@@ -149,6 +149,37 @@ static void remove_tmpdir(struct nbd_server *s)
 }
 
 /*
+ * Setting listen socket buffers makes reading 8.8 times faster.  Connections
+ * accepted by the listen socket inherit the socket buffers size. I tried to
+ * set the buffer sizes on the NBD handle socket but it does not show any
+ * effect. This should be fixed in qemu-nbd, setting the buffer size for
+ * accepted sockets. Fixing it here make the fix available with older qemu-nbd
+ * versions.
+ *
+ * This has no effect on Linux, so the change is limitted to macOS. We ned to
+ * test with other platforms.
+ */
+static void set_socket_buffers(int fd)
+{
+#if __APPLE__
+    const int sndbuf_size = 1024 * 1024;
+    const int rcvbuf_size = 4 * sndbuf_size;
+
+    // Setting socket buffer size is a performance optimization so we don't
+    // fail or log user visible errors.
+
+    if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf_size, sizeof(sndbuf_size)) < 0) {
+        DEBUG("setsockopt: %s", strerror(errno));
+    }
+    if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf_size, sizeof(rcvbuf_size)) < 0) {
+        DEBUG("setsockopt: %s", strerror(errno));
+    }
+#else
+    (void)fd; /* Silence unused arguemnt warning. */
+#endif
+}
+
+/*
  * Create a listening socket for passing to qemu-nbd via systemd socket
  * activation. Using socket activavation solves the issue of waiting until
  * qemu-nbd is listening on the socket, and issues with limited backlog on
@@ -172,6 +203,8 @@ static int create_listening_socket(struct nbd_server *s)
 
     addr.sun_family = AF_UNIX;
     memcpy(addr.sun_path, s->sock, strlen(s->sock) + 1);
+
+    set_socket_buffers(fd);
 
     if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
         ERROR("bind: %s", strerror(errno));
