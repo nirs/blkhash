@@ -165,7 +165,7 @@ static void remove_tmpdir(struct nbd_server *s)
 static void set_socket_buffers(int fd)
 {
 #if __APPLE__
-    const int value = 1024 * 1024;
+    const int value = 2 * 1024 * 1024;
     if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, sizeof(value)) < 0) {
         DEBUG("setsockopt: %s", strerror(errno));
     }
