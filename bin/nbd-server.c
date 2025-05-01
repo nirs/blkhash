@@ -158,20 +158,15 @@ static void remove_tmpdir(struct nbd_server *s)
  *
  * This has no effect on Linux, so the change is limitted to macOS. We ned to
  * test with other platforms.
+ *
+ * Setting socket buffer size is a performance optimization so we don't fail or
+ * log user visible errors.
  */
 static void set_socket_buffers(int fd)
 {
 #if __APPLE__
-    const int sndbuf_size = 1024 * 1024;
-    const int rcvbuf_size = 4 * sndbuf_size;
-
-    // Setting socket buffer size is a performance optimization so we don't
-    // fail or log user visible errors.
-
-    if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf_size, sizeof(sndbuf_size)) < 0) {
-        DEBUG("setsockopt: %s", strerror(errno));
-    }
-    if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf_size, sizeof(rcvbuf_size)) < 0) {
+    const int value = 2 * 1024 * 1024;
+    if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, sizeof(value)) < 0) {
         DEBUG("setsockopt: %s", strerror(errno));
     }
 #else
