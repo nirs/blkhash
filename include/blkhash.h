@@ -16,7 +16,7 @@ struct blkhash_completion {
     /* User data passed to blkhash_async_* functions. */
     void *user_data;
 
-    /* 0 if the async request completed succesfully , errno value on errors. */
+    /* 0 if the async request completed successfully , errno value on errors. */
     int error;
 };
 
@@ -73,7 +73,7 @@ int blkhash_zero(struct blkhash *h, size_t len);
 /*
  * Starts asynchronous update returning before the hash is updated.  When the
  * update completes blkhash will write a 8 bytes value to the event fd. The
- * buffer must not be modified by the caller before the update complets.
+ * buffer must not be modified by the caller before the update completes.
  *
  * To wait for completion poll the event fd, and use blkhash_completions()
  * to get the completed completions.
@@ -141,7 +141,7 @@ size_t blkhash_digests(const char **names, size_t count);
 /*
  * Allocate blkhash_opts for digest name and initialize with the
  * default options. See blkhash_opts_set_*() and blkhash_opts_get_*()
- * for acessing the options.  When done free the resources using
+ * for accessing the options.  When done free the resources using
  * blkhash_opts_free().
  *
  * Return NULL and set errno on error.
@@ -157,7 +157,7 @@ struct blkhash_opts *blkhash_opts_new(const char *digest_name);
 int blkhash_opts_set_block_size(struct blkhash_opts *o, uint32_t block_size);
 
 /*
- * Set the number of threads for computing block hashes. The defualt (4)
+ * Set the number of threads for computing block hashes. The default (4)
  * is good for most cases, but if you have very fast storage and a big
  * machine, using more threads can speed up hash computation. Changing
  * this value does not change the hash value.

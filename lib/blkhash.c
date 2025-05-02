@@ -240,7 +240,7 @@ static int hash_submission(struct blkhash *h, const struct submission *sub)
     if (err)
         return set_error(h, err);
 
-    /* Add zero blocks befor this block. */
+    /* Add zero blocks before this block. */
     while (h->hashed_index < sub->index) {
         //fprintf(stderr, "hash zero block %ld\n", h->hashed_index);
         err = -digest_update(h->outer_digest, h->config.zero_md,

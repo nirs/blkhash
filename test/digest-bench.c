@@ -28,7 +28,7 @@ static int timeout_seconds = 1;
 static int64_t input_size = 0;
 static int read_size = 256 * KiB;
 
-/* Using multiple threads to test the maxmimum scalability of blkhash. */
+/* Using multiple threads to test the maximum scalability of blkhash. */
 static int threads = 1;
 
 static struct worker workers[MAX_THREADS];

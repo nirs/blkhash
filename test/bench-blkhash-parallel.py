@@ -10,7 +10,7 @@ data takes most of the time.
 
 We show both the simple and async API since getting the most from parallel
 hashing requires the async API. Show also single thread result for same
-algorihtm for reference.
+algorithm for reference.
 """
 
 import os

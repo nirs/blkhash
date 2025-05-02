@@ -100,7 +100,7 @@ int event_signal(struct event *e)
         if (errno != EAGAIN)
             return -errno;
 
-        /* EAGAIN: file is non-bloking and value will overflow (linux), or room
+        /* EAGAIN: file is non-blocking and value will overflow (linux), or room
          * to write to the pipe. In both cases it means the event fd is already
          * signaled so we are ok. */
         return 0;
@@ -131,7 +131,7 @@ int event_wait(struct event *e)
             return -errno;
 
         /* EAGAIN: the file descriptor is non-blocking and no singal was
-         * recevied yet. */
+         * received yet. */
         return 0;
     }
 

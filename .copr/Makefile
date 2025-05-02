@@ -9,7 +9,7 @@
 srpm:
 	# Unfortunately we need most of the build requirements to create source
 	# rpm, since we must setup meson to use meson dist, and setting up meson
-	# checks the required pakcages and libraries.
+	# checks the required packages and libraries.
 	# TODO: Minimize requirements for creating source rpm.
 	dnf install -y \
 		asciidoc \

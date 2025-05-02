@@ -165,7 +165,7 @@ def blkhash(
     if aio:
         cmd.append("--aio")
         if queue_depth is None:
-            # Queue depth is imporant for I/O so we won't want go use less than
+            # Queue depth is important for I/O so we won't want go use less than
             # 16. When using many threads we want to match the number of
             # threads to ensures that threads has enough work in the queue.
             queue_depth = max(16, threads)
@@ -414,7 +414,7 @@ def cache_image(filename):
     """
     Ensure image is cached. Thorectically reading the image once is enough, but
     in practice the we need to read it twice, and in some cases reading 3 times
-    gives more consitent results.
+    gives more consistent results.
     """
     cmd = ["build/test/cache", filename]
 
@@ -473,7 +473,7 @@ def image_info(filename):
 def description(r):
     hrate = format_humansize(r["throughput"])
     if "cpb" in r:
-        # For holes we ahve very low cpb value (e.g. 0.0003).
+        # For holes we have very low cpb value (e.g. 0.0003).
         return f"{r['threads']:>4} threads: {hrate}/s, {r['cpb']:.4f} cpb"
     else:
         return f"{r['threads']:>4} threads: {hrate}/s"

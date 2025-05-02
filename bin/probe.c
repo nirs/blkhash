@@ -27,7 +27,7 @@
 
 #define PROBE_SIZE 512
 
-/* From qemu/blodk/qcow2.h */
+/* From qemu/block/qcow2.h */
 #define QCOW_MAGIC (('Q' << 24) | ('F' << 16) | ('I' << 8) | 0xfb)
 
 struct __attribute__((packed)) qcow2_header {

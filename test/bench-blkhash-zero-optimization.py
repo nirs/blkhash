@@ -5,9 +5,9 @@
 Show how image content affects blkhash throughput.
 
 The most important optimization is detecting unallocated areas in the image and
-processing them withotu reading anyting from storage. A much smaller
+processing them without reading anything from storage. A much smaller
 optimization is detecting zeros in data read from storage, and eliminating the
-computation. Include also single thread non-zero data using same algorihtm for
+computation. Include also single thread non-zero data using same algorithm for
 reference.
 """
 

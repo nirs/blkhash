@@ -93,7 +93,7 @@ static inline void submission_complete(struct submission *sub)
     }
 
     /*
-     * Syncronize with the fence in submission_is_completed().  No reads or
+     * Synchronize with the fence in submission_is_completed().  No reads or
      * writes in the current thread can be reordered after this store.
      *
      * See https://en.cppreference.com/w/c/atomic/memory_order#Constants
@@ -106,7 +106,7 @@ static inline bool submission_is_completed(const struct submission *sub)
     bool completed = __atomic_load_n(&sub->completed, __ATOMIC_RELAXED);
 
     /*
-     * Syncronize with the store in submission_complete().  All memory writes
+     * Synchronize with the store in submission_complete().  All memory writes
      * (including non-atomic and relaxed atomic) that happened-before the
      * atomic store in submission_complete() become visible side-effects in
      * this thread.

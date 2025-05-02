@@ -3,10 +3,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 """
-blkhash reference implementaion.
+blkhash reference implementation.
 
-This is a trivial implemention not supporting zero optimization or
-multi-threading. It is usefful for verifying the C implemention.
+This is a trivial implementation not supporting zero optimization or
+multi-threading. It is useful for verifying the C implementation.
 
 Usage:
 
@@ -20,7 +20,7 @@ import struct
 
 from functools import partial
 
-# Values must match the compiled valeus in blksum.c.
+# Values must match the compiled values in blksum.c.
 # Changing these will change the computed checksum.
 BLOCK_SIZE = 64 * 1024
 

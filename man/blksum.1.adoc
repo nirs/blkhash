@@ -10,7 +10,7 @@ NAME
 
 blksum - compute message digest for disk images
 
-SYNOPSYS
+SYNOPSIS
 --------
 
 *blksum* [-d DIGEST|--digest=DIGEST] [-p|--progress]

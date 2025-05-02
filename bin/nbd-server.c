@@ -156,7 +156,7 @@ static void remove_tmpdir(struct nbd_server *s)
  * accepted sockets. Fixing it here make the fix available with older qemu-nbd
  * versions.
  *
- * This has no effect on Linux, so the change is limitted to macOS. We ned to
+ * This has no effect on Linux, so the change is limited to macOS. We ned to
  * test with other platforms.
  *
  * Setting socket buffer size is a performance optimization so we don't fail or
@@ -170,7 +170,7 @@ static void set_socket_buffers(int fd)
         DEBUG("setsockopt: %s", strerror(errno));
     }
 #else
-    (void)fd; /* Silence unused arguemnt warning. */
+    (void)fd; /* Silence unused argument warning. */
 #endif
 }
 
