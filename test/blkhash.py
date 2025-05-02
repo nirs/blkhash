@@ -24,7 +24,7 @@ from functools import partial
 # Changing these will change the computed checksum.
 BLOCK_SIZE = 64 * 1024
 
-# Values that do not affect te hash value.
+# Values that do not affect the hash value.
 READ_SIZE = 1024**2
 
 

@@ -62,7 +62,7 @@ To optimize the GIF run:
 
     gifsicle --optimize=3 blksum-demo.gif -o blksum-demo-opt.gif
 
-You can also open the file in `GIMP` and apply the `Fiter > Animation >
+You can also open the file in `GIMP` and apply the `Filter > Animation >
 Optimize (for GIF)` filter.
 
 ## Publishing the image

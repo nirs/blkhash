@@ -130,7 +130,7 @@ int event_wait(struct event *e)
         if (errno != EAGAIN)
             return -errno;
 
-        /* EAGAIN: the file descriptor is non-blocking and no singal was
+        /* EAGAIN: the file descriptor is non-blocking and no signal was
          * received yet. */
         return 0;
     }

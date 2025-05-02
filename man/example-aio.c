@@ -266,7 +266,7 @@ int main()
             req = &requests[current];
         }
 
-        /* Wait until current rquest is ready. */
+        /* Wait until current request is ready. */
         while (!req->ready) {
             err = wait_for_events();
             if (err)

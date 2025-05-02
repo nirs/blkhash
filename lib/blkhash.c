@@ -685,7 +685,7 @@ int blkhash_aio_completions(struct blkhash *h, struct blkhash_completion *out,
     }
 
     if (have_more) {
-        /* If not all completions consumed (unlikely), singal the completion fd
+        /* If not all completions consumed (unlikely), signal the completion fd
          * so the user will get a notification on the next poll. */
         int err = event_signal(h->cq.event);
         if (err) {

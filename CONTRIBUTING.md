@@ -141,7 +141,7 @@ Add these vars to `~/.zprofile`:
 
 Open a new shell to apply the changes.
 
-Install pytest and resuse via pip. See the section "Creating virtual
+Install pytest and reuse via pip. See the section "Creating virtual
 environment" below.
 
 #### Using MacPorts
