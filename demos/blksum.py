@@ -50,7 +50,7 @@ from nohands import *
 run("clear")
 msg("### Compute disk image checksum with blksum ###", color=YELLOW)
 msg()
-msg("These images are indentical:")
+msg("These images are identical:")
 run("ls", "-lhs", "fedora-35.raw", "fedora-35.qcow2")
 run("qemu-img", "compare", "-p", "fedora-35.raw", "fedora-35.qcow2")
 msg()

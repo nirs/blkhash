@@ -33,7 +33,7 @@ struct request {
     bool ready;
 };
 
-/* For waiting on blkhash async update compeletion. */
+/* For waiting on blkhash async update completion. */
 static struct pollfd poll_fds[1];
 
 /* blkhash instance */
@@ -182,7 +182,7 @@ static int process_completions(void)
             return -1;
         }
 
-        /* We can use this commnad again. */
+        /* We can use this command again. */
         printf("Request %d completed in %" PRIu64 " usec\n",
                req->id, gettime() - req->started);
         req->ready = true;
@@ -266,7 +266,7 @@ int main()
             req = &requests[current];
         }
 
-        /* Wait until current rquest is ready. */
+        /* Wait until current request is ready. */
         while (!req->ready) {
             err = wait_for_events();
             if (err)

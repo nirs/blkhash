@@ -36,14 +36,14 @@ int blkhash_opts_set_queue_depth(struct blkhash_opts *o, unsigned queue_depth);
 DESCRIPTION
 -----------
 
-*blkhash_opts* control blkhash hash algorihtm and performance.
+*blkhash_opts* control blkhash hash algorithm and performance.
 
 blkhash_opts_new()
 ~~~~~~~~~~~~~~~~~~
 
 Allocate blkhash_opts for digest name and initialize with the default
 options.  ee `blkhash_opts_set_*()` and `blkhash_opts_get_*()` for
-acessing the options.  When done free the resources using
+accessing the options.  When done free the resources using
 `blkhash_opts_free()`.
 
 Return NULL and set errno on error.
@@ -64,7 +64,7 @@ Returns EINVAL if the value is invalid.
 blkhash_opts_set_threads()
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Set the number of threads for computing block hashes. The defualt (4)
+Set the number of threads for computing block hashes. The default (4)
 is good for most cases, but if you have very fast storage and a big
 machine, using more threads can speed up hash computation. Changing
 this value does not change the hash value. The valid range is 1 to 128.

@@ -284,7 +284,7 @@ static void update_size(struct blkhash *h, update_fn fn)
             }
         }
 
-        /* Wait for complections. */
+        /* Wait for completions. */
         if (aio)
             complete_aio_updates(h);
     }
@@ -303,7 +303,7 @@ static void update_timeout(struct blkhash *h, update_fn fn)
             }
         }
 
-        /* Wait for complections. */
+        /* Wait for completions. */
         if (aio)
             complete_aio_updates(h);
     } while (timer_is_running);

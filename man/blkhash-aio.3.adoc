@@ -30,7 +30,7 @@ int blkhash_aio_completions(struct blkhash *h, struct blkhash_completion *out, u
 DESCRIPTION
 -----------
 
-*blkhash_aio* functions provide aysnchronous hashing for improved performance
+*blkhash_aio* functions provide asynchronous hashing for improved performance
 with very fast storage and large number of threads.
 
 blkhash_aio_update()
@@ -39,7 +39,7 @@ blkhash_aio_update()
 Starts asynchronous update returning before the hash is updated.  When
 the update completes blkhash will write a 8 bytes value to the event fd.
 The buffer must not be modified by the caller before the update
-complets.
+completes.
 
 To wait for completion poll the event fd, and use
 `blkhash_completions()` to get the completed completions.

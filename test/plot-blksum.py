@@ -35,7 +35,7 @@ for filename in args.filenames:
 
     x = [int(r["parameters"]["t"]) for r in data["results"]]
 
-    # Convert mean time to througput
+    # Convert mean time to throughput
     y = [data["size"] / r["mean"] / GiB for r in data["results"]]
 
     kwargs = {"label": label}

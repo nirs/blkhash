@@ -35,7 +35,7 @@ int event_signal(struct event *e);
 
 /*
  * Wait until the event fd is signalsed. Return 1 if a signal was received, 0
- * if the EVENT_NONBLOCK was specifed and no signal was received yet, and
+ * if the EVENT_NONBLOCK was specified and no signal was received yet, and
  * -errno value on errors.
  */
 int event_wait(struct event *e);

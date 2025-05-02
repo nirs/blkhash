@@ -107,7 +107,7 @@ Install required packages:
         qemu-utils
 
 Install pytest and reuse via pip. See the section "Creating python
-virtual environment" bellow.
+virtual environment" below.
 
 ### macOS
 
@@ -141,8 +141,8 @@ Add these vars to `~/.zprofile`:
 
 Open a new shell to apply the changes.
 
-Install pytest and resuse via pip. See the section "Creating virtual
-environment" bellow.
+Install pytest and reuse via pip. See the section "Creating virtual
+environment" below.
 
 #### Using MacPorts
 
@@ -180,7 +180,7 @@ Link to certifi ca file to ssl ca file:
     ln -s $certifi_ca $ssl_ca
 
 Install pytest and reuse via pip. See the section "Creating python
-virtual environment" bellow.
+virtual environment" below.
 
 ### Creating python virtual environment
 

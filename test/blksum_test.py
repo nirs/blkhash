@@ -460,7 +460,7 @@ def create_image(path, fmt):
         "-" hole byte
         "0" zero byte
 
-    Any other character creates an extent with that chracter.
+    Any other character creates an extent with that character.
 
     Example:
 

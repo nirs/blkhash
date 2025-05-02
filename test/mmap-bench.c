@@ -249,7 +249,7 @@ static void update_hash(struct blkhash *h, unsigned char *start, int64_t size, u
             }
         }
 
-        /* Wait for complections. */
+        /* Wait for completions. */
         if (aio)
             complete_aio_updates(h);
     }

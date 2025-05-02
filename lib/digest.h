@@ -21,7 +21,7 @@ struct digest_ops {
 /* Lookup name and create a new digest. */
 int digest_create(const char *name, struct digest **out);
 
-/* Initalize a digest for computing a new hash. */
+/* Initialize a digest for computing a new hash. */
 static inline int digest_init(struct digest *d)
 {
     return d->ops->init(d);
